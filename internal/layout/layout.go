@@ -72,6 +72,10 @@ func (kb *SplitLayout) String() string {
 }
 
 // LoadFromFile loads a layout from a text file
+// The file format is:
+//
+//	3 lines of 12 keys each (6 left, 6 right)
+//	1 line of 6 thumb keys (3 left, 3 right)
 func LoadFromFile(filename string) (*SplitLayout, error) {
 	file, err := os.Open(filename)
 	if err != nil {
