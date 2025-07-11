@@ -1,0 +1,33 @@
+# Binaries
+*.exe
+*.out
+bin/
+
+# Dependencies
+vendor/
+
+# Test binary
+*.test
+
+# IDE specific files
+.idea/
+*.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific files
+.DS_Store
+*.swp
+
+# My files
+/*.log
+/main
+/output.parquet
+*.go.bak
+/goAnalyzer
+/out.txt
+/logs/
+*.html
+/*.conf
+/*.mmdb
+/*.js
