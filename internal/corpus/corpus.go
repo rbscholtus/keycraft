@@ -4,6 +4,7 @@ package corpus
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -18,17 +19,39 @@ func (b Bigram) String() string {
 	return string([]rune{b[0], b[1]})
 }
 
+type BigramCount struct {
+	Bigram Bigram
+	Count  int
+}
+
+func sortedMap(bimap map[Bigram]int) []BigramCount {
+	bc := make([]BigramCount, 0, len(bimap))
+	for bigram, count := range bimap {
+		bc = append(bc, BigramCount{bigram, count})
+	}
+
+	sort.Slice(bc, func(i, j int) bool {
+		return bc[i].Count > bc[j].Count
+	})
+
+	return bc
+}
+
 // Corpus represents a corpus of text
 type Corpus struct {
-	Name    string
-	Bigrams map[Bigram]int
+	Name               string
+	Unigrams           map[rune]int
+	TotalUnigramsCount int
+	Bigrams            map[Bigram]int
+	TotalBigramsCount  int
 }
 
 // NewCorpus creates a new corpus
 func NewCorpus(name string) *Corpus {
 	return &Corpus{
-		Name:    name,
-		Bigrams: make(map[Bigram]int),
+		Name:     name,
+		Unigrams: make(map[rune]int),
+		Bigrams:  make(map[Bigram]int),
 	}
 }
 
@@ -47,25 +70,16 @@ func (c *Corpus) StringSorted(limit int) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Corpus: %s\n", c.Name))
 
-	type bigramCount struct {
-		bigram Bigram
-		count  int
-	}
-	bc := make([]bigramCount, 0, len(c.Bigrams))
-	for bigram, count := range c.Bigrams {
-		bc = append(bc, bigramCount{bigram, count})
-	}
-
-	sort.Slice(bc, func(i, j int) bool {
-		return bc[i].count > bc[j].count
-	})
+	bc := sortedMap(c.Bigrams)
 
 	if limit > len(bc) {
 		limit = len(bc)
+	} else if limit <= 0 {
+		limit = math.MaxInt32
 	}
 
 	for i := 0; i < limit; i++ {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", bc[i].bigram.String(), bc[i].count))
+		sb.WriteString(fmt.Sprintf("%s: %d\n", bc[i].Bigram.String(), bc[i].Count))
 	}
 
 	return sb.String()
@@ -89,16 +103,25 @@ func NewFromFile(name string, filename string) (*Corpus, error) {
 // AddBigram adds a bigram to the corpus
 func (c *Corpus) AddBigram(bigram Bigram) {
 	c.Bigrams[bigram]++
+	c.TotalBigramsCount++
 }
 
 // AddText adds Bigrams in the text to the corpus, skipping bigrams with a space
 func (c *Corpus) AddText(text string) {
 	text = strings.ToLower(text)
-	runes := []rune(text)
-	for i := 0; i < len(runes)-1; i++ {
-		if !unicode.IsSpace(runes[i]) && !unicode.IsSpace(runes[i+1]) {
-			bigram := Bigram{runes[i], runes[i+1]}
-			c.AddBigram(bigram)
+	// runes := []rune(text)
+	var prev rune
+	for _, r := range text {
+		if !unicode.IsSpace(r) {
+			c.Unigrams[r]++
+			c.TotalUnigramsCount++
+			if prev != 0 {
+				bigram := Bigram{prev, r}
+				c.AddBigram(bigram)
+			}
+			prev = r
+		} else {
+			prev = 0
 		}
 	}
 }

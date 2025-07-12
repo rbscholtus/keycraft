@@ -4,11 +4,15 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
+
+	corpus "github.com/rbscholtus/kb/internal/corpus"
 )
 
 // SplitLayout represents a split layout layout
 type SplitLayout struct {
+	Filename    string
 	Left        [3][6]rune
 	Right       [3][6]rune
 	LeftThumbs  [3]rune
@@ -18,14 +22,16 @@ type SplitLayout struct {
 
 type KeyInfo struct {
 	// Char   rune
-	Finger int
 	Hand   string // "left" or "right"
 	Row    int
+	Column int
+	Finger int
 }
 
 // NewSplitLayout creates a new split layout layout
-func NewSplitLayout(leftKeys, rightKeys [3][6]rune, leftThumbs, rightThumbs [3]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
+func NewSplitLayout(filename string, leftKeys, rightKeys [3][6]rune, leftThumbs, rightThumbs [3]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
 	return &SplitLayout{
+		Filename:    filename,
 		Left:        leftKeys,
 		Right:       rightKeys,
 		LeftThumbs:  leftThumbs,
@@ -108,7 +114,7 @@ func LoadFromFile(filename string) (*SplitLayout, error) {
 	var rightKeys [3][6]rune
 	var leftThumbs [3]rune
 	var rightThumbs [3]rune
-	keyInfoMap := make(map[rune]KeyInfo)
+	keyInfoMap := make(map[rune]KeyInfo, 42)
 
 	scanner := bufio.NewScanner(file)
 	for row := range 3 {
@@ -124,18 +130,20 @@ func LoadFromFile(filename string) (*SplitLayout, error) {
 			leftKeys[row][col] = rune(keys[col][0])
 			if keys[col][0] != '~' {
 				keyInfoMap[leftKeys[row][col]] = KeyInfo{
-					Finger: colToFinger(col),
 					Hand:   "left",
 					Row:    row,
+					Column: col,
+					Finger: colToFinger(col),
 				}
 			}
 
 			rightKeys[row][col] = rune(keys[col+6][0])
 			if keys[col+6][0] != '~' {
 				keyInfoMap[rightKeys[row][col]] = KeyInfo{
-					Finger: colToFinger(col + 6),
 					Hand:   "right",
 					Row:    row,
+					Column: col + 6,
+					Finger: colToFinger(col + 6),
 				}
 			}
 		}
@@ -156,6 +164,7 @@ func LoadFromFile(filename string) (*SplitLayout, error) {
 				Finger: 4,
 				Hand:   "left",
 				Row:    4,
+				Column: -1,
 			}
 		}
 
@@ -165,6 +174,7 @@ func LoadFromFile(filename string) (*SplitLayout, error) {
 				Finger: 5,
 				Hand:   "right",
 				Row:    4,
+				Column: -1,
 			}
 		}
 	}
@@ -173,7 +183,7 @@ func LoadFromFile(filename string) (*SplitLayout, error) {
 		return nil, err
 	}
 
-	return NewSplitLayout(leftKeys, rightKeys, leftThumbs, rightThumbs, keyInfoMap), nil
+	return NewSplitLayout(filename, leftKeys, rightKeys, leftThumbs, rightThumbs, keyInfoMap), nil
 }
 
 func colToFinger(col int) int {
@@ -191,9 +201,10 @@ func colToFinger(col int) int {
 		return 7
 	} else if col == 9 {
 		return 8
-	} else {
+	} else if col > 9 {
 		return 9
 	}
+	return -1
 }
 
 // SaveToFile saves a layout layout to a text file
@@ -246,4 +257,123 @@ func (kb *SplitLayout) SaveToFile(filename string) error {
 	}
 
 	return nil
+}
+
+type Usage struct {
+	Count      int
+	Percentage float64
+}
+
+type HandAnalysis struct {
+	LayoutName        string
+	CorpusName        string
+	TotalUnigramCount int
+	HandUsage         [2]Usage
+	RowUsage          [4]Usage
+	ColumnUsage       [12]Usage
+	FingerUsage       [10]Usage
+}
+
+func (lay *SplitLayout) AnalyzeHandUsage(corp *corpus.Corpus) HandAnalysis {
+	var handUsage [2]Usage
+	var rowUsage [4]Usage
+	var columnUsage [12]Usage
+	var fingerUsage [10]Usage
+	totalUnigramCount := 0
+
+	for r, count := range corp.Unigrams {
+		info, ok := lay.RuneInfo[r]
+		if ok {
+			totalUnigramCount += count
+			if info.Hand == "left" {
+				handUsage[0].Count += count
+			} else {
+				handUsage[1].Count += count
+			}
+			rowUsage[info.Row].Count += count
+			if info.Column >= 0 {
+				columnUsage[info.Column].Count += count
+			}
+			fingerUsage[info.Finger].Count += count
+		}
+	}
+
+	for i := range handUsage {
+		handUsage[i].Percentage = 100 * float64(handUsage[i].Count) / float64(totalUnigramCount)
+	}
+	for i := range rowUsage {
+		rowUsage[i].Percentage = 100 * float64(rowUsage[i].Count) / float64(totalUnigramCount)
+	}
+	for i := range columnUsage {
+		columnUsage[i].Percentage = 100 * float64(columnUsage[i].Count) / float64(totalUnigramCount)
+	}
+	for i := range fingerUsage {
+		fingerUsage[i].Percentage = 100 * float64(fingerUsage[i].Count) / float64(totalUnigramCount)
+	}
+
+	return HandAnalysis{
+		LayoutName:        lay.Filename,
+		CorpusName:        corp.Name,
+		TotalUnigramCount: totalUnigramCount,
+		HandUsage:         handUsage,
+		RowUsage:          rowUsage,
+		ColumnUsage:       columnUsage,
+		FingerUsage:       fingerUsage,
+	}
+}
+
+type SfbAnalysis struct {
+	LayoutName    string
+	CorpusName    string
+	TotalBigrams  int
+	Sfbs          []Sfb
+	TotalSfbCount int
+	TotalSfbPerc  float64
+}
+
+type Sfb struct {
+	Bigram     corpus.Bigram
+	Count      int
+	Percentage float64
+}
+
+func (lay *SplitLayout) AnalyzeSfbs(corp *corpus.Corpus) SfbAnalysis {
+	// get the SFBs in the corpus that occur in this layout, sorted by counts
+	sfbs, totalCount := lay.extractSfbs(corp)
+	sort.Slice(sfbs, func(i, j int) bool {
+		return sfbs[i].Count > sfbs[j].Count
+	})
+
+	// add the percentage of counts over total corpus' bigrams
+	for i := range sfbs {
+		sfbs[i].Percentage = float64(sfbs[i].Count) / float64(corp.TotalBigramsCount)
+	}
+
+	// return
+	return SfbAnalysis{
+		LayoutName:    lay.Filename,
+		CorpusName:    corp.Name,
+		TotalBigrams:  corp.TotalBigramsCount,
+		Sfbs:          sfbs,
+		TotalSfbCount: totalCount,
+		TotalSfbPerc:  float64(totalCount) / float64(corp.TotalBigramsCount),
+	}
+}
+
+func (lay *SplitLayout) extractSfbs(corp *corpus.Corpus) ([]Sfb, int) {
+	var sfbs []Sfb
+	var totalCount int
+	for bi, cnt := range corp.Bigrams {
+		if bi[0] != bi[1] && lay.isSameFinger(bi) {
+			sfbs = append(sfbs, Sfb{Bigram: bi, Count: cnt})
+			totalCount += cnt
+		}
+	}
+	return sfbs, totalCount
+}
+
+func (lay *SplitLayout) isSameFinger(bi corpus.Bigram) bool {
+	info0, ok0 := lay.RuneInfo[bi[0]]
+	info1, ok1 := lay.RuneInfo[bi[1]]
+	return ok0 && ok1 && info0.Finger == info1.Finger
 }
