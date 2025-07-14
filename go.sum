@@ -1,2 +1,7 @@
+github.com/MaxHalford/eaopt v0.4.3-0.20250127080647-822946c06468 h1:DA9EQG1d3WgQjR4ZfKD7nnj5LqSZb0FmNMj6ki5DTEQ=
+github.com/MaxHalford/eaopt v0.4.3-0.20250127080647-822946c06468/go.mod h1:cTz/IQazmJMSEllWjTzuReRUmLBR20o0C8OUoUHHuP8=
 github.com/yassinebenaid/godump v0.11.1 h1:SPujx/XaYqGDfmNh7JI3dOyCUVrG0bG2duhO3Eh2EhI=
 github.com/yassinebenaid/godump v0.11.1/go.mod h1:dc/0w8wmg6kVIvNGAzbKH1Oa54dXQx8SNKh4dPRyW44=
+golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+golang.org/x/sync v0.16.0 h1:ycBJEhp9p4vXvUZNszeOq0kGTPghopOL8q0fq3vstxw=
+golang.org/x/sync v0.16.0/go.mod h1:1dzgHSNfp02xaA81J2MS99Qcpr2w7fw1gpm99rleRqA=

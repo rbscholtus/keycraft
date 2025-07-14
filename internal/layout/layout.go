@@ -3,10 +3,14 @@ package layout
 import (
 	"bufio"
 	"fmt"
+	"maps"
+	"math"
+	"math/rand"
 	"os"
 	"sort"
 	"strings"
 
+	"github.com/MaxHalford/eaopt"
 	corpus "github.com/rbscholtus/kb/internal/corpus"
 )
 
@@ -18,6 +22,7 @@ type SplitLayout struct {
 	LeftThumbs  [3]rune
 	RightThumbs [3]rune
 	RuneInfo    map[rune]KeyInfo
+	optCorpus   *corpus.Corpus
 }
 
 type KeyInfo struct {
@@ -41,9 +46,9 @@ func NewSplitLayout(filename string, leftKeys, rightKeys [3][6]rune, leftThumbs,
 }
 
 // String returns a string representation of the layout layout
-func (kb *SplitLayout) String() string {
+func (sl *SplitLayout) String() string {
 	var sb strings.Builder
-	for ri, row := range kb.Left {
+	for ri, row := range sl.Left {
 		for i, key := range row {
 			if i > 0 {
 				sb.WriteRune(' ')
@@ -54,7 +59,7 @@ func (kb *SplitLayout) String() string {
 		// add a separator
 		sb.WriteString("   ")
 
-		for i, key := range kb.Right[ri] {
+		for i, key := range sl.Right[ri] {
 			if i > 0 {
 				sb.WriteRune(' ')
 			}
@@ -66,7 +71,7 @@ func (kb *SplitLayout) String() string {
 
 	sb.WriteString("      ")
 
-	for i, key := range kb.LeftThumbs {
+	for i, key := range sl.LeftThumbs {
 		if i > 0 {
 			sb.WriteRune(' ')
 		}
@@ -76,7 +81,7 @@ func (kb *SplitLayout) String() string {
 	// add a separator
 	sb.WriteString("   ")
 
-	for i, key := range kb.RightThumbs {
+	for i, key := range sl.RightThumbs {
 		if i > 0 {
 			sb.WriteRune(' ')
 		}
@@ -90,9 +95,9 @@ func (kb *SplitLayout) String() string {
 	return sb.String()
 }
 
-func (kb *SplitLayout) StringRunes() string {
+func (sl *SplitLayout) StringRunes() string {
 	var sb strings.Builder
-	for k, v := range kb.RuneInfo {
+	for k, v := range sl.RuneInfo {
 		sb.WriteString(fmt.Sprintf("Key: %c, Hand: %s, Row: %d, Finger: %d\n", k, v.Hand, v.Row, v.Finger))
 	}
 	return sb.String()
@@ -208,7 +213,7 @@ func colToFinger(col int) int {
 }
 
 // SaveToFile saves a layout layout to a text file
-func (kb *SplitLayout) SaveToFile(filename string) error {
+func (sl *SplitLayout) SaveToFile(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -218,7 +223,7 @@ func (kb *SplitLayout) SaveToFile(filename string) error {
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	for ri, row := range kb.Left {
+	for ri, row := range sl.Left {
 		for i, key := range row {
 			if i > 0 {
 				fmt.Fprintf(writer, " ")
@@ -228,7 +233,7 @@ func (kb *SplitLayout) SaveToFile(filename string) error {
 
 		fmt.Fprint(writer, "   ")
 
-		for i, key := range kb.Right[ri] {
+		for i, key := range sl.Right[ri] {
 			if i > 0 {
 				fmt.Fprintf(writer, " ")
 			}
@@ -240,7 +245,7 @@ func (kb *SplitLayout) SaveToFile(filename string) error {
 
 	fmt.Fprint(writer, "      ")
 
-	for i, thumb := range kb.LeftThumbs {
+	for i, thumb := range sl.LeftThumbs {
 		if i > 0 {
 			fmt.Fprintf(writer, " ")
 		}
@@ -249,7 +254,7 @@ func (kb *SplitLayout) SaveToFile(filename string) error {
 
 	fmt.Fprint(writer, "   ")
 
-	for i, thumb := range kb.RightThumbs {
+	for i, thumb := range sl.RightThumbs {
 		if i > 0 {
 			fmt.Fprintf(writer, " ")
 		}
@@ -274,7 +279,26 @@ type HandAnalysis struct {
 	FingerUsage       [10]Usage
 }
 
-func (lay *SplitLayout) AnalyzeHandUsage(corp *corpus.Corpus) HandAnalysis {
+func (ha HandAnalysis) String() string {
+	return fmt.Sprintf("%s (%s):\nHands=%s\nRows=%s\nColumns=%s\nFingers=%s",
+		ha.LayoutName,
+		ha.CorpusName,
+		formatUsage(ha.HandUsage[:]),
+		formatUsage(ha.RowUsage[:]),
+		formatUsage(ha.ColumnUsage[:]),
+		formatUsage(ha.FingerUsage[:]),
+	)
+}
+
+func formatUsage(usage []Usage) string {
+	var parts []string
+	for _, u := range usage {
+		parts = append(parts, fmt.Sprintf("%.1f%%", u.Percentage))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func (sl *SplitLayout) AnalyzeHandUsage(corp *corpus.Corpus) HandAnalysis {
 	var handUsage [2]Usage
 	var rowUsage [4]Usage
 	var columnUsage [12]Usage
@@ -282,7 +306,7 @@ func (lay *SplitLayout) AnalyzeHandUsage(corp *corpus.Corpus) HandAnalysis {
 	totalUnigramCount := 0
 
 	for r, count := range corp.Unigrams {
-		info, ok := lay.RuneInfo[r]
+		info, ok := sl.RuneInfo[r]
 		if ok {
 			totalUnigramCount += count
 			if info.Hand == "left" {
@@ -312,7 +336,7 @@ func (lay *SplitLayout) AnalyzeHandUsage(corp *corpus.Corpus) HandAnalysis {
 	}
 
 	return HandAnalysis{
-		LayoutName:        lay.Filename,
+		LayoutName:        sl.Filename,
 		CorpusName:        corp.Name,
 		TotalUnigramCount: totalUnigramCount,
 		HandUsage:         handUsage,
@@ -337,9 +361,36 @@ type Sfb struct {
 	Percentage float64
 }
 
-func (lay *SplitLayout) AnalyzeSfbs(corp *corpus.Corpus) SfbAnalysis {
+func (sa SfbAnalysis) String() string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("Corpus: %s (%s bigrams)\n", sa.CorpusName, comma(sa.TotalBigrams)))
+	sb.WriteString(fmt.Sprintf("Total SFBs in %v: %s (%.3f%% of corpus)\n",
+		sa.LayoutName, comma(sa.TotalSfbCount), 100*sa.TotalSfbPerc))
+	printCount := min(10, len(sa.Sfbs))
+	sb.WriteString(fmt.Sprintf("Top-%d SFBs:\n", printCount))
+	for i := range printCount {
+		sfb := sa.Sfbs[i]
+		sb.WriteString(fmt.Sprintf("%2d. %v (%s, %.3f%%)\n", i+1, sfb.Bigram, comma(sfb.Count), 100*sfb.Percentage))
+	}
+
+	return sb.String()
+}
+
+// For if we just want to know the SFB perc for a layout and corpus
+func (sl *SplitLayout) SimpleSfbs(corp *corpus.Corpus) float64 {
+	var totalCount int
+	for bi, cnt := range corp.Bigrams {
+		if bi[0] != bi[1] && sl.isSameFinger(bi) {
+			totalCount += cnt
+		}
+	}
+	return float64(totalCount) / float64(corp.TotalBigramsCount)
+}
+
+func (sl *SplitLayout) AnalyzeSfbs(corp *corpus.Corpus) SfbAnalysis {
 	// get the SFBs in the corpus that occur in this layout, sorted by counts
-	sfbs, totalCount := lay.extractSfbs(corp)
+	sfbs, totalCount := sl.extractSfbs(corp)
 	sort.Slice(sfbs, func(i, j int) bool {
 		return sfbs[i].Count > sfbs[j].Count
 	})
@@ -351,7 +402,7 @@ func (lay *SplitLayout) AnalyzeSfbs(corp *corpus.Corpus) SfbAnalysis {
 
 	// return
 	return SfbAnalysis{
-		LayoutName:    lay.Filename,
+		LayoutName:    sl.Filename,
 		CorpusName:    corp.Name,
 		TotalBigrams:  corp.TotalBigramsCount,
 		Sfbs:          sfbs,
@@ -360,11 +411,11 @@ func (lay *SplitLayout) AnalyzeSfbs(corp *corpus.Corpus) SfbAnalysis {
 	}
 }
 
-func (lay *SplitLayout) extractSfbs(corp *corpus.Corpus) ([]Sfb, int) {
+func (sl *SplitLayout) extractSfbs(corp *corpus.Corpus) ([]Sfb, int) {
 	var sfbs []Sfb
 	var totalCount int
 	for bi, cnt := range corp.Bigrams {
-		if bi[0] != bi[1] && lay.isSameFinger(bi) {
+		if bi[0] != bi[1] && sl.isSameFinger(bi) {
 			sfbs = append(sfbs, Sfb{Bigram: bi, Count: cnt})
 			totalCount += cnt
 		}
@@ -372,8 +423,202 @@ func (lay *SplitLayout) extractSfbs(corp *corpus.Corpus) ([]Sfb, int) {
 	return sfbs, totalCount
 }
 
-func (lay *SplitLayout) isSameFinger(bi corpus.Bigram) bool {
-	info0, ok0 := lay.RuneInfo[bi[0]]
-	info1, ok1 := lay.RuneInfo[bi[1]]
+func (sl *SplitLayout) isSameFinger(bi corpus.Bigram) bool {
+	info0, ok0 := sl.RuneInfo[bi[0]]
+	info1, ok1 := sl.RuneInfo[bi[1]]
 	return ok0 && ok1 && info0.Finger == info1.Finger
+}
+
+func (sl *SplitLayout) Optimise(corp *corpus.Corpus, acceptWorse string, generations int) *SplitLayout {
+	sl.optCorpus = corp
+
+	// Simulated annealing is implemented as a GA using the ModSimulatedAnnealing model.
+	cfg := eaopt.NewDefaultGAConfig()
+	cfg.Model = eaopt.ModSimulatedAnnealing{
+		Accept: func(g, ng uint, e0, e1 float64) float64 {
+			switch acceptWorse {
+			case "always":
+				return 1.0
+			case "never":
+				return 0.0
+			case "drop-slow":
+				t := 1.0 - float64(g)/float64(ng)
+				return (math.Cos(t*math.Pi) + 1.0) / 2.0
+			case "temp":
+				t := 1.0 - float64(g)/float64(ng)
+				return t
+			case "cold":
+				t := 1.0 - float64(g)/float64(ng)
+				return 0.5 * t
+			case "drop-fast":
+				t := 1.0 - float64(g)/float64(ng)
+				return math.Exp(-3.0 * (1 - t))
+			default:
+				panic("unknown accept worse function")
+			}
+		},
+	}
+	cfg.NGenerations = uint(generations)
+
+	// Add a custom callback function to track progress.
+	minFit := math.MaxFloat64
+	cfg.Callback = func(ga *eaopt.GA) {
+		hof0 := ga.HallOfFame[0]
+		fit := hof0.Fitness
+		if fit == minFit {
+			// Output only when we make an improvement.
+			return
+		}
+		// best := hof0.Genome.(*SplitLayout)
+		fmt.Printf("Best fitness at generation %3d: %.3f%%\n", ga.Generations, 100*fit)
+		minFit = fit
+	}
+
+	// Run the simulated-annealing algorithm.
+	ga, err := cfg.NewGA()
+	if err != nil {
+		panic(err)
+	}
+	err = ga.Minimize(func(rng *rand.Rand) eaopt.Genome {
+		return sl
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Return the best encountered solution
+	hof0 := ga.HallOfFame[0]
+	best := hof0.Genome.(*SplitLayout)
+
+	return best
+}
+
+// Evaluate evaluates the Holder-table function at the current coordinates.
+func (sl *SplitLayout) Evaluate() (float64, error) {
+	return sl.SimpleSfbs(sl.optCorpus), nil
+	// z := -math.Abs(math.Sin(sl.X) * math.Cos(sl.Y) *
+	// 	math.Exp(math.Abs(1.0-math.Sqrt(sl.X*sl.X+sl.Y*sl.Y)/math.Pi)))
+	// return z, nil
+}
+
+func randomBigram(rng *rand.Rand, sfbs []Sfb) corpus.Bigram {
+	// Calculate the total percentage
+	var total int
+	for _, sfb := range sfbs {
+		total += sfb.Count
+	}
+
+	// Generate a random number between 0 and the total percentage
+	randNum := rng.Intn(total)
+
+	// Select the bigram based on the random number
+	var cumulative int
+	for _, sfb := range sfbs {
+		cumulative += sfb.Count
+		if randNum <= cumulative {
+			return sfb.Bigram
+		}
+	}
+
+	// If the random number exceeds the total percentage, return the last bigram
+	return sfbs[len(sfbs)-1].Bigram
+}
+
+// Mutate replaces one of the current coordinates with a random value in [-10, 10).
+func (sl *SplitLayout) Mutate(rng *rand.Rand) {
+	// Get a list of keys from the RuneInfo map
+	keys := make([]rune, 0, len(sl.RuneInfo))
+	for k := range sl.RuneInfo {
+		keys = append(keys, k)
+	}
+
+	sfbs, _ := sl.extractSfbs(sl.optCorpus)
+	sort.Slice(sfbs, func(i, j int) bool {
+		return sfbs[i].Count > sfbs[j].Count
+	})
+
+	bi := randomBigram(rng, sfbs)
+	key1 := bi[rng.Intn(2)]
+	for sl.RuneInfo[key1].Row == 1 {
+		bi = randomBigram(rng, sfbs)
+		key1 = bi[rng.Intn(2)]
+	}
+
+	j := rng.Intn(len(keys))
+	key2 := keys[j]
+	for key1 == key2 || sl.RuneInfo[key2].Row == 1 {
+		j = rng.Intn(len(keys))
+		key2 = keys[j]
+	}
+
+	// Swap the values associated with the two keys
+	if sl.RuneInfo[key2].Hand == "left" {
+		r, c := sl.RuneInfo[key2].Row, sl.RuneInfo[key2].Column
+		sl.Left[r][c%6] = key1
+	} else {
+		r, c := sl.RuneInfo[key2].Row, sl.RuneInfo[key2].Column
+		sl.Right[r][c%6] = key1
+	}
+	if sl.RuneInfo[key1].Hand == "left" {
+		r, c := sl.RuneInfo[key1].Row, sl.RuneInfo[key1].Column
+		sl.Left[r][c%6] = key2
+	} else {
+		r, c := sl.RuneInfo[key1].Row, sl.RuneInfo[key1].Column
+		sl.Right[r][c%6] = key2
+	}
+	sl.RuneInfo[key1], sl.RuneInfo[key2] = sl.RuneInfo[key2], sl.RuneInfo[key1]
+
+	//fmt.Printf("%v->%c%c ", bi, key1, key2)
+}
+
+// Crossover does nothing. It is defined only so *SplitLayout implements the eaopt.Genome interface.
+func (sl *SplitLayout) Crossover(other eaopt.Genome, rng *rand.Rand) {}
+
+// Clone returns a copy of a *Coord2D.
+func (sl *SplitLayout) Clone() eaopt.Genome {
+	cc := SplitLayout{
+		Filename:    sl.Filename,
+		Left:        sl.Left,
+		Right:       sl.Right,
+		LeftThumbs:  sl.LeftThumbs,
+		RightThumbs: sl.RightThumbs,
+		RuneInfo:    make(map[rune]KeyInfo),
+		optCorpus:   sl.optCorpus,
+	}
+
+	maps.Copy(cc.RuneInfo, sl.RuneInfo)
+
+	return &cc
+}
+
+func comma(vi int) string {
+	v := int64(vi)
+
+	// Counting the number of digits.
+	var count byte = 0
+	for n := v; n != 0; n = n / 10 {
+		count++
+	}
+
+	count += (count - 1) / 3
+	output := make([]byte, count)
+	j := len(output) - 1
+
+	var counter byte = 0
+	for v > 9 {
+		output[j] = byte(v%10) + '0'
+		v = v / 10
+		j--
+		if counter == 2 {
+			counter = 0
+			output[j] = ','
+			j--
+		} else {
+			counter++
+		}
+	}
+
+	output[j] = byte(v) + '0'
+
+	return string(output)
 }
