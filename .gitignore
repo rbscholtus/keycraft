@@ -22,12 +22,11 @@ vendor/
 # My files
 /*.log
 /main
-/output.parquet
 *.go.bak
-/goAnalyzer
 /out.txt
 /logs/
 *.html
 /*.conf
 /*.mmdb
 /*.js
+/*.kb
