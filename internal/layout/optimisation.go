@@ -11,38 +11,48 @@ import (
 	corpus "github.com/rbscholtus/kb/internal/corpus"
 )
 
+func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 {
+	switch acceptWorse {
+	case "always":
+		return func(g, ng uint, e0, e1 float64) float64 { return 1.0 }
+	case "never":
+		return func(g, ng uint, e0, e1 float64) float64 { return 0.0 }
+	case "drop-slow":
+		return func(g, ng uint, e0, e1 float64) float64 {
+			t := 1.0 - float64(g)/float64(ng)
+			return (math.Cos(t*math.Pi) + 1.0) / 2.0
+		}
+	case "temp":
+		return func(g, ng uint, e0, e1 float64) float64 {
+			t := 1.0 - float64(g)/float64(ng)
+			return t
+		}
+	case "cold":
+		return func(g, ng uint, e0, e1 float64) float64 {
+			t := 1.0 - float64(g)/float64(ng)
+			return 0.5 * t
+		}
+	case "drop-fast":
+		return func(g, ng uint, e0, e1 float64) float64 {
+			t := 1.0 - float64(g)/float64(ng)
+			return math.Exp(-3.0 * (1 - t))
+		}
+	default:
+		panic("unknown accept worse function")
+	}
+}
+
 // Optimise optimizes a keyboard layout using simulated annealing.
-func (sl *SplitLayout) Optimise(corp *corpus.Corpus, generations int, acceptWorse string) *SplitLayout {
+func (sl *SplitLayout) Optimise(corp *corpus.Corpus, generations uint, acceptWorse string) *SplitLayout {
 	sl.optCorpus = corp
 
 	// Configure the simulated annealing algorithm.
 	cfg := eaopt.NewDefaultGAConfig()
+	cfg.NGenerations = generations
 	cfg.Model = eaopt.ModSimulatedAnnealing{
-		// Define the acceptance function for simulated annealing.
-		Accept: func(g, ng uint, e0, e1 float64) float64 {
-			switch acceptWorse {
-			case "always":
-				return 1.0
-			case "never":
-				return 0.0
-			case "drop-slow":
-				t := 1.0 - float64(g)/float64(ng)
-				return (math.Cos(t*math.Pi) + 1.0) / 2.0
-			case "temp":
-				t := 1.0 - float64(g)/float64(ng)
-				return t
-			case "cold":
-				t := 1.0 - float64(g)/float64(ng)
-				return 0.5 * t
-			case "drop-fast":
-				t := 1.0 - float64(g)/float64(ng)
-				return math.Exp(-3.0 * (1 - t))
-			default:
-				panic("unknown accept worse function")
-			}
-		},
+		// Determine the acceptance function based on the acceptWorse parameter.
+		Accept: getAcceptFunc(acceptWorse),
 	}
-	cfg.NGenerations = uint(generations)
 
 	// Add a custom callback function to track progress.
 	minFit := math.MaxFloat64

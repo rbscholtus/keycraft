@@ -12,7 +12,7 @@ type Flags struct {
 	Corpus      string
 	Optimize    bool
 	Pins        string
-	Generations int
+	Generations uint
 	AcceptWorse string
 }
 
@@ -22,7 +22,7 @@ func ParseFlags() (*Flags, error) {
 	corpus := flag.String("c", "", "corpus file to load (located in data/corpus/)")
 	optimize := flag.Bool("o", false, "optimize the layout (default false).")
 	pins := flag.String("p", "", "file containing keys the optimiser cannot move (located in data/pins/)")
-	generations := flag.Int("g", 99, "number of generations (must be above 0)")
+	generations := flag.Uint("g", 99, "number of generations (must be above 0)")
 	acceptWorse := flag.String("f", "temp", "accept worse function: always, drop-slow, temp, drop-fast, cold, or never")
 
 	flag.Parse()
