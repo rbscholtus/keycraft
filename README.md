@@ -16,5 +16,5 @@ To do
 
   - Add bigrams unavailable
   - Sfb by distance 0U 1U >2U
-  - pin characters according to a pin file
+  - pin characters according to a pin file DONE
   - add more than 1 layer
