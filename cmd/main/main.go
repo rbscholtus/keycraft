@@ -37,12 +37,14 @@ func main() {
 	doHandUsage(layout, corp)
 	doSfbs(layout, corp)
 
-	best := layout.Optimise(corp, f.AcceptWorse, f.Generations)
-	fmt.Println(best)
-	doHandUsage(best, corp)
-	doSfbs(best, corp)
+	if f.Optimize {
+		best := layout.Optimise(corp, f.AcceptWorse, f.Generations)
+		fmt.Println(best)
+		doHandUsage(best, corp)
+		doSfbs(best, corp)
 
-	best.SaveToFile("best.kb")
+		best.SaveToFile("best.kb")
+	}
 }
 
 func doHandUsage(lay *layout.SplitLayout, corp *corpus.Corpus) {

@@ -10,6 +10,7 @@ type Flags struct {
 	ShowUsage   bool
 	Layout      string
 	Corpus      string
+	Optimize    bool
 	AcceptWorse string
 	Generations int
 }
@@ -18,6 +19,7 @@ func ParseFlags() (*Flags, error) {
 	help := flag.Bool("h", false, "show usage")
 	layout := flag.String("l", "", "layout file to load (located in data/layouts/)")
 	corpus := flag.String("c", "", "corpus file to load (located in data/corpus/)")
+	optimize := flag.Bool("o", false, "optimize the layout (default false). If not specified, the layout will be displayed without optimization.")
 	acceptWorse := flag.String("accept-worse", "temp", "accept worse function: always, drop-slow, temp, drop-fast, cold, or never")
 	generations := flag.Int("gens", 99, "number of generations (must be above 0)")
 
@@ -34,7 +36,7 @@ func ParseFlags() (*Flags, error) {
 
 	// Validate accept worse function
 	validAcceptWorse := []string{"always", "drop-slow", "temp", "drop-fast", "cold", "never"}
-	if !contains(validAcceptWorse, *acceptWorse) {
+	if !slices.Contains(validAcceptWorse, *acceptWorse) {
 		return nil, fmt.Errorf("invalid accept worse function: %s. Must be one of: %v", *acceptWorse, validAcceptWorse)
 	}
 
@@ -46,11 +48,8 @@ func ParseFlags() (*Flags, error) {
 	return &Flags{
 		Layout:      *layout,
 		Corpus:      *corpus,
+		Optimize:    *optimize,
 		AcceptWorse: *acceptWorse,
 		Generations: *generations,
 	}, nil
-}
-
-func contains(s []string, e string) bool {
-	return slices.Contains(s, e)
 }
