@@ -27,7 +27,7 @@ func main() {
 	// godump.Dump(corp.Unigrams)
 
 	// Load the layout from the specified file
-	layout, err := layout.LoadFromFile("data/layouts/" + f.Layout)
+	layout, err := layout.NewFromFile("data/layouts/" + f.Layout)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -41,6 +41,8 @@ func main() {
 	fmt.Println(best)
 	doHandUsage(best, corp)
 	doSfbs(best, corp)
+
+	best.SaveToFile("best.kb")
 }
 
 func doHandUsage(lay *layout.SplitLayout, corp *corpus.Corpus) {

@@ -21,10 +21,10 @@ func (b Bigram) String() string {
 
 type BigramCount struct {
 	Bigram Bigram
-	Count  int
+	Count  uint64
 }
 
-func sortedMap(bimap map[Bigram]int) []BigramCount {
+func sortedMap(bimap map[Bigram]uint64) []BigramCount {
 	bc := make([]BigramCount, 0, len(bimap))
 	for bigram, count := range bimap {
 		bc = append(bc, BigramCount{bigram, count})
@@ -40,18 +40,18 @@ func sortedMap(bimap map[Bigram]int) []BigramCount {
 // Corpus represents a corpus of text
 type Corpus struct {
 	Name               string
-	Unigrams           map[rune]int
-	TotalUnigramsCount int
-	Bigrams            map[Bigram]int
-	TotalBigramsCount  int
+	Unigrams           map[rune]uint64
+	TotalUnigramsCount uint64
+	Bigrams            map[Bigram]uint64
+	TotalBigramsCount  uint64
 }
 
 // NewCorpus creates a new corpus
 func NewCorpus(name string) *Corpus {
 	return &Corpus{
 		Name:     name,
-		Unigrams: make(map[rune]int),
-		Bigrams:  make(map[Bigram]int),
+		Unigrams: make(map[rune]uint64),
+		Bigrams:  make(map[Bigram]uint64),
 	}
 }
 
@@ -101,6 +101,12 @@ func NewFromFile(name string, filename string) (*Corpus, error) {
 }
 
 // AddBigram adds a bigram to the corpus
+func (c *Corpus) AddUnigram(r rune) {
+	c.Unigrams[r]++
+	c.TotalUnigramsCount++
+}
+
+// AddBigram adds a bigram to the corpus
 func (c *Corpus) AddBigram(bigram Bigram) {
 	c.Bigrams[bigram]++
 	c.TotalBigramsCount++
@@ -109,20 +115,19 @@ func (c *Corpus) AddBigram(bigram Bigram) {
 // AddText adds Bigrams in the text to the corpus, skipping bigrams with a space
 func (c *Corpus) AddText(text string) {
 	text = strings.ToLower(text)
-	// runes := []rune(text)
 	var prev rune
 	for _, r := range text {
-		if !unicode.IsSpace(r) {
-			c.Unigrams[r]++
-			c.TotalUnigramsCount++
-			if prev != 0 {
-				bigram := Bigram{prev, r}
-				c.AddBigram(bigram)
-			}
-			prev = r
-		} else {
+		if unicode.IsSpace(r) {
 			prev = 0
+			continue
 		}
+
+		c.AddUnigram(r)
+		if prev != 0 {
+			bigram := Bigram{prev, r}
+			c.AddBigram(bigram)
+		}
+		prev = r
 	}
 }
 

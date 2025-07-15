@@ -16,81 +16,91 @@ import (
 
 // SplitLayout represents a split layout layout
 type SplitLayout struct {
-	Filename    string
-	Left        [3][6]rune
-	Right       [3][6]rune
-	LeftThumbs  [3]rune
-	RightThumbs [3]rune
-	RuneInfo    map[rune]KeyInfo
-	optCorpus   *corpus.Corpus
+	Filename  string
+	Runes     [42]rune
+	RuneInfo  map[rune]KeyInfo
+	optCorpus *corpus.Corpus
 }
 
 type KeyInfo struct {
 	// Char   rune
 	Hand   string // "left" or "right"
-	Row    int
-	Column int
-	Finger int
+	Row    uint8  // 0-3
+	Column uint8  // 0-11 for Row=0-2, 0-5 for Row=3
+	Finger uint8  // 0-9
+}
+
+var colToFingerMap = [...]uint8{
+	0, 0, 1, 2, 3, 3,
+	6, 6, 7, 8, 9, 9,
+}
+
+func NewKeyInfo(row, col uint8) KeyInfo {
+	if col >= uint8(len(colToFingerMap)) {
+		panic(fmt.Sprintf("col exceeds max value: %d", col))
+	}
+	if row > 3 {
+		panic(fmt.Sprintf("row exceeds max value: %d", row))
+	}
+
+	hand := "right"
+	if row < 3 && col < 6 {
+		hand = "left"
+	} else if row == 3 && col < 3 {
+		hand = "left"
+	}
+
+	var finger uint8
+	if row < 3 {
+		finger = colToFingerMap[col]
+	} else {
+		finger = ifThen(col < 3, uint8(4), uint8(5))
+	}
+
+	return KeyInfo{
+		Hand:   hand,
+		Row:    row,
+		Column: col,
+		Finger: finger,
+	}
 }
 
 // NewSplitLayout creates a new split layout layout
-func NewSplitLayout(filename string, leftKeys, rightKeys [3][6]rune, leftThumbs, rightThumbs [3]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
+func NewSplitLayout(filename string, runes [42]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
 	return &SplitLayout{
-		Filename:    filename,
-		Left:        leftKeys,
-		Right:       rightKeys,
-		LeftThumbs:  leftThumbs,
-		RightThumbs: rightThumbs,
-		RuneInfo:    runeInfo,
+		Filename: filename,
+		Runes:    runes,
+		RuneInfo: runeInfo,
 	}
 }
 
 // String returns a string representation of the layout layout
 func (sl *SplitLayout) String() string {
 	var sb strings.Builder
-	for ri, row := range sl.Left {
-		for i, key := range row {
-			if i > 0 {
+	for row := range 3 {
+		for col := range 12 {
+			if col == 6 {
 				sb.WriteRune(' ')
 			}
-			sb.WriteRune(key)
-		}
-
-		// add a separator
-		sb.WriteString("   ")
-
-		for i, key := range sl.Right[ri] {
-			if i > 0 {
+			sb.WriteRune(sl.Runes[row*12+col])
+			if col < 11 {
 				sb.WriteRune(' ')
 			}
-			sb.WriteRune(key)
 		}
-
 		sb.WriteRune('\n')
 	}
 
 	sb.WriteString("      ")
 
-	for i, key := range sl.LeftThumbs {
-		if i > 0 {
+	for col := range 6 {
+		if col == 3 {
 			sb.WriteRune(' ')
 		}
-		sb.WriteRune(key)
-	}
-
-	// add a separator
-	sb.WriteString("   ")
-
-	for i, key := range sl.RightThumbs {
-		if i > 0 {
+		sb.WriteRune(sl.Runes[36+col])
+		if col < 5 {
 			sb.WriteRune(' ')
 		}
-		sb.WriteRune(key)
 	}
-
-	// Print runes on the layout
-	// sb.WriteRune('\n')
-	// sb.WriteString(kb.StringRunes())
 
 	return sb.String()
 }
@@ -98,31 +108,30 @@ func (sl *SplitLayout) String() string {
 func (sl *SplitLayout) StringRunes() string {
 	var sb strings.Builder
 	for k, v := range sl.RuneInfo {
-		sb.WriteString(fmt.Sprintf("Key: %c, Hand: %s, Row: %d, Finger: %d\n", k, v.Hand, v.Row, v.Finger))
+		sb.WriteString(fmt.Sprintf("Key: %c, Hand: %s, Row: %d, Column: %d, Finger: %d\n",
+			k, v.Hand, v.Row, v.Column, v.Finger))
 	}
 	return sb.String()
 }
 
-// LoadFromFile loads a layout from a text file
+// NewFromFile loads a layout from a text file
 // The file format is:
 //
 //	3 lines of 12 keys each (6 left, 6 right)
 //	1 line of 6 thumb keys (3 left, 3 right)
-func LoadFromFile(filename string) (*SplitLayout, error) {
+func NewFromFile(filename string) (*SplitLayout, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	var leftKeys [3][6]rune
-	var rightKeys [3][6]rune
-	var leftThumbs [3]rune
-	var rightThumbs [3]rune
-	keyInfoMap := make(map[rune]KeyInfo, 42)
+	var runeArray [42]rune
+	runeInfoMap := make(map[rune]KeyInfo, 42)
 
 	scanner := bufio.NewScanner(file)
-	for row := range 3 {
+	index := 0
+	for row := range uint8(3) {
 		if !scanner.Scan() {
 			return nil, fmt.Errorf("invalid file format: not enough rows")
 		}
@@ -131,25 +140,12 @@ func LoadFromFile(filename string) (*SplitLayout, error) {
 		if len(keys) != 12 {
 			return nil, fmt.Errorf("invalid file format: row %d has %d keys, expected 12", row+1, len(keys))
 		}
-		for col := range 6 {
-			leftKeys[row][col] = rune(keys[col][0])
-			if keys[col][0] != '~' {
-				keyInfoMap[leftKeys[row][col]] = KeyInfo{
-					Hand:   "left",
-					Row:    row,
-					Column: col,
-					Finger: colToFinger(col),
-				}
-			}
-
-			rightKeys[row][col] = rune(keys[col+6][0])
-			if keys[col+6][0] != '~' {
-				keyInfoMap[rightKeys[row][col]] = KeyInfo{
-					Hand:   "right",
-					Row:    row,
-					Column: col + 6,
-					Finger: colToFinger(col + 6),
-				}
+		for col := range uint8(12) {
+			r := rune(keys[col][0])
+			runeArray[index] = r
+			index++
+			if r != '~' {
+				runeInfoMap[r] = NewKeyInfo(row, col)
 			}
 		}
 	}
@@ -162,25 +158,12 @@ func LoadFromFile(filename string) (*SplitLayout, error) {
 	if len(keys) != 6 {
 		return nil, fmt.Errorf("invalid file format: thumbs row has %d keys, expected 6", len(keys))
 	}
-	for col := range 3 {
-		leftThumbs[col] = rune(keys[col][0])
-		if keys[col][0] != '~' {
-			keyInfoMap[leftThumbs[col]] = KeyInfo{
-				Finger: 4,
-				Hand:   "left",
-				Row:    4,
-				Column: -1,
-			}
-		}
-
-		rightThumbs[col] = rune(keys[col+3][0])
-		if keys[col+3][0] != '~' {
-			keyInfoMap[rightThumbs[col]] = KeyInfo{
-				Finger: 5,
-				Hand:   "right",
-				Row:    4,
-				Column: -1,
-			}
+	for col := range uint8(6) {
+		r := rune(keys[col][0])
+		runeArray[index] = r
+		index++
+		if r != '~' {
+			runeInfoMap[r] = NewKeyInfo(3, col)
 		}
 	}
 
@@ -188,28 +171,7 @@ func LoadFromFile(filename string) (*SplitLayout, error) {
 		return nil, err
 	}
 
-	return NewSplitLayout(filename, leftKeys, rightKeys, leftThumbs, rightThumbs, keyInfoMap), nil
-}
-
-func colToFinger(col int) int {
-	if col < 2 {
-		return 0
-	} else if col == 2 {
-		return 1
-	} else if col == 3 {
-		return 2
-	} else if col == 4 || col == 5 {
-		return 3
-	} else if col == 6 || col == 7 {
-		return 6
-	} else if col == 8 {
-		return 7
-	} else if col == 9 {
-		return 8
-	} else if col > 9 {
-		return 9
-	}
-	return -1
+	return NewSplitLayout(filename, runeArray, runeInfoMap), nil
 }
 
 // SaveToFile saves a layout layout to a text file
@@ -223,70 +185,60 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	for ri, row := range sl.Left {
-		for i, key := range row {
-			if i > 0 {
-				fmt.Fprintf(writer, " ")
+	// Write main keys
+	for row := range 3 {
+		for col := range 12 {
+			if col == 6 {
+				fmt.Fprint(writer, " ")
 			}
-			fmt.Fprintf(writer, "%c", key)
-		}
-
-		fmt.Fprint(writer, "   ")
-
-		for i, key := range sl.Right[ri] {
-			if i > 0 {
-				fmt.Fprintf(writer, " ")
+			fmt.Fprintf(writer, "%c", sl.Runes[row*12+col])
+			if col < 11 {
+				fmt.Fprint(writer, " ")
 			}
-			fmt.Fprintf(writer, "%c", key)
 		}
-
 		fmt.Fprintln(writer)
 	}
 
+	// Write thumbs
 	fmt.Fprint(writer, "      ")
-
-	for i, thumb := range sl.LeftThumbs {
-		if i > 0 {
-			fmt.Fprintf(writer, " ")
+	for col := range 6 {
+		if col == 3 {
+			fmt.Fprint(writer, " ")
 		}
-		fmt.Fprintf(writer, "%c", thumb)
-	}
-
-	fmt.Fprint(writer, "   ")
-
-	for i, thumb := range sl.RightThumbs {
-		if i > 0 {
-			fmt.Fprintf(writer, " ")
+		fmt.Fprintf(writer, "%c", sl.Runes[36+col])
+		if col < 5 {
+			fmt.Fprint(writer, " ")
 		}
-		fmt.Fprintf(writer, "%c", thumb)
 	}
 
 	return nil
 }
 
 type Usage struct {
-	Count      int
+	Count      uint64
 	Percentage float64
 }
 
 type HandAnalysis struct {
 	LayoutName        string
 	CorpusName        string
-	TotalUnigramCount int
+	TotalUnigramCount uint64
 	HandUsage         [2]Usage
 	RowUsage          [4]Usage
 	ColumnUsage       [12]Usage
 	FingerUsage       [10]Usage
+	RunesUnavailable  map[rune]uint64
 }
 
 func (ha HandAnalysis) String() string {
-	return fmt.Sprintf("%s (%s):\nHands=%s\nRows=%s\nColumns=%s\nFingers=%s",
+	return fmt.Sprintf("%s (%s):\nHands: %s\nRows: %s\nColumns: %s\nFingers: %s\nUnavailable runes: %s",
 		ha.LayoutName,
 		ha.CorpusName,
 		formatUsage(ha.HandUsage[:]),
 		formatUsage(ha.RowUsage[:]),
 		formatUsage(ha.ColumnUsage[:]),
 		formatUsage(ha.FingerUsage[:]),
+		formatUnavailable(ha.RunesUnavailable),
 	)
 }
 
@@ -297,29 +249,46 @@ func formatUsage(usage []Usage) string {
 	}
 	return strings.Join(parts, ", ")
 }
+func formatUnavailable(na map[rune]uint64) string {
+	var pairs []Pair[rune, uint64]
+	for r, c := range na {
+		pairs = append(pairs, Pair[rune, uint64]{r, c})
+	}
+
+	// Sort pairs based on the count in descending order
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Value > pairs[j].Value
+	})
+
+	var parts []string
+	for _, pair := range pairs {
+		parts = append(parts, fmt.Sprintf("%c (%s)", pair.Key, comma64(pair.Value)))
+	}
+
+	return strings.Join(parts, ", ")
+}
 
 func (sl *SplitLayout) AnalyzeHandUsage(corp *corpus.Corpus) HandAnalysis {
 	var handUsage [2]Usage
 	var rowUsage [4]Usage
 	var columnUsage [12]Usage
 	var fingerUsage [10]Usage
-	totalUnigramCount := 0
+	var totalUnigramCount uint64 = 0
+	var runesUnavailable = make(map[rune]uint64, 0)
 
 	for r, count := range corp.Unigrams {
 		info, ok := sl.RuneInfo[r]
-		if ok {
-			totalUnigramCount += count
-			if info.Hand == "left" {
-				handUsage[0].Count += count
-			} else {
-				handUsage[1].Count += count
-			}
-			rowUsage[info.Row].Count += count
-			if info.Column >= 0 {
-				columnUsage[info.Column].Count += count
-			}
-			fingerUsage[info.Finger].Count += count
+		if !ok {
+			runesUnavailable[r] += count
+			continue
 		}
+
+		totalUnigramCount += count
+		hand := ifThen(info.Hand == "left", 0, 1)
+		handUsage[hand].Count += count
+		rowUsage[info.Row].Count += count
+		columnUsage[info.Column].Count += count
+		fingerUsage[info.Finger].Count += count
 	}
 
 	for i := range handUsage {
@@ -343,16 +312,8 @@ func (sl *SplitLayout) AnalyzeHandUsage(corp *corpus.Corpus) HandAnalysis {
 		RowUsage:          rowUsage,
 		ColumnUsage:       columnUsage,
 		FingerUsage:       fingerUsage,
+		RunesUnavailable:  runesUnavailable,
 	}
-}
-
-type SfbAnalysis struct {
-	LayoutName    string
-	CorpusName    string
-	TotalBigrams  int
-	Sfbs          []Sfb
-	TotalSfbCount int
-	TotalSfbPerc  float64
 }
 
 type Sfb struct {
@@ -361,10 +322,19 @@ type Sfb struct {
 	Percentage float64
 }
 
+type SfbAnalysis struct {
+	LayoutName    string
+	CorpusName    string
+	TotalBigrams  uint64
+	Sfbs          []Sfb
+	TotalSfbCount int
+	TotalSfbPerc  float64
+}
+
 func (sa SfbAnalysis) String() string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Corpus: %s (%s bigrams)\n", sa.CorpusName, comma(sa.TotalBigrams)))
+	sb.WriteString(fmt.Sprintf("Corpus: %s (%s bigrams)\n", sa.CorpusName, comma64(sa.TotalBigrams)))
 	sb.WriteString(fmt.Sprintf("Total SFBs in %v: %s (%.3f%% of corpus)\n",
 		sa.LayoutName, comma(sa.TotalSfbCount), 100*sa.TotalSfbPerc))
 	printCount := min(10, len(sa.Sfbs))
@@ -379,7 +349,7 @@ func (sa SfbAnalysis) String() string {
 
 // For if we just want to know the SFB perc for a layout and corpus
 func (sl *SplitLayout) SimpleSfbs(corp *corpus.Corpus) float64 {
-	var totalCount int
+	var totalCount uint64
 	for bi, cnt := range corp.Bigrams {
 		if bi[0] != bi[1] && sl.isSameFinger(bi) {
 			totalCount += cnt
@@ -416,8 +386,8 @@ func (sl *SplitLayout) extractSfbs(corp *corpus.Corpus) ([]Sfb, int) {
 	var totalCount int
 	for bi, cnt := range corp.Bigrams {
 		if bi[0] != bi[1] && sl.isSameFinger(bi) {
-			sfbs = append(sfbs, Sfb{Bigram: bi, Count: cnt})
-			totalCount += cnt
+			sfbs = append(sfbs, Sfb{Bigram: bi, Count: int(cnt)})
+			totalCount += int(cnt)
 		}
 	}
 	return sfbs, totalCount
@@ -496,9 +466,6 @@ func (sl *SplitLayout) Optimise(corp *corpus.Corpus, acceptWorse string, generat
 // Evaluate evaluates the Holder-table function at the current coordinates.
 func (sl *SplitLayout) Evaluate() (float64, error) {
 	return sl.SimpleSfbs(sl.optCorpus), nil
-	// z := -math.Abs(math.Sin(sl.X) * math.Cos(sl.Y) *
-	// 	math.Exp(math.Abs(1.0-math.Sqrt(sl.X*sl.X+sl.Y*sl.Y)/math.Pi)))
-	// return z, nil
 }
 
 func randomBigram(rng *rand.Rand, sfbs []Sfb) corpus.Bigram {
@@ -539,36 +506,30 @@ func (sl *SplitLayout) Mutate(rng *rand.Rand) {
 
 	bi := randomBigram(rng, sfbs)
 	key1 := bi[rng.Intn(2)]
-	for sl.RuneInfo[key1].Row == 1 {
+	for sl.RuneInfo[key1].Row == 1 { // pin row 1
 		bi = randomBigram(rng, sfbs)
 		key1 = bi[rng.Intn(2)]
 	}
 
 	j := rng.Intn(len(keys))
 	key2 := keys[j]
-	for key1 == key2 || sl.RuneInfo[key2].Row == 1 {
+	for key1 == key2 || sl.RuneInfo[key2].Row == 1 { // no swap urself / pin row 1
 		j = rng.Intn(len(keys))
 		key2 = keys[j]
 	}
 
-	// Swap the values associated with the two keys
-	if sl.RuneInfo[key2].Hand == "left" {
-		r, c := sl.RuneInfo[key2].Row, sl.RuneInfo[key2].Column
-		sl.Left[r][c%6] = key1
-	} else {
-		r, c := sl.RuneInfo[key2].Row, sl.RuneInfo[key2].Column
-		sl.Right[r][c%6] = key1
-	}
-	if sl.RuneInfo[key1].Hand == "left" {
-		r, c := sl.RuneInfo[key1].Row, sl.RuneInfo[key1].Column
-		sl.Left[r][c%6] = key2
-	} else {
-		r, c := sl.RuneInfo[key1].Row, sl.RuneInfo[key1].Column
-		sl.Right[r][c%6] = key2
-	}
-	sl.RuneInfo[key1], sl.RuneInfo[key2] = sl.RuneInfo[key2], sl.RuneInfo[key1]
+	// Calculate indices
+	index1 := sl.getIndex(key1)
+	index2 := sl.getIndex(key2)
 
-	//fmt.Printf("%v->%c%c ", bi, key1, key2)
+	// Swap the values associated with the two keys
+	sl.Runes[index1], sl.Runes[index2] = sl.Runes[index2], sl.Runes[index1]
+	sl.RuneInfo[key1], sl.RuneInfo[key2] = sl.RuneInfo[key2], sl.RuneInfo[key1]
+}
+
+func (sl *SplitLayout) getIndex(key rune) int {
+	info := sl.RuneInfo[key]
+	return int(info.Row*12 + info.Column)
 }
 
 // Crossover does nothing. It is defined only so *SplitLayout implements the eaopt.Genome interface.
@@ -577,13 +538,10 @@ func (sl *SplitLayout) Crossover(other eaopt.Genome, rng *rand.Rand) {}
 // Clone returns a copy of a *Coord2D.
 func (sl *SplitLayout) Clone() eaopt.Genome {
 	cc := SplitLayout{
-		Filename:    sl.Filename,
-		Left:        sl.Left,
-		Right:       sl.Right,
-		LeftThumbs:  sl.LeftThumbs,
-		RightThumbs: sl.RightThumbs,
-		RuneInfo:    make(map[rune]KeyInfo),
-		optCorpus:   sl.optCorpus,
+		Filename:  sl.Filename,
+		Runes:     sl.Runes,
+		RuneInfo:  make(map[rune]KeyInfo),
+		optCorpus: sl.optCorpus,
 	}
 
 	maps.Copy(cc.RuneInfo, sl.RuneInfo)
@@ -592,8 +550,10 @@ func (sl *SplitLayout) Clone() eaopt.Genome {
 }
 
 func comma(vi int) string {
-	v := int64(vi)
+	return comma64(uint64(vi))
+}
 
+func comma64(v uint64) string {
 	// Counting the number of digits.
 	var count byte = 0
 	for n := v; n != 0; n = n / 10 {
@@ -621,4 +581,16 @@ func comma(vi int) string {
 	output[j] = byte(v) + '0'
 
 	return string(output)
+}
+
+type Pair[K comparable, V any] struct {
+	Key   K
+	Value V
+}
+
+func ifThen[T any](condition bool, a, b T) T {
+	if condition {
+		return a
+	}
+	return b
 }
