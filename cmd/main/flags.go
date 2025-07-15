@@ -11,17 +11,19 @@ type Flags struct {
 	Layout      string
 	Corpus      string
 	Optimize    bool
-	AcceptWorse string
+	Pins        string
 	Generations int
+	AcceptWorse string
 }
 
 func ParseFlags() (*Flags, error) {
 	help := flag.Bool("h", false, "show usage")
 	layout := flag.String("l", "", "layout file to load (located in data/layouts/)")
 	corpus := flag.String("c", "", "corpus file to load (located in data/corpus/)")
-	optimize := flag.Bool("o", false, "optimize the layout (default false). If not specified, the layout will be displayed without optimization.")
-	acceptWorse := flag.String("accept-worse", "temp", "accept worse function: always, drop-slow, temp, drop-fast, cold, or never")
-	generations := flag.Int("gens", 99, "number of generations (must be above 0)")
+	optimize := flag.Bool("o", false, "optimize the layout (default false).")
+	pins := flag.String("p", "", "file containing keys the optimiser cannot move (located in data/pins/)")
+	generations := flag.Int("g", 99, "number of generations (must be above 0)")
+	acceptWorse := flag.String("f", "temp", "accept worse function: always, drop-slow, temp, drop-fast, cold, or never")
 
 	flag.Parse()
 
@@ -49,7 +51,8 @@ func ParseFlags() (*Flags, error) {
 		Layout:      *layout,
 		Corpus:      *corpus,
 		Optimize:    *optimize,
-		AcceptWorse: *acceptWorse,
+		Pins:        *pins,
 		Generations: *generations,
+		AcceptWorse: *acceptWorse,
 	}, nil
 }

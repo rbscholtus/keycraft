@@ -33,12 +33,21 @@ func main() {
 		return
 	}
 
-	fmt.Println(layout)
-	doHandUsage(layout, corp)
-	doSfbs(layout, corp)
+	if !f.Optimize {
+		fmt.Println(layout)
+		doHandUsage(layout, corp)
+		doSfbs(layout, corp)
+	} else {
+		fmt.Println(layout)
 
-	if f.Optimize {
-		best := layout.Optimise(corp, f.AcceptWorse, f.Generations)
+		if f.Pins != "" {
+			err := layout.LoadPins("data/pins/" + f.Pins)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+		best := layout.Optimise(corp, f.Generations, f.AcceptWorse)
 		fmt.Println(best)
 		doHandUsage(best, corp)
 		doSfbs(best, corp)

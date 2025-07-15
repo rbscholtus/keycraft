@@ -6,14 +6,13 @@ import (
 	"maps"
 	"math"
 	"math/rand"
-	"sort"
 
 	"github.com/MaxHalford/eaopt"
 	corpus "github.com/rbscholtus/kb/internal/corpus"
 )
 
 // Optimise optimizes a keyboard layout using simulated annealing.
-func (sl *SplitLayout) Optimise(corp *corpus.Corpus, acceptWorse string, generations int) *SplitLayout {
+func (sl *SplitLayout) Optimise(corp *corpus.Corpus, generations int, acceptWorse string) *SplitLayout {
 	sl.optCorpus = corp
 
 	// Configure the simulated annealing algorithm.
@@ -75,6 +74,8 @@ func (sl *SplitLayout) Optimise(corp *corpus.Corpus, acceptWorse string, generat
 	hof0 := ga.HallOfFame[0]
 	best := hof0.Genome.(*SplitLayout)
 
+	best.Filename = "best.kb"
+
 	return best
 }
 
@@ -83,73 +84,30 @@ func (sl *SplitLayout) Evaluate() (float64, error) {
 	return sl.SimpleSfbs(sl.optCorpus), nil
 }
 
-// randomBigram selects a random bigram based on the count of SFBs.
-func randomBigram(rng *rand.Rand, sfbs []Sfb) corpus.Bigram {
-	// Calculate the total count of bigrams.
-	var total uint64
-	for _, sfb := range sfbs {
-		total += sfb.Count
-	}
-
-	// Generate a random number between 0 and the total.
-	randNum := rng.Int63n(int64(total))
-
-	// Select the bigram based on the random number.
-	var cumulative int64
-	for _, sfb := range sfbs {
-		cumulative += int64(sfb.Count)
-		if randNum <= cumulative {
-			return sfb.Bigram
+// Mutate mutates the layout by swapping two keys.
+func (sl *SplitLayout) Mutate(rng *rand.Rand) {
+	pairs := make([]Pair[int, rune], 0, len(sl.Runes))
+	leng := 0
+	for i, r := range sl.Runes {
+		if r != '~' && !sl.Pinned[i] {
+			pairs = append(pairs, Pair[int, rune]{Key: i, Value: r})
+			leng += 1
 		}
 	}
 
-	// If the random number exceeds the total percentage, return the last bigram.
-	return sfbs[len(sfbs)-1].Bigram
-}
-
-// Mutate mutates the layout by swapping two keys.
-func (sl *SplitLayout) Mutate(rng *rand.Rand) {
-	// Get a list of keys from the RuneInfo map.
-	keys := make([]rune, 0, len(sl.RuneInfo))
-	for k := range sl.RuneInfo {
-		keys = append(keys, k)
+	if leng < 2 {
+		panic(fmt.Sprintf("Not enough keys on this layout to make a swap: %d", leng))
 	}
 
-	// Get a list of SFBs and sort them by count.
-	sfbs, _ := sl.extractSfbs(sl.optCorpus)
-	sort.Slice(sfbs, func(i, j int) bool {
-		return sfbs[i].Count > sfbs[j].Count
-	})
-
-	// Select a random bigram from the SFBs.
-	bi := randomBigram(rng, sfbs)
-	key1 := bi[rng.Intn(2)]
-	for sl.RuneInfo[key1].Row == 1 { // Pin row 1.
-		bi = randomBigram(rng, sfbs)
-		key1 = bi[rng.Intn(2)]
+	i := rng.Intn(leng)
+	j := rng.Intn(leng)
+	for j == i {
+		j = rng.Intn(leng)
 	}
-
-	// Select a random key to swap with.
-	j := rng.Intn(len(keys))
-	key2 := keys[j]
-	for key1 == key2 || sl.RuneInfo[key2].Row == 1 { // No swap with self or pin row 1.
-		j = rng.Intn(len(keys))
-		key2 = keys[j]
-	}
-
-	// Calculate indices.
-	index1 := sl.getIndex(key1)
-	index2 := sl.getIndex(key2)
 
 	// Swap the values associated with the two keys.
-	sl.Runes[index1], sl.Runes[index2] = sl.Runes[index2], sl.Runes[index1]
-	sl.RuneInfo[key1], sl.RuneInfo[key2] = sl.RuneInfo[key2], sl.RuneInfo[key1]
-}
-
-// getIndex calculates the index of a key in the Runes array.
-func (sl *SplitLayout) getIndex(key rune) int {
-	info := sl.RuneInfo[key]
-	return int(info.Row*12 + info.Column)
+	sl.Runes[pairs[i].Key], sl.Runes[pairs[j].Key] = sl.Runes[pairs[j].Key], sl.Runes[pairs[i].Key]
+	sl.RuneInfo[pairs[i].Value], sl.RuneInfo[pairs[j].Value] = sl.RuneInfo[pairs[j].Value], sl.RuneInfo[pairs[i].Value]
 }
 
 // Crossover does nothing. It is defined only so *SplitLayout implements the eaopt.Genome interface.
@@ -161,6 +119,7 @@ func (sl *SplitLayout) Clone() eaopt.Genome {
 		Filename:  sl.Filename,
 		Runes:     sl.Runes,
 		RuneInfo:  make(map[rune]KeyInfo),
+		Pinned:    sl.Pinned,
 		optCorpus: sl.optCorpus,
 	}
 

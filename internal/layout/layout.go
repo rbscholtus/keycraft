@@ -14,6 +14,7 @@ type SplitLayout struct {
 	Filename  string
 	Runes     [42]rune
 	RuneInfo  map[rune]KeyInfo
+	Pinned    [42]bool
 	optCorpus *corpus.Corpus
 }
 
@@ -123,42 +124,28 @@ func NewFromFile(filename string) (*SplitLayout, error) {
 
 	var runeArray [42]rune
 	runeInfoMap := make(map[rune]KeyInfo, 42)
+	expectedKeys := []int{12, 12, 12, 6}
 
 	scanner := bufio.NewScanner(file)
 	index := 0
-	for row := range uint8(3) {
+	for row, expectedKeyCount := range expectedKeys {
 		if !scanner.Scan() {
 			return nil, fmt.Errorf("invalid file format: not enough rows")
 		}
-		line := scanner.Text()
-		keys := strings.Fields(line)
-		if len(keys) != 12 {
-			return nil, fmt.Errorf("invalid file format: row %d has %d keys, expected 12", row+1, len(keys))
+		keys := strings.Fields(scanner.Text())
+		if len(keys) != expectedKeyCount {
+			return nil, fmt.Errorf("invalid file format: row %d has %d keys, expected %d", row+1, len(keys), expectedKeyCount)
 		}
-		for col := range uint8(12) {
-			r := rune(keys[col][0])
+		for col, key := range keys {
+			if len(key) != 1 {
+				return nil, fmt.Errorf("invalid file format: key '%s' in row %d must have 1 character only", key, row+1)
+			}
+			r := rune(key[0])
 			runeArray[index] = r
 			index++
 			if r != '~' {
-				runeInfoMap[r] = NewKeyInfo(row, col)
+				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col))
 			}
-		}
-	}
-
-	if !scanner.Scan() {
-		return nil, fmt.Errorf("invalid file format: not enough rows for thumbs")
-	}
-	line := scanner.Text()
-	keys := strings.Fields(line)
-	if len(keys) != 6 {
-		return nil, fmt.Errorf("invalid file format: thumbs row has %d keys, expected 6", len(keys))
-	}
-	for col := range uint8(6) {
-		r := rune(keys[col][0])
-		runeArray[index] = r
-		index++
-		if r != '~' {
-			runeInfoMap[r] = NewKeyInfo(3, col)
 		}
 	}
 
@@ -204,6 +191,54 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 		if col < 5 {
 			fmt.Fprint(writer, " ")
 		}
+	}
+
+	return nil
+}
+
+// LoadPins loads a pins file and populates the Pinned array.
+func (sl *SplitLayout) LoadPins(filename string) error {
+	// Open the file for reading.
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	index := 0
+	expectedKeys := []int{12, 12, 12, 6}
+
+	// Read the pins from the file.
+	for row, expectedKeyCount := range expectedKeys {
+		if !scanner.Scan() {
+			return fmt.Errorf("invalid file format: not enough rows")
+		}
+		keys := strings.Fields(scanner.Text())
+		if len(keys) != expectedKeyCount {
+			return fmt.Errorf("invalid file format: row %d has %d keys, expected %d", row+1, len(keys), expectedKeyCount)
+		}
+		for col, key := range keys {
+			if len(key) != 1 {
+				return fmt.Errorf("invalid file format: key '%s' in row %d must have 1 character only", key, row+1)
+			}
+			switch rune(key[0]) {
+			case '.', '_', '-':
+				// Unpinned keys.
+				sl.Pinned[index] = false
+			case '*', 'x', 'X':
+				// Pinned keys.
+				sl.Pinned[index] = true
+			default:
+				return fmt.Errorf("invalid character '%c' at position %d in row %d", key[0], col+1, row+1)
+			}
+			index++
+		}
+	}
+
+	// Check for any scanner errors.
+	if err := scanner.Err(); err != nil {
+		return err
 	}
 
 	return nil
