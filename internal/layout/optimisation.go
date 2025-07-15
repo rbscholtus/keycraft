@@ -84,25 +84,27 @@ func (sl *SplitLayout) Evaluate() (float64, error) {
 	return sl.SimpleSfbs(sl.optCorpus), nil
 }
 
-// Mutate mutates the layout by swapping two keys.
+// Mutate randomly swaps two keys in the layout.
 func (sl *SplitLayout) Mutate(rng *rand.Rand) {
+	// Create a slice to store pairs of indexes and keys that are not pinned.
 	pairs := make([]Pair[int, rune], 0, len(sl.Runes))
-	leng := 0
 	for i, r := range sl.Runes {
 		if r != '~' && !sl.Pinned[i] {
+			// Add the pair to the slice and increment the count.
 			pairs = append(pairs, Pair[int, rune]{Key: i, Value: r})
-			leng += 1
 		}
 	}
 
-	if leng < 2 {
-		panic(fmt.Sprintf("Not enough keys on this layout to make a swap: %d", leng))
+	// Check if there are at least two pairs to swap.
+	if len(pairs) < 2 {
+		panic(fmt.Sprintf("Not enough keys on this layout to make a swap: %d", len(pairs)))
 	}
 
-	i := rng.Intn(leng)
-	j := rng.Intn(leng)
+	// Generate two random indexes for the pairs to swap.
+	i := rng.Intn(len(pairs))
+	j := rng.Intn(len(pairs))
 	for j == i {
-		j = rng.Intn(leng)
+		j = rng.Intn(len(pairs))
 	}
 
 	// Swap the values associated with the two keys.
