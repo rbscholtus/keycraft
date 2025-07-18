@@ -27,10 +27,15 @@ GUI ??
 
 To do
 -----
-  - Split SFBs in 1U vs 2U done
-  - Add bigrams unavailable done
-  - Add SFS done
-  - pin characters according to a pin file DONE
+  - Add LSB
+  - Add scissors
   - add more than 1 layer
   - Put Optimisise in its own struct
+
+Done
+----
+  - pin characters according to a pin file DONE
+  - Add bigrams unavailable done
+  - Split SFBs in 1U vs 2U done
+  - Add SFS done
   

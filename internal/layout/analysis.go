@@ -170,7 +170,8 @@ func (sa SfbAnalysis) String() string {
 	sb.WriteString(fmt.Sprintf("Top-%d SFBs:\n", printCount))
 	for i := range printCount {
 		sfb := sa.Sfbs[i]
-		sb.WriteString(fmt.Sprintf("%2d. %v (%s, %.3f%%)\n", i+1, sfb.Bigram, Comma(sfb.Count), 100*sfb.Percentage))
+		sb.WriteString(fmt.Sprintf("%2d. %v (%.2f, %s, %.3f%%)\n",
+			i+1, sfb.Bigram, sfb.Distance, Comma(sfb.Count), 100*sfb.Percentage))
 	}
 
 	return sb.String()
@@ -208,14 +209,19 @@ func (sl *SplitLayout) AnalyzeSfbs(corp *Corpus) SfbAnalysis {
 			continue
 		}
 
-		info0, ok0 := sl.RuneInfo[bi[0]]
-		info1, ok1 := sl.RuneInfo[bi[1]]
+		rune0, ok0 := sl.RuneInfo[bi[0]]
+		rune1, ok1 := sl.RuneInfo[bi[1]]
 		if !ok0 || !ok1 {
 			// detected a bigram that has a rune not on the layout
 			an.Unsupported = append(an.Unsupported, BigramCount{bi, cnt})
-		} else if info0.Finger == info1.Finger {
-			perc := float64(cnt) / float64(corp.TotalBigramsCount)
-			an.Sfbs = append(an.Sfbs, Sfb{Bigram: bi, Count: cnt, Percentage: perc})
+		} else if rune0.Finger == rune1.Finger {
+			sfb := Sfb{
+				Bigram:     bi,
+				Distance:   calcDistance(rune0, rune1),
+				Count:      cnt,
+				Percentage: float64(cnt) / float64(corp.TotalBigramsCount),
+			}
+			an.Sfbs = append(an.Sfbs, sfb)
 			an.TotalSfbCount += cnt
 		}
 	}
@@ -386,7 +392,13 @@ func (sl *SplitLayout) AnalyzeSfss(corp *Corpus) SfsAnalysis {
 		} else if rune0.Finger == rune2.Finger && rune0.Finger != rune1.Finger {
 			dist := calcDistance(rune0, rune2)
 			perc := float64(cnt) / float64(corp.TotalTrigramsCount)
-			an.Sfss = append(an.Sfss, Sfs{Trigram: tri, Distance: dist, Count: cnt, Percentage: perc})
+
+			sfs := Sfs{
+				Trigram:    tri,
+				Distance:   dist,
+				Count:      cnt,
+				Percentage: perc}
+			an.Sfss = append(an.Sfss, sfs)
 			an.TotalSfsCount += cnt
 
 			// keep track of skipgrams with no middle character
