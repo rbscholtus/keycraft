@@ -22,8 +22,8 @@ func ParseFlags() (*Flags, error) {
 	corpus := flag.String("c", "", "corpus file to load (located in data/corpus/)")
 	optimize := flag.Bool("o", false, "optimize the layout (default false).")
 	pins := flag.String("p", "", "file containing keys the optimiser cannot move (located in data/pins/)")
-	generations := flag.Uint("g", 99, "number of generations (must be above 0)")
-	acceptWorse := flag.String("f", "temp", "accept worse function: always, drop-slow, temp, drop-fast, cold, or never")
+	generations := flag.Uint("g", 1000, "number of generations (must be above 0)")
+	acceptWorse := flag.String("f", "drop-slow", "accept worse function: always, drop-slow, temp, drop-fast, or never ")
 
 	flag.Parse()
 
@@ -37,7 +37,7 @@ func ParseFlags() (*Flags, error) {
 	}
 
 	// Validate accept worse function
-	validAcceptWorse := []string{"always", "drop-slow", "temp", "drop-fast", "cold", "never"}
+	validAcceptWorse := []string{"always", "drop-slow", "temp", "drop-fast", "never"}
 	if !slices.Contains(validAcceptWorse, *acceptWorse) {
 		return nil, fmt.Errorf("invalid accept worse function: %s. Must be one of: %v", *acceptWorse, validAcceptWorse)
 	}
