@@ -11,10 +11,26 @@ Hand Balance
   - RR 7.5-12.5%
   - RP 6-8.5%
 
+Keycodes
+--------
+
+NO
+SPC
+ENT
+SFT
+BSPC ??
+ESC ??
+TAB ??
+CTL ??
+ALT/OPT ??
+GUI ??
+
 To do
 -----
-
-  - Add bigrams unavailable
-  - Sfb by distance 0U 1U >2U
+  - Split SFBs in 1U vs 2U done
+  - Add bigrams unavailable done
+  - Add SFS done
   - pin characters according to a pin file DONE
   - add more than 1 layer
+  - Put Optimisise in its own struct
+  

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 
-	corpus "github.com/rbscholtus/kb/internal/corpus"
 	layout "github.com/rbscholtus/kb/internal/layout"
 )
 
@@ -15,19 +14,14 @@ func main() {
 	}
 
 	// Load the corpus from the specified file
-	corp, err := corpus.NewFromFile(f.Corpus, "data/corpus/"+f.Corpus)
+	corp, err := layout.NewCorpusFromFile(f.Corpus, "data/corpus/"+f.Corpus)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	// for i, v := range corp.Unigrams {
-	// 	fmt.Printf("%c %v\n", i, v)
-
-	// }
-	// godump.Dump(corp.Unigrams)
 
 	// Load the layout from the specified file
-	layout, err := layout.NewFromFile("data/layouts/" + f.Layout)
+	layout, err := layout.NewLayoutFromFile("data/layouts/" + f.Layout)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -36,7 +30,8 @@ func main() {
 	if !f.Optimize {
 		fmt.Println(layout)
 		doHandUsage(layout, corp)
-		doSfbs(layout, corp)
+		doSfb(layout, corp)
+		doSfs(layout, corp)
 	} else {
 		fmt.Println(layout)
 
@@ -50,19 +45,28 @@ func main() {
 		best := layout.Optimise(corp, f.Generations, f.AcceptWorse)
 		fmt.Println(best)
 		doHandUsage(best, corp)
-		doSfbs(best, corp)
+		doSfb(best, corp)
+		doSfs(best, corp)
 
-		best.SaveToFile("best.kb")
+		err := best.SaveToFile("best.kb")
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }
 
-func doHandUsage(lay *layout.SplitLayout, corp *corpus.Corpus) {
+func doHandUsage(lay *layout.SplitLayout, corp *layout.Corpus) {
 	handInfo := lay.AnalyzeHandUsage(corp)
 	fmt.Println(handInfo)
 	// godump.Dump(handInfo)
 }
 
-func doSfbs(lay *layout.SplitLayout, corp *corpus.Corpus) {
+func doSfb(lay *layout.SplitLayout, corp *layout.Corpus) {
 	sfbInfo := lay.AnalyzeSfbs(corp)
 	fmt.Println(sfbInfo)
+}
+
+func doSfs(lay *layout.SplitLayout, corp *layout.Corpus) {
+	sfsInfo := lay.AnalyzeSfss(corp)
+	fmt.Println(sfsInfo)
 }

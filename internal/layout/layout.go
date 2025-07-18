@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	corpus "github.com/rbscholtus/kb/internal/corpus"
 )
 
 // SplitLayout represents a split layout layout
@@ -15,9 +13,10 @@ type SplitLayout struct {
 	Runes     [42]rune
 	RuneInfo  map[rune]KeyInfo
 	Pinned    [42]bool
-	optCorpus *corpus.Corpus
+	optCorpus *Corpus
 }
 
+// KeyInfo represents a key's position on a keyboard
 type KeyInfo struct {
 	// Char   rune
 	Hand   string // "left" or "right"
@@ -31,6 +30,7 @@ var colToFingerMap = [...]uint8{
 	6, 6, 7, 8, 9, 9,
 }
 
+// NewKeyInfo returns a new KeyInfo struct with some fields derived from row and col.
 func NewKeyInfo(row, col uint8) KeyInfo {
 	if col >= uint8(len(colToFingerMap)) {
 		panic(fmt.Sprintf("col exceeds max value: %d", col))
@@ -50,7 +50,7 @@ func NewKeyInfo(row, col uint8) KeyInfo {
 	if row < 3 {
 		finger = colToFingerMap[col]
 	} else {
-		finger = ifThen(col < 3, uint8(4), uint8(5))
+		finger = IfThen(col < 3, uint8(4), uint8(5))
 	}
 
 	return KeyInfo{
@@ -73,12 +73,23 @@ func NewSplitLayout(filename string, runes [42]rune, runeInfo map[rune]KeyInfo) 
 // String returns a string representation of the layout layout
 func (sl *SplitLayout) String() string {
 	var sb strings.Builder
+	writeRune := func(r rune) {
+		switch r {
+		case 0:
+			sb.WriteString("no")
+		case ' ':
+			sb.WriteString("spc")
+		default:
+			sb.WriteRune(r)
+		}
+	}
+
 	for row := range 3 {
 		for col := range 12 {
 			if col == 6 {
 				sb.WriteRune(' ')
 			}
-			sb.WriteRune(sl.Runes[row*12+col])
+			writeRune(sl.Runes[row*12+col])
 			if col < 11 {
 				sb.WriteRune(' ')
 			}
@@ -92,7 +103,7 @@ func (sl *SplitLayout) String() string {
 		if col == 3 {
 			sb.WriteRune(' ')
 		}
-		sb.WriteRune(sl.Runes[36+col])
+		writeRune(sl.Runes[36+col])
 		if col < 5 {
 			sb.WriteRune(' ')
 		}
@@ -101,6 +112,7 @@ func (sl *SplitLayout) String() string {
 	return sb.String()
 }
 
+// StringRunes returns a string that represents	the characters on a layout.
 func (sl *SplitLayout) StringRunes() string {
 	var sb strings.Builder
 	for k, v := range sl.RuneInfo {
@@ -110,12 +122,12 @@ func (sl *SplitLayout) StringRunes() string {
 	return sb.String()
 }
 
-// NewFromFile loads a layout from a text file
+// NewLayoutFromFile loads a layout from a text file
 // The file format is:
 //
 //	3 lines of 12 keys each (6 left, 6 right)
 //	1 line of 6 thumb keys (3 left, 3 right)
-func NewFromFile(filename string) (*SplitLayout, error) {
+func NewLayoutFromFile(filename string) (*SplitLayout, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -137,13 +149,22 @@ func NewFromFile(filename string) (*SplitLayout, error) {
 			return nil, fmt.Errorf("invalid file format: row %d has %d keys, expected %d", row+1, len(keys), expectedKeyCount)
 		}
 		for col, key := range keys {
-			if len(key) != 1 {
-				return nil, fmt.Errorf("invalid file format: key '%s' in row %d must have 1 character only", key, row+1)
-			}
-			r := rune(key[0])
-			runeArray[index] = r
-			index++
-			if r != '~' {
+			switch strings.ToLower(key) {
+			case "no":
+				runeArray[index] = rune(0)
+				index++
+			case "spc":
+				r := rune(' ')
+				runeArray[index] = r
+				index++
+				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col))
+			default:
+				if len(key) != 1 {
+					return nil, fmt.Errorf("invalid file format: key '%s' in row %d must have 1 character or be 'no' or 'spc'", key, row+1)
+				}
+				r := rune(key[0])
+				runeArray[index] = r
+				index++
 				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col))
 			}
 		}
@@ -167,13 +188,24 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
+	writeRune := func(r rune) {
+		switch r {
+		case 0:
+			fmt.Fprint(writer, "no")
+		case ' ':
+			fmt.Fprint(writer, "spc")
+		default:
+			fmt.Fprintf(writer, "%c", r)
+		}
+	}
+
 	// Write main keys
 	for row := range 3 {
 		for col := range 12 {
 			if col == 6 {
 				fmt.Fprint(writer, " ")
 			}
-			fmt.Fprintf(writer, "%c", sl.Runes[row*12+col])
+			writeRune(sl.Runes[row*12+col])
 			if col < 11 {
 				fmt.Fprint(writer, " ")
 			}
@@ -187,7 +219,7 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 		if col == 3 {
 			fmt.Fprint(writer, " ")
 		}
-		fmt.Fprintf(writer, "%c", sl.Runes[36+col])
+		writeRune(sl.Runes[36+col])
 		if col < 5 {
 			fmt.Fprint(writer, " ")
 		}

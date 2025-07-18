@@ -8,7 +8,6 @@ import (
 	"math/rand"
 
 	"github.com/MaxHalford/eaopt"
-	corpus "github.com/rbscholtus/kb/internal/corpus"
 )
 
 func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 {
@@ -27,11 +26,6 @@ func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 
 			t := 1.0 - float64(g)/float64(ng)
 			return t
 		}
-	case "cold":
-		return func(g, ng uint, e0, e1 float64) float64 {
-			t := 1.0 - float64(g)/float64(ng)
-			return 0.5 * t
-		}
 	case "drop-fast":
 		return func(g, ng uint, e0, e1 float64) float64 {
 			t := 1.0 - float64(g)/float64(ng)
@@ -43,7 +37,7 @@ func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 
 }
 
 // Optimise optimizes a keyboard layout using simulated annealing.
-func (sl *SplitLayout) Optimise(corp *corpus.Corpus, generations uint, acceptWorse string) *SplitLayout {
+func (sl *SplitLayout) Optimise(corp *Corpus, generations uint, acceptWorse string) *SplitLayout {
 	sl.optCorpus = corp
 
 	// Configure the simulated annealing algorithm.
@@ -64,7 +58,7 @@ func (sl *SplitLayout) Optimise(corp *corpus.Corpus, generations uint, acceptWor
 			return
 		}
 		// best := hof0.Genome.(*SplitLayout)
-		fmt.Printf("Best fitness at generation %3d: %.3f%%\n", ga.Generations, 100*fit)
+		fmt.Printf("Best fitness at generation %d: %.3f%%\n", ga.Generations, 100*fit)
 		minFit = fit
 	}
 
@@ -73,7 +67,7 @@ func (sl *SplitLayout) Optimise(corp *corpus.Corpus, generations uint, acceptWor
 	if err != nil {
 		panic(err)
 	}
-	err = ga.Minimize(func(rng *rand.Rand) eaopt.Genome {
+	err = ga.Minimize(func(_ *rand.Rand) eaopt.Genome {
 		return sl
 	})
 	if err != nil {
@@ -99,7 +93,7 @@ func (sl *SplitLayout) Mutate(rng *rand.Rand) {
 	// Create a slice to store pairs of indexes and keys that are not pinned.
 	pairs := make([]Pair[int, rune], 0, len(sl.Runes))
 	for i, r := range sl.Runes {
-		if r != '~' && !sl.Pinned[i] {
+		if r != 0 && !sl.Pinned[i] {
 			// Add the pair to the slice and increment the count.
 			pairs = append(pairs, Pair[int, rune]{Key: i, Value: r})
 		}
@@ -123,7 +117,7 @@ func (sl *SplitLayout) Mutate(rng *rand.Rand) {
 }
 
 // Crossover does nothing. It is defined only so *SplitLayout implements the eaopt.Genome interface.
-func (sl *SplitLayout) Crossover(other eaopt.Genome, rng *rand.Rand) {}
+func (sl *SplitLayout) Crossover(_ eaopt.Genome, _ *rand.Rand) {}
 
 // Clone returns a copy of the layout.
 func (sl *SplitLayout) Clone() eaopt.Genome {
