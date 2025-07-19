@@ -27,6 +27,7 @@ GUI ??
 
 To do
 -----
+  - replace corpus name and layout name with pointers
   - Add LSB
   - Add scissors
   - add more than 1 layer
@@ -34,8 +35,9 @@ To do
 
 Done
 ----
+  - rename KB file to ly file
+  - Load layout type from kb file
   - pin characters according to a pin file DONE
   - Add bigrams unavailable done
   - Split SFBs in 1U vs 2U done
   - Add SFS done
-  

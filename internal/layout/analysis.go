@@ -3,7 +3,6 @@ package layout
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 )
@@ -170,7 +169,7 @@ func (sa SfbAnalysis) String() string {
 	sb.WriteString(fmt.Sprintf("Top-%d SFBs:\n", printCount))
 	for i := range printCount {
 		sfb := sa.Sfbs[i]
-		sb.WriteString(fmt.Sprintf("%2d. %v (%.2f, %s, %.3f%%)\n",
+		sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n",
 			i+1, sfb.Bigram, sfb.Distance, Comma(sfb.Count), 100*sfb.Percentage))
 	}
 
@@ -217,7 +216,7 @@ func (sl *SplitLayout) AnalyzeSfbs(corp *Corpus) SfbAnalysis {
 		} else if rune0.Finger == rune1.Finger {
 			sfb := Sfb{
 				Bigram:     bi,
-				Distance:   calcDistance(rune0, rune1),
+				Distance:   sl.distances.GetDistance(rune0, rune1),
 				Count:      cnt,
 				Percentage: float64(cnt) / float64(corp.TotalBigramsCount),
 			}
@@ -287,7 +286,7 @@ func (sa SfsAnalysis) SFSString(sfsGt1UCount, sfs1UCount, mergedSfsGt1UCount, me
 		printed = 0
 		sb.WriteString(fmt.Sprintf("Top-%d >1U SFSes:\n", sfsGt1UCount))
 		for _, sfs := range sa.Sfss {
-			if sfs.Distance > 1 {
+			if sfs.Distance > 1.2 {
 				sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n", printed+1,
 					sfs.Trigram, sfs.Distance, Comma(sfs.Count), 100*sfs.Percentage))
 				printed++
@@ -302,7 +301,7 @@ func (sa SfsAnalysis) SFSString(sfsGt1UCount, sfs1UCount, mergedSfsGt1UCount, me
 		sb.WriteString(fmt.Sprintf("Top-%d 1U SFSes:\n", sfs1UCount))
 		printed = 0
 		for _, sfs := range sa.Sfss {
-			if sfs.Distance == 1 {
+			if sfs.Distance <= 1.2 {
 				sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n", printed+1,
 					sfs.Trigram, sfs.Distance, Comma(sfs.Count), 100*sfs.Percentage))
 				printed++
@@ -317,7 +316,7 @@ func (sa SfsAnalysis) SFSString(sfsGt1UCount, sfs1UCount, mergedSfsGt1UCount, me
 		printed = 0
 		sb.WriteString(fmt.Sprintf("Top-%d >1U Merged SFSes:\n", mergedSfsGt1UCount))
 		for _, sfs := range sa.MergedSfss {
-			if sfs.Distance > 1 {
+			if sfs.Distance > 1.2 {
 				sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n", printed+1,
 					sfs.Trigram, sfs.Distance, Comma(sfs.Count), 100*sfs.Percentage))
 				printed++
@@ -332,7 +331,7 @@ func (sa SfsAnalysis) SFSString(sfsGt1UCount, sfs1UCount, mergedSfsGt1UCount, me
 		sb.WriteString(fmt.Sprintf("Top-%d 1U Merged SFSes:\n", mergedSfs1UCount))
 		printed = 0
 		for _, sfs := range sa.MergedSfss {
-			if sfs.Distance == 1 {
+			if sfs.Distance <= 1.2 {
 				sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n", printed+1,
 					sfs.Trigram, sfs.Distance, Comma(sfs.Count), 100*sfs.Percentage))
 				printed++
@@ -390,7 +389,7 @@ func (sl *SplitLayout) AnalyzeSfss(corp *Corpus) SfsAnalysis {
 		if !ok0 || !ok1 || !ok2 {
 			an.Unsupported = append(an.Unsupported, TrigramCount{tri, cnt})
 		} else if rune0.Finger == rune2.Finger && rune0.Finger != rune1.Finger {
-			dist := calcDistance(rune0, rune2)
+			dist := sl.distances.GetDistance(rune0, rune2)
 			perc := float64(cnt) / float64(corp.TotalTrigramsCount)
 
 			sfs := Sfs{
@@ -441,34 +440,4 @@ func (sl *SplitLayout) AnalyzeSfss(corp *Corpus) SfsAnalysis {
 	})
 
 	return an
-}
-
-func calcDistance(rune0 KeyInfo, rune2 KeyInfo) float32 {
-	// thumbs row uses columns
-	if rune0.Row == 3 {
-		if rune0.Column > rune2.Column {
-			return float32(rune0.Column - rune2.Column)
-		}
-		return float32(rune2.Column - rune0.Column)
-	}
-
-	// other fingers, same column diff
-	if rune0.Column == rune2.Column {
-		if rune0.Row > rune2.Row {
-			return float32(rune0.Row - rune2.Row)
-		}
-		return float32(rune2.Row - rune0.Row)
-	}
-
-	// cases of same finger, diff column (index and pinky)
-	dx := IfThen(rune0.Row > rune2.Row, rune0.Row-rune2.Row, rune2.Row-rune0.Row)
-	dy := IfThen(rune0.Column > rune2.Column, rune0.Column-rune2.Column, rune2.Column-rune0.Column)
-	mul := dx*dx + dy*dy
-	if mul == 1 {
-		return 1
-	}
-	if mul == 2 {
-		return math.Sqrt2
-	}
-	return float32(math.Sqrt(float64(mul)))
 }

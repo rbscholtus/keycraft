@@ -7,13 +7,23 @@ import (
 	"strings"
 )
 
+type LayoutType string
+
+const (
+	RowStagLayout LayoutType = "rowstag"
+	OrthoLayout   LayoutType = "ortho"
+	ColStagLayout LayoutType = "colstag"
+)
+
 // SplitLayout represents a split layout layout
 type SplitLayout struct {
-	Filename  string
-	Runes     [42]rune
-	RuneInfo  map[rune]KeyInfo
-	Pinned    [42]bool
-	optCorpus *Corpus
+	Filename   string
+	Runes      [42]rune
+	RuneInfo   map[rune]KeyInfo
+	LayoutType LayoutType
+	distances  *KeyDistance
+	Pinned     [42]bool
+	optCorpus  *Corpus
 }
 
 // KeyInfo represents a key's position on a keyboard
@@ -62,11 +72,13 @@ func NewKeyInfo(row, col uint8) KeyInfo {
 }
 
 // NewSplitLayout creates a new split layout layout
-func NewSplitLayout(filename string, runes [42]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
+func NewSplitLayout(filename string, runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) *SplitLayout {
 	return &SplitLayout{
-		Filename: filename,
-		Runes:    runes,
-		RuneInfo: runeInfo,
+		Filename:   filename,
+		Runes:      runes,
+		RuneInfo:   runeInfo,
+		LayoutType: layoutType,
+		distances:  NewKeyDistance(layoutType),
 	}
 }
 
@@ -134,11 +146,30 @@ func NewLayoutFromFile(filename string) (*SplitLayout, error) {
 	}
 	defer file.Close()
 
+	scanner := bufio.NewScanner(file)
+
+	// Read layout type
+	if !scanner.Scan() {
+		return nil, fmt.Errorf("invalid file format: missing layout type")
+	}
+	layoutTypeStr := strings.TrimSpace(scanner.Text())
+	var layoutType LayoutType
+	switch strings.ToLower(layoutTypeStr) {
+	case "rowstag":
+		layoutType = RowStagLayout
+	case "ortho":
+		layoutType = OrthoLayout
+	case "colstag":
+		layoutType = ColStagLayout
+	default:
+		types := []LayoutType{RowStagLayout, OrthoLayout, ColStagLayout}
+		return nil, fmt.Errorf("invalid layout type: %s. Must be one of: %v", layoutTypeStr, types)
+	}
+
 	var runeArray [42]rune
 	runeInfoMap := make(map[rune]KeyInfo, 42)
 	expectedKeys := []int{12, 12, 12, 6}
 
-	scanner := bufio.NewScanner(file)
 	index := 0
 	for row, expectedKeyCount := range expectedKeys {
 		if !scanner.Scan() {
@@ -174,7 +205,7 @@ func NewLayoutFromFile(filename string) (*SplitLayout, error) {
 		return nil, err
 	}
 
-	return NewSplitLayout(filename, runeArray, runeInfoMap), nil
+	return NewSplitLayout(filename, runeArray, runeInfoMap, layoutType), nil
 }
 
 // SaveToFile saves a layout layout to a text file
@@ -187,6 +218,9 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
+
+	// Write layout type
+	fmt.Fprintln(writer, strings.ToLower(string(sl.LayoutType)))
 
 	writeRune := func(r rune) {
 		switch r {
@@ -274,4 +308,16 @@ func (sl *SplitLayout) LoadPins(filename string) error {
 	}
 
 	return nil
+}
+
+func (sl *SplitLayout) GetDistance(r1, r2 rune) (float32, error) {
+	key1, ok1 := sl.RuneInfo[r1]
+	if !ok1 {
+		return 0, fmt.Errorf("unsupported character in this layout: %c", r1)
+	}
+	key2, ok2 := sl.RuneInfo[r2]
+	if !ok2 {
+		return 0, fmt.Errorf("unsupported character in this layout: %c", r2)
+	}
+	return sl.distances.GetDistance(key1, key2), nil
 }
