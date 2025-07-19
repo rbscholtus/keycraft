@@ -19,12 +19,12 @@ func (sa SfbAnalysis) String() string {
 	t.Style().Title.Align = text.AlignCenter
 
 	t.SetTitle("%s (%s)\nSame Finger Bigrams", sa.SplitLayout.Name, sa.SplitLayout.LayoutType)
-	t.AppendHeader(table.Row{"SFB", "Distance", "Count", "%"})
+	t.AppendHeader(table.Row{"SFB", "Distance", "Count", "%", "   "})
 	for _, sfb := range sa.Sfbs {
 		t.AppendRow([]any{sfb.Bigram, Frac(sfb.Distance), sfb.Count, Perc(sfb.Percentage)})
 	}
 	t.AppendFooter(table.Row{"", "", Comma(sa.TotalSfbCount), Perc(sa.TotalSfbPerc)})
-	t.SetCaption("Corpus: %v (%s bigrams)", sa.Corpus.Name, sa.Corpus.TotalBigramsNoSpace)
+	t.SetCaption("Corpus: %v (%s bigrams)", sa.Corpus.Name, Comma(sa.Corpus.TotalBigramsNoSpace))
 	t.Render()
 
 	return sb.String()
@@ -42,14 +42,14 @@ func (sa SfsAnalysis) String() string {
 	t.Style().Title.Align = text.AlignCenter
 
 	t.SetTitle("%s (%s)\nSame Finger Skipgrams (>=1.2U)", sa.SplitLayout.Name, sa.SplitLayout.LayoutType)
-	t.AppendHeader(table.Row{"SFS", "Distance", "Count", "%"})
-	for _, sfs := range sa.Sfss {
+	t.AppendHeader(table.Row{"SFS", "Distance", "Count", "%", "   "})
+	for _, sfs := range sa.MergedSfss {
 		if sfs.Distance > 1.2 {
 			t.AppendRow([]any{sfs.Trigram, Frac(sfs.Distance), sfs.Count, Perc(sfs.Percentage)})
 		}
 	}
 	t.AppendFooter(table.Row{"", "", Comma(sa.TotalSfsCount), Perc(sa.TotalSfsPerc)})
-	t.SetCaption("Corpus: %v (%s trigrams)", sa.Corpus.Name, sa.Corpus.TotalTrigramsCount)
+	t.SetCaption("Corpus: %v (%s trigrams)", sa.Corpus.Name, Comma(sa.Corpus.TotalTrigramsCount))
 	t.Render()
 
 	return sb.String()
@@ -143,7 +143,7 @@ func (la *LsbAnalysis) String() string {
 	t.Style().Title.Align = text.AlignCenter
 
 	t.SetTitle("%s (%s)\nLateral Stretch Bigrams", la.SplitLayout.Name, la.SplitLayout.LayoutType)
-	t.AppendHeader(table.Row{"LSB", "Distance", "Count", "%"})
+	t.AppendHeader(table.Row{"LSB", "Distance", "Count", "%", "   "})
 	for _, lsb := range la.Lsbs {
 		t.AppendRow([]any{lsb.Bigram, Frac(lsb.Distance), lsb.Count, Perc(lsb.Percentage)})
 	}
