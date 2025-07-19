@@ -152,7 +152,7 @@ func (c *Corpus) loadFromFile(filename string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer CloseFile(file)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

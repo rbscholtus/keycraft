@@ -137,43 +137,23 @@ type Sfb struct {
 	// Count is the count of the SFB.
 	Count uint64
 	// Percentage is the percentage of the SFB.
-	Percentage float64
+	Percentage float32
 }
 
 // SfbAnalysis represents the SFB analysis for a layout and corpus.
 type SfbAnalysis struct {
-	// LayoutName is the name of the layout.
-	LayoutName string
-	// CorpusName is the name of the corpus.
-	CorpusName string
-	// TotalBigrams is the total count of bigrams in the corpus.
-	TotalBigrams uint64
-	// Bigrams not supported by the layout due to missing characters.
-	Unsupported []BigramCount
+	// Reference to the analysed layout.
+	SplitLayout *SplitLayout
+	// Reference to the corpus used to analyse the layout.
+	Corpus *Corpus
 	// Sfbs is a slice of SFBs.
 	Sfbs []Sfb
 	// TotalSfbCount is the total count of SFBs.
 	TotalSfbCount uint64
 	// TotalSfbPerc is the total percentage of SFBs.
-	TotalSfbPerc float64
-}
-
-// String returns a string representation of the SFB analysis.
-func (sa SfbAnalysis) String() string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("Corpus: %s (%s bigrams)\n", sa.CorpusName, Comma(sa.TotalBigrams)))
-	sb.WriteString(fmt.Sprintf("Total SFBs: %s (%.2f%% of corpus) in %v\n",
-		Comma(sa.TotalSfbCount), 100*sa.TotalSfbPerc, sa.LayoutName))
-	printCount := min(10, len(sa.Sfbs))
-	sb.WriteString(fmt.Sprintf("Top-%d SFBs:\n", printCount))
-	for i := range printCount {
-		sfb := sa.Sfbs[i]
-		sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n",
-			i+1, sfb.Bigram, sfb.Distance, Comma(sfb.Count), 100*sfb.Percentage))
-	}
-
-	return sb.String()
+	TotalSfbPerc float32
+	// Bigrams not supported by the layout due to missing characters.
+	Unsupported []BigramCount
 }
 
 // SimpleSfbs returns the SFB percentage for a layout and corpus.
@@ -195,14 +175,15 @@ func (sl *SplitLayout) SimpleSfbs(corp *Corpus) float64 {
 }
 
 // AnalyzeSfbs analyzes the SFBs for a layout and corpus.
-func (sl *SplitLayout) AnalyzeSfbs(corp *Corpus) SfbAnalysis {
+func (sl *SplitLayout) AnalyzeSfbs(corpus *Corpus) SfbAnalysis {
 	an := SfbAnalysis{
-		LayoutName:   sl.Filename,
-		CorpusName:   corp.Name,
-		TotalBigrams: corp.TotalBigramsNoSpace,
+		SplitLayout: sl,
+		Corpus:      corpus,
+		Sfbs:        make([]Sfb, 0),
+		Unsupported: make([]BigramCount, 0),
 	}
 
-	for bi, cnt := range corp.Bigrams {
+	for bi, biCount := range corpus.Bigrams {
 		if bi[0] == bi[1] {
 			// ignore 0U Bigrams
 			continue
@@ -212,21 +193,20 @@ func (sl *SplitLayout) AnalyzeSfbs(corp *Corpus) SfbAnalysis {
 		rune1, ok1 := sl.RuneInfo[bi[1]]
 		if !ok0 || !ok1 {
 			// detected a bigram that has a rune not on the layout
-			an.Unsupported = append(an.Unsupported, BigramCount{bi, cnt})
+			an.Unsupported = append(an.Unsupported, BigramCount{bi, biCount})
 		} else if rune0.Finger == rune1.Finger {
+			biPerc := float32(biCount) / float32(corpus.TotalBigramsNoSpace)
 			sfb := Sfb{
 				Bigram:     bi,
 				Distance:   sl.distances.GetDistance(rune0, rune1),
-				Count:      cnt,
-				Percentage: float64(cnt) / float64(corp.TotalBigramsCount),
+				Count:      biCount,
+				Percentage: biPerc,
 			}
 			an.Sfbs = append(an.Sfbs, sfb)
-			an.TotalSfbCount += cnt
+			an.TotalSfbCount += biCount
+			an.TotalSfbPerc += biPerc
 		}
 	}
-
-	// calculate the percentage in a single div op
-	an.TotalSfbPerc = float64(an.TotalSfbCount) / float64(an.TotalBigrams)
 
 	// sort SFSs by the number of times they occur in the corpus
 	sort.Slice(an.Sfbs, func(i, j int) bool {
@@ -245,104 +225,25 @@ type Sfs struct {
 	// The number of times the SFS occurs in a corpus.
 	Count uint64
 	// Percentage of trigrams in a corpus with this SFS.
-	Percentage float64
+	Percentage float32
 }
 
 // SfsAnalysis represents the SFS analysis for a layout and corpus.
 type SfsAnalysis struct {
-	// LayoutName is the name of the layout.
-	LayoutName string
-	// CorpusName is the name of the corpus.
-	CorpusName string
-	// TotalTrigrams is the total number of trigrams in the corpus.
-	TotalTrigrams uint64
-	// Trigrams not supported by the layout due to missing characters.
-	Unsupported []TrigramCount
+	// Reference to the analysed layout.
+	SplitLayout *SplitLayout
+	// Reference to the corpus used to analyse the layout.
+	Corpus *Corpus
 	// SFSs occurring in the corpus.
 	Sfss []Sfs
 	// TotalSfbCount is the total count of SFSs.
 	TotalSfsCount uint64
 	// TotalSfbPerc is the total percentage of SFSs.
-	TotalSfsPerc float64
+	TotalSfsPerc float32
 	// SFSs with the same first and last character merged.
 	MergedSfss []Sfs
-}
-
-// String returns a string representation of the SFB analysis.
-func (sa SfsAnalysis) String() string {
-	return sa.SFSString(0, 0, 10, 0)
-}
-
-// SFSString returns a string representation of an SfsAnalysis
-func (sa SfsAnalysis) SFSString(sfsGt1UCount, sfs1UCount, mergedSfsGt1UCount, mergedSfs1UCount int) string {
-	var sb strings.Builder
-	var printed int
-
-	sb.WriteString(fmt.Sprintf("Corpus: %s (%s trigrams)\n", sa.CorpusName, Comma(sa.TotalTrigrams)))
-	sb.WriteString(fmt.Sprintf("Total SFSs: %s (%.2f%% of corpus) in %v\n",
-		Comma(sa.TotalSfsCount), 100*sa.TotalSfsPerc, sa.LayoutName))
-
-	if sfsGt1UCount > 0 {
-		printed = 0
-		sb.WriteString(fmt.Sprintf("Top-%d >1U SFSes:\n", sfsGt1UCount))
-		for _, sfs := range sa.Sfss {
-			if sfs.Distance > 1.2 {
-				sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n", printed+1,
-					sfs.Trigram, sfs.Distance, Comma(sfs.Count), 100*sfs.Percentage))
-				printed++
-				if printed >= sfsGt1UCount {
-					break
-				}
-			}
-		}
-	}
-
-	if sfs1UCount > 0 {
-		sb.WriteString(fmt.Sprintf("Top-%d 1U SFSes:\n", sfs1UCount))
-		printed = 0
-		for _, sfs := range sa.Sfss {
-			if sfs.Distance <= 1.2 {
-				sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n", printed+1,
-					sfs.Trigram, sfs.Distance, Comma(sfs.Count), 100*sfs.Percentage))
-				printed++
-				if printed >= sfs1UCount {
-					break
-				}
-			}
-		}
-	}
-
-	if mergedSfsGt1UCount > 0 {
-		printed = 0
-		sb.WriteString(fmt.Sprintf("Top-%d >1U Merged SFSes:\n", mergedSfsGt1UCount))
-		for _, sfs := range sa.MergedSfss {
-			if sfs.Distance > 1.2 {
-				sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n", printed+1,
-					sfs.Trigram, sfs.Distance, Comma(sfs.Count), 100*sfs.Percentage))
-				printed++
-				if printed >= mergedSfsGt1UCount {
-					break
-				}
-			}
-		}
-	}
-
-	if mergedSfs1UCount > 0 {
-		sb.WriteString(fmt.Sprintf("Top-%d 1U Merged SFSes:\n", mergedSfs1UCount))
-		printed = 0
-		for _, sfs := range sa.MergedSfss {
-			if sfs.Distance <= 1.2 {
-				sb.WriteString(fmt.Sprintf("%2d. %v (%.2fU, %s, %.3f%%)\n", printed+1,
-					sfs.Trigram, sfs.Distance, Comma(sfs.Count), 100*sfs.Percentage))
-				printed++
-				if printed >= mergedSfs1UCount {
-					break
-				}
-			}
-		}
-	}
-
-	return sb.String()
+	// Trigrams not supported by the layout due to missing characters.
+	Unsupported []TrigramCount
 }
 
 // SimpleSfss analyzes the SFSs for this layout and some corpus.
@@ -368,16 +269,18 @@ func (sl *SplitLayout) SimpleSfss(corp *Corpus) float64 {
 }
 
 // AnalyzeSfss analyzes the SFSs for this layout and some corpus.
-func (sl *SplitLayout) AnalyzeSfss(corp *Corpus) SfsAnalysis {
+func (sl *SplitLayout) AnalyzeSfss(corpus *Corpus) SfsAnalysis {
 	an := SfsAnalysis{
-		LayoutName:    sl.Filename,
-		CorpusName:    corp.Name,
-		TotalTrigrams: corp.TotalTrigramsCount,
+		SplitLayout: sl,
+		Corpus:      corpus,
+		Sfss:        make([]Sfs, 0),
+		MergedSfss:  make([]Sfs, 0),
+		Unsupported: make([]TrigramCount, 0),
 	}
 
 	merged := make(map[Trigram]Sfs)
 
-	for tri, cnt := range corp.Trigrams {
+	for tri, triCount := range corpus.Trigrams {
 		if tri[0] == tri[2] {
 			// ignore 0U SFS
 			continue
@@ -387,18 +290,18 @@ func (sl *SplitLayout) AnalyzeSfss(corp *Corpus) SfsAnalysis {
 		rune1, ok1 := sl.RuneInfo[tri[1]]
 		rune2, ok2 := sl.RuneInfo[tri[2]]
 		if !ok0 || !ok1 || !ok2 {
-			an.Unsupported = append(an.Unsupported, TrigramCount{tri, cnt})
+			an.Unsupported = append(an.Unsupported, TrigramCount{tri, triCount})
 		} else if rune0.Finger == rune2.Finger && rune0.Finger != rune1.Finger {
-			dist := sl.distances.GetDistance(rune0, rune2)
-			perc := float64(cnt) / float64(corp.TotalTrigramsCount)
-
+			triDist := sl.distances.GetDistance(rune0, rune2)
+			triPerc := float32(triCount) / float32(corpus.TotalTrigramsCount)
 			sfs := Sfs{
 				Trigram:    tri,
-				Distance:   dist,
-				Count:      cnt,
-				Percentage: perc}
+				Distance:   triDist,
+				Count:      triCount,
+				Percentage: triPerc}
 			an.Sfss = append(an.Sfss, sfs)
-			an.TotalSfsCount += cnt
+			an.TotalSfsCount += triCount
+			an.TotalSfsPerc += triPerc
 
 			// keep track of skipgrams with no middle character
 			var mergedTrigram Trigram
@@ -408,22 +311,19 @@ func (sl *SplitLayout) AnalyzeSfss(corp *Corpus) SfsAnalysis {
 				mergedTrigram = Trigram{tri[2], '_', tri[0]}
 			}
 			if existingSfs, ok := merged[mergedTrigram]; ok {
-				existingSfs.Count += cnt
-				existingSfs.Percentage += perc
+				existingSfs.Count += triCount
+				existingSfs.Percentage += triPerc
 				merged[mergedTrigram] = existingSfs
 			} else {
 				merged[mergedTrigram] = Sfs{
 					Trigram:    mergedTrigram,
-					Distance:   dist,
-					Count:      cnt,
-					Percentage: perc,
+					Distance:   triDist,
+					Count:      triCount,
+					Percentage: triPerc,
 				}
 			}
 		}
 	}
-
-	// calculate the percentage in a single div op
-	an.TotalSfsPerc = float64(an.TotalSfsCount) / float64(an.TotalTrigrams)
 
 	// sort SFSs by the number of times they occur in the corpus
 	sort.Slice(an.Sfss, func(i, j int) bool {
@@ -440,4 +340,146 @@ func (sl *SplitLayout) AnalyzeSfss(corp *Corpus) SfsAnalysis {
 	})
 
 	return an
+}
+
+// Lsb represents a Lateral Stretch Bigram (LSB) with its count and percentage.
+type Lsb struct {
+	// Bigram is the LSB bigram.
+	Bigram Bigram
+	// The distance from one key to the next
+	Distance float32
+	// Count is the number of occurrences of the LSB in a corpus.
+	Count uint64
+	// Percentage is the percentage of the corpus with this LSB.
+	Percentage float32
+}
+
+type LsbAnalysis struct {
+	// Reference to the analysed layout.
+	SplitLayout *SplitLayout
+	// Reference to the corpus used to analyse the layout.
+	Corpus *Corpus
+	// LSBs occurring in the corpus.
+	Lsbs []Lsb
+	// TotalLsbCount is the total number of LSB occurences in the corpus.
+	TotalLsbCount uint64
+	// TotalLsbPerc is the percentage of bigrams in the corpus that are LSB.
+	TotalLsbPerc float32
+}
+
+func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
+	an := &LsbAnalysis{
+		SplitLayout: sl,
+		Corpus:      corpus,
+		Lsbs:        make([]Lsb, 0),
+	}
+
+	sl.analyzeLsbs(corpus, an, 2.0, keyPairs20)
+	sl.analyzeLsbs(corpus, an, 3.5, keyPairs35)
+
+	return an
+}
+
+func (sl *SplitLayout) analyzeLsbs(corpus *Corpus, an *LsbAnalysis, minDistance float32, keyPairs [][2]int) {
+	for _, pair := range keyPairs {
+		r0, r1 := sl.Runes[pair[0]], sl.Runes[pair[1]]
+		if r0 == 0 || r1 == 0 {
+			// position on layout has no character
+			continue
+		}
+
+		// look up the bigram in the corpus
+		lsbBi := Bigram{r0, r1}
+		biCount, ok := corpus.Bigrams[lsbBi]
+		if !ok {
+			// Corpus doesn't have this LSB
+			continue
+		}
+
+		// Look up rune details to get distance
+		biDist, err := sl.GetDistance(r0, r1)
+		if err != nil {
+			panic(fmt.Errorf("internal error finding runes %c or %c: ", r0, r1))
+		}
+		if biDist < minDistance {
+			// ignore bigrams with a short distance
+			continue
+		}
+		biPerc := float32(biCount) / float32(corpus.TotalBigramsCount)
+
+		// Add new LSB, update totals
+		lsb := Lsb{
+			Bigram:     lsbBi,
+			Distance:   biDist,
+			Count:      biCount,
+			Percentage: biPerc,
+		}
+		an.Lsbs = append(an.Lsbs, lsb)
+		an.TotalLsbCount += biCount
+		an.TotalLsbPerc += biPerc
+	}
+}
+
+// LSBs with >=2U
+var keyPairs20 = [][2]int{
+	{0, 2},
+	{0, 14},
+	{0, 26},
+	{12, 2},
+	{12, 14},
+	{12, 26},
+	{24, 2},
+	{24, 14},
+	{24, 26},
+	{3, 5},
+	{3, 17},
+	{3, 29},
+	{15, 5},
+	{15, 17},
+	{15, 29},
+	{27, 5},
+	{27, 17},
+	{27, 29},
+	{6, 8},
+	{6, 20},
+	{6, 32},
+	{18, 8},
+	{18, 20},
+	{18, 32},
+	{30, 8},
+	{30, 20},
+	{30, 32},
+	{9, 11},
+	{9, 23},
+	{9, 35},
+	{21, 11},
+	{21, 23},
+	{21, 35},
+	{33, 11},
+	{33, 23},
+	{33, 35},
+}
+
+// LSBs with >=3.5U
+var keyPairs35 = [][2]int{
+	{2, 16},
+	{2, 17},
+	{2, 28},
+	{2, 29},
+	{14, 28},
+	{14, 29},
+	{26, 4},
+	{26, 5},
+	{26, 16},
+	{26, 17},
+	{9, 18},
+	{9, 19},
+	{9, 30},
+	{9, 31},
+	{21, 6},
+	{21, 7},
+	{33, 6},
+	{33, 7},
+	{33, 18},
+	{33, 19},
 }

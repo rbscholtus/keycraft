@@ -1,7 +1,13 @@
 // Package layout provides common structs and utility functions.
 package layout
 
-import "sort"
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"os"
+	"sort"
+)
 
 // Unigram represents a 1-character sequence
 type Unigram rune
@@ -78,6 +84,14 @@ func Comma(v uint64) string {
 	return string(output)
 }
 
+func Frac(fl float32) string {
+	return fmt.Sprintf("%.2f", fl)
+}
+
+func Perc(fl float32) string {
+	return fmt.Sprintf("%.2f%%", 100*fl)
+}
+
 // IfThen returns a value based on the given condition.
 func IfThen[T any](condition bool, a, b T) T {
 	if condition {
@@ -116,4 +130,18 @@ func SortedMap[K comparable](m map[K]uint64) []CountPair[K] {
 	})
 
 	return pairs
+}
+
+// Closes a file and prints the error, if any
+func CloseFile(file *os.File) {
+	if err := file.Close(); err != nil {
+		log.Printf("Error closing file: %v", err)
+	}
+}
+
+// Flushes the writer and prints the error, if any
+func FlushWriter(writer *bufio.Writer) {
+	if err := writer.Flush(); err != nil {
+		log.Printf("Error flushing writer: %v", err)
+	}
 }

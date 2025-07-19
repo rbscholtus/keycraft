@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	layout "github.com/rbscholtus/kb/internal/layout"
+	ly "github.com/rbscholtus/kb/internal/layout"
 )
 
 func main() {
@@ -14,14 +14,14 @@ func main() {
 	}
 
 	// Load the corpus from the specified file
-	corp, err := layout.NewCorpusFromFile(f.Corpus, "data/corpus/"+f.Corpus)
+	corp, err := ly.NewCorpusFromFile(f.Corpus, "data/corpus/"+f.Corpus)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
 	// Load the layout from the specified file
-	layout, err := layout.NewLayoutFromFile("data/layouts/" + f.Layout)
+	layout, err := ly.NewLayoutFromFile("data/layouts/" + f.Layout)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -32,6 +32,7 @@ func main() {
 		doHandUsage(layout, corp)
 		doSfb(layout, corp)
 		doSfs(layout, corp)
+		doLsb(layout, corp)
 	} else {
 		fmt.Println(layout)
 
@@ -55,18 +56,22 @@ func main() {
 	}
 }
 
-func doHandUsage(lay *layout.SplitLayout, corp *layout.Corpus) {
+func doHandUsage(lay *ly.SplitLayout, corp *ly.Corpus) {
 	handInfo := lay.AnalyzeHandUsage(corp)
 	fmt.Println(handInfo)
-	// godump.Dump(handInfo)
 }
 
-func doSfb(lay *layout.SplitLayout, corp *layout.Corpus) {
+func doSfb(lay *ly.SplitLayout, corp *ly.Corpus) {
 	sfbInfo := lay.AnalyzeSfbs(corp)
 	fmt.Println(sfbInfo)
 }
 
-func doSfs(lay *layout.SplitLayout, corp *layout.Corpus) {
+func doSfs(lay *ly.SplitLayout, corp *ly.Corpus) {
 	sfsInfo := lay.AnalyzeSfss(corp)
 	fmt.Println(sfsInfo)
+}
+
+func doLsb(layout *ly.SplitLayout, corp *ly.Corpus) {
+	lsb := layout.AnalyzeLsbs(corp)
+	fmt.Println(lsb)
 }

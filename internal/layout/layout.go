@@ -4,27 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
-
-type LayoutType string
-
-const (
-	RowStagLayout LayoutType = "rowstag"
-	OrthoLayout   LayoutType = "ortho"
-	ColStagLayout LayoutType = "colstag"
-)
-
-// SplitLayout represents a split layout layout
-type SplitLayout struct {
-	Filename   string
-	Runes      [42]rune
-	RuneInfo   map[rune]KeyInfo
-	LayoutType LayoutType
-	distances  *KeyDistance
-	Pinned     [42]bool
-	optCorpus  *Corpus
-}
 
 // KeyInfo represents a key's position on a keyboard
 type KeyInfo struct {
@@ -71,10 +53,34 @@ func NewKeyInfo(row, col uint8) KeyInfo {
 	}
 }
 
+type LayoutType string
+
+const (
+	RowStagLayout LayoutType = "rowstag"
+	OrthoLayout   LayoutType = "ortho"
+	ColStagLayout LayoutType = "colstag"
+)
+
+// SplitLayout represents a split layout layout
+type SplitLayout struct {
+	Filename   string
+	Name       string
+	Runes      [42]rune
+	RuneInfo   map[rune]KeyInfo
+	LayoutType LayoutType
+	distances  *KeyDistance
+	Pinned     [42]bool
+	optCorpus  *Corpus
+}
+
 // NewSplitLayout creates a new split layout layout
 func NewSplitLayout(filename string, runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) *SplitLayout {
+	base := filepath.Base(filename)
+	name := strings.TrimSuffix(base, filepath.Ext(base))
+
 	return &SplitLayout{
 		Filename:   filename,
+		Name:       name,
 		Runes:      runes,
 		RuneInfo:   runeInfo,
 		LayoutType: layoutType,
@@ -144,7 +150,7 @@ func NewLayoutFromFile(filename string) (*SplitLayout, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer CloseFile(file)
 
 	scanner := bufio.NewScanner(file)
 
@@ -214,22 +220,22 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer CloseFile(file)
 
 	writer := bufio.NewWriter(file)
-	defer writer.Flush()
+	defer FlushWriter(writer)
 
 	// Write layout type
-	fmt.Fprintln(writer, strings.ToLower(string(sl.LayoutType)))
+	_, _ = fmt.Fprintln(writer, strings.ToLower(string(sl.LayoutType)))
 
 	writeRune := func(r rune) {
 		switch r {
 		case 0:
-			fmt.Fprint(writer, "no")
+			_, _ = fmt.Fprint(writer, "no")
 		case ' ':
-			fmt.Fprint(writer, "spc")
+			_, _ = fmt.Fprint(writer, "spc")
 		default:
-			fmt.Fprintf(writer, "%c", r)
+			_, _ = fmt.Fprintf(writer, "%c", r)
 		}
 	}
 
@@ -237,25 +243,25 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 	for row := range 3 {
 		for col := range 12 {
 			if col == 6 {
-				fmt.Fprint(writer, " ")
+				_, _ = fmt.Fprint(writer, " ")
 			}
 			writeRune(sl.Runes[row*12+col])
 			if col < 11 {
-				fmt.Fprint(writer, " ")
+				_, _ = fmt.Fprint(writer, " ")
 			}
 		}
-		fmt.Fprintln(writer)
+		_, _ = fmt.Fprintln(writer)
 	}
 
 	// Write thumbs
-	fmt.Fprint(writer, "      ")
+	_, _ = fmt.Fprint(writer, "      ")
 	for col := range 6 {
 		if col == 3 {
-			fmt.Fprint(writer, " ")
+			_, _ = fmt.Fprint(writer, " ")
 		}
 		writeRune(sl.Runes[36+col])
 		if col < 5 {
-			fmt.Fprint(writer, " ")
+			_, _ = fmt.Fprint(writer, " ")
 		}
 	}
 
@@ -269,7 +275,7 @@ func (sl *SplitLayout) LoadPins(filename string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer CloseFile(file)
 
 	scanner := bufio.NewScanner(file)
 	index := 0
@@ -310,6 +316,8 @@ func (sl *SplitLayout) LoadPins(filename string) error {
 	return nil
 }
 
+// GetDistance finds and returns the distance between two runes measured in U units.
+// Returns an error if one or both keys do not occur on the layout.
 func (sl *SplitLayout) GetDistance(r1, r2 rune) (float32, error) {
 	key1, ok1 := sl.RuneInfo[r1]
 	if !ok1 {
