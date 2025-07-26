@@ -85,7 +85,7 @@ func (c *Corpus) String() string {
 }
 
 // NewCorpusFromFile creates a new corpus loaded from a file
-func NewCorpusFromFile(name string, filename string) (*Corpus, error) {
+func NewCorpusFromFile(name, filename string) (*Corpus, error) {
 	c := NewCorpus(name)
 	err := c.loadFromFile(filename)
 	if err != nil {

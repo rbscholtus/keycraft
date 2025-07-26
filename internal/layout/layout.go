@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -41,8 +40,10 @@ func NewKeyInfo(row, col uint8) KeyInfo {
 	var finger uint8
 	if row < 3 {
 		finger = colToFingerMap[col]
+	} else if col < 3 {
+		finger = 4
 	} else {
-		finger = IfThen(col < 3, uint8(4), uint8(5))
+		finger = 5
 	}
 
 	return KeyInfo{
@@ -61,31 +62,110 @@ const (
 	ColStagLayout LayoutType = "colstag"
 )
 
-// SplitLayout represents a split layout layout
-type SplitLayout struct {
-	Filename   string
-	Name       string
-	Runes      [42]rune
-	RuneInfo   map[rune]KeyInfo
-	LayoutType LayoutType
-	distances  *KeyDistance
-	Pinned     [42]bool
-	optCorpus  *Corpus
+type LSBKeyPair struct {
+	runeIdx1 int
+	runeIdx2 int
+	distance float32
 }
 
-// NewSplitLayout creates a new split layout layout
-func NewSplitLayout(filename string, runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) *SplitLayout {
-	base := filepath.Base(filename)
-	name := strings.TrimSuffix(base, filepath.Ext(base))
+// SplitLayout represents a split layout layout
+type SplitLayout struct {
+	Filename            string
+	Name                string
+	Runes               [42]rune
+	RuneInfo            map[rune]KeyInfo
+	LayoutType          LayoutType
+	KeyPairHorDistances []LSBKeyPair
+	distances           *KeyDistance
+	Pinned              [42]bool
+	optCorpus           *Corpus
+}
 
+// NewSplitLayout creates a new split layout
+func NewSplitLayout(filename, name string, runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) *SplitLayout {
 	return &SplitLayout{
-		Filename:   filename,
-		Name:       name,
-		Runes:      runes,
-		RuneInfo:   runeInfo,
-		LayoutType: layoutType,
-		distances:  NewKeyDistance(layoutType),
+		Filename:            filename,
+		Name:                name,
+		Runes:               runes,
+		RuneInfo:            runeInfo,
+		LayoutType:          layoutType,
+		KeyPairHorDistances: calcKeyPairDistances(runes, runeInfo, layoutType),
+		distances:           NewKeyDistance(layoutType),
 	}
+}
+
+func calcKeyPairDistances(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) []LSBKeyPair {
+	// Get the x "coordinate", which is adjusted for row-staggered keyboards
+	getAdjustedColumn := func(row uint8, column uint8) float32 {
+		if layoutType != RowStagLayout {
+			return float32(column)
+		}
+		switch row {
+		case 1:
+			return float32(column) + 0.25
+		case 2:
+			return float32(column) + 0.75
+		default:
+			return float32(column)
+		}
+	}
+
+	// Which two fingers (nrs 0..9) may form pairs,
+	// and what it the minimum distance (2.0 or 3.5) to note them
+	// Each pair is noted in both directions
+	validFingerPairs := map[[2]uint8]float32{
+		{2, 3}: 2, {3, 2}: 2,
+		{7, 6}: 2, {6, 7}: 2,
+		{1, 3}: 3.5, {3, 1}: 3.5,
+		{8, 6}: 3.5, {6, 8}: 3.5,
+		{0, 1}: 2, {1, 0}: 2,
+		{9, 8}: 2, {8, 9}: 2,
+	}
+
+	keyPairHorDistances := []LSBKeyPair{}
+
+	for i1, rune1 := range runes {
+		if rune1 == 0 {
+			continue
+		}
+		ri1, ok1 := runeInfo[rune1]
+		if !ok1 {
+			continue
+		}
+
+		for i2, rune2 := range runes {
+			if rune2 == 0 || i1 == i2 {
+				continue
+			}
+			ri2, ok2 := runeInfo[rune2]
+			if !ok2 {
+				continue
+			}
+
+			// find a pair of runes on the layout typed by a predefined finger pair
+			fingerPair := [2]uint8{ri1.Finger, ri2.Finger}
+			minHorDistance, ok := validFingerPairs[fingerPair]
+			if !ok {
+				continue
+			}
+
+			// Get horizontal distance and add
+			dx := Abs(getAdjustedColumn(ri1.Row, ri1.Column) - getAdjustedColumn(ri2.Row, ri2.Column))
+			if dx >= minHorDistance {
+				keyPairHorDistances = append(keyPairHorDistances, LSBKeyPair{i1, i2, dx})
+			}
+		}
+	}
+
+	// As per Keyboard Layout Doc, section 7.4.2
+	// Add a few more notable LSBs on row-staggered
+	if layoutType == RowStagLayout {
+		keyPairHorDistances = append(keyPairHorDistances, LSBKeyPair{1, 26, float32(1.75)})
+		keyPairHorDistances = append(keyPairHorDistances, LSBKeyPair{2, 27, float32(1.75)})
+		keyPairHorDistances = append(keyPairHorDistances, LSBKeyPair{3, 28, float32(1.75)})
+	}
+
+	return keyPairHorDistances
 }
 
 // String returns a string representation of the layout layout
@@ -102,6 +182,9 @@ func (sl *SplitLayout) String() string {
 		}
 	}
 
+	sb.WriteString(strings.ToLower(string(sl.LayoutType)))
+	sb.WriteRune('\n')
+
 	for row := range 3 {
 		for col := range 12 {
 			if col == 6 {
@@ -115,7 +198,7 @@ func (sl *SplitLayout) String() string {
 		sb.WriteRune('\n')
 	}
 
-	sb.WriteString("      ")
+	sb.WriteString("    ")
 
 	for col := range 6 {
 		if col == 3 {
@@ -145,7 +228,7 @@ func (sl *SplitLayout) StringRunes() string {
 //
 //	3 lines of 12 keys each (6 left, 6 right)
 //	1 line of 6 thumb keys (3 left, 3 right)
-func NewLayoutFromFile(filename string) (*SplitLayout, error) {
+func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -211,7 +294,7 @@ func NewLayoutFromFile(filename string) (*SplitLayout, error) {
 		return nil, err
 	}
 
-	return NewSplitLayout(filename, runeArray, runeInfoMap, layoutType), nil
+	return NewSplitLayout(filename, name, runeArray, runeInfoMap, layoutType), nil
 }
 
 // SaveToFile saves a layout layout to a text file
@@ -225,9 +308,6 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 	writer := bufio.NewWriter(file)
 	defer FlushWriter(writer)
 
-	// Write layout type
-	_, _ = fmt.Fprintln(writer, strings.ToLower(string(sl.LayoutType)))
-
 	writeRune := func(r rune) {
 		switch r {
 		case 0:
@@ -238,6 +318,9 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 			_, _ = fmt.Fprintf(writer, "%c", r)
 		}
 	}
+
+	// Write layout type
+	_, _ = fmt.Fprintln(writer, strings.ToLower(string(sl.LayoutType)))
 
 	// Write main keys
 	for row := range 3 {
@@ -254,7 +337,7 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 	}
 
 	// Write thumbs
-	_, _ = fmt.Fprint(writer, "      ")
+	_, _ = fmt.Fprint(writer, "    ")
 	for col := range 6 {
 		if col == 3 {
 			_, _ = fmt.Fprint(writer, " ")

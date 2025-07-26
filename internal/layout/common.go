@@ -145,3 +145,10 @@ func FlushWriter(writer *bufio.Writer) {
 		log.Printf("Error flushing writer: %v", err)
 	}
 }
+
+func Abs(x float32) float32 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}

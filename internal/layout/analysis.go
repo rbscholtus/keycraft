@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 )
 
 // Usage represents the usage statistics for a hand, row, column, or finger.
@@ -154,6 +157,26 @@ type SfbAnalysis struct {
 	TotalSfbPerc float32
 	// Bigrams not supported by the layout due to missing characters.
 	Unsupported []BigramCount
+	//
+	NumRowsInOutput int
+}
+
+// String returns a string representation of the SFB analysis.
+func (sa SfbAnalysis) String() string {
+	t := table.NewWriter()
+	t.SetAutoIndex(true)
+	t.SortBy([]table.SortBy{{Name: "Count", Mode: table.DscNumeric}})
+	t.SetStyle(table.StyleColoredBlackOnCyanWhite)
+	t.Style().Title.Align = text.AlignCenter
+
+	t.SetTitle("Same Finger Bigrams")
+	t.AppendHeader(table.Row{"SFB", "Distance", "Count", "%", "   "})
+	for _, sfb := range sa.Sfbs {
+		t.AppendRow([]any{sfb.Bigram, Frac(sfb.Distance), sfb.Count, Perc(sfb.Percentage)})
+	}
+	t.AppendFooter(table.Row{"", "", Comma(sa.TotalSfbCount), Perc(sa.TotalSfbPerc)})
+
+	return t.Pager(table.PageSize(sa.NumRowsInOutput)).Render()
 }
 
 // SimpleSfbs returns the SFB percentage for a layout and corpus.
@@ -177,10 +200,11 @@ func (sl *SplitLayout) SimpleSfbs(corp *Corpus) float64 {
 // AnalyzeSfbs analyzes the SFBs for a layout and corpus.
 func (sl *SplitLayout) AnalyzeSfbs(corpus *Corpus) SfbAnalysis {
 	an := SfbAnalysis{
-		SplitLayout: sl,
-		Corpus:      corpus,
-		Sfbs:        make([]Sfb, 0),
-		Unsupported: make([]BigramCount, 0),
+		SplitLayout:     sl,
+		Corpus:          corpus,
+		Sfbs:            make([]Sfb, 0),
+		Unsupported:     make([]BigramCount, 0),
+		NumRowsInOutput: 10,
 	}
 
 	for bi, biCount := range corpus.Bigrams {
@@ -244,6 +268,30 @@ type SfsAnalysis struct {
 	MergedSfss []Sfs
 	// Trigrams not supported by the layout due to missing characters.
 	Unsupported []TrigramCount
+	//
+	NumRowsInOutput int
+	//
+	MinDistanceInOutput float32
+}
+
+// String returns a string representation of the SFS analysis.
+func (sa SfsAnalysis) String() string {
+	t := table.NewWriter()
+	t.SetAutoIndex(true)
+	t.SortBy([]table.SortBy{{Name: "Count", Mode: table.DscNumeric}})
+	t.SetStyle(table.StyleColoredCyanWhiteOnBlack)
+	t.Style().Title.Align = text.AlignCenter
+
+	t.SetTitle("Same Finger Skipgrams (>=1.2U)")
+	t.AppendHeader(table.Row{"SFS", "Distance", "Count", "%", "   "})
+	for _, sfs := range sa.MergedSfss {
+		if sfs.Distance >= sa.MinDistanceInOutput {
+			t.AppendRow([]any{sfs.Trigram, Frac(sfs.Distance), sfs.Count, Perc(sfs.Percentage)})
+		}
+	}
+	t.AppendFooter(table.Row{"", "", Comma(sa.TotalSfsCount), Perc(sa.TotalSfsPerc)})
+
+	return t.Pager(table.PageSize(sa.NumRowsInOutput)).Render()
 }
 
 // SimpleSfss analyzes the SFSs for this layout and some corpus.
@@ -271,11 +319,13 @@ func (sl *SplitLayout) SimpleSfss(corp *Corpus) float64 {
 // AnalyzeSfss analyzes the SFSs for this layout and some corpus.
 func (sl *SplitLayout) AnalyzeSfss(corpus *Corpus) SfsAnalysis {
 	an := SfsAnalysis{
-		SplitLayout: sl,
-		Corpus:      corpus,
-		Sfss:        make([]Sfs, 0),
-		MergedSfss:  make([]Sfs, 0),
-		Unsupported: make([]TrigramCount, 0),
+		SplitLayout:         sl,
+		Corpus:              corpus,
+		Sfss:                make([]Sfs, 0),
+		MergedSfss:          make([]Sfs, 0),
+		Unsupported:         make([]TrigramCount, 0),
+		NumRowsInOutput:     10,
+		MinDistanceInOutput: 1.2,
 	}
 
 	merged := make(map[Trigram]Sfs)
@@ -346,8 +396,8 @@ func (sl *SplitLayout) AnalyzeSfss(corpus *Corpus) SfsAnalysis {
 type Lsb struct {
 	// Bigram is the LSB bigram.
 	Bigram Bigram
-	// The distance from one key to the next
-	Distance float32
+	// The horizontal distance from one key to the next
+	HorDistance float32
 	// Count is the number of occurrences of the LSB in a corpus.
 	Count uint64
 	// Percentage is the percentage of the corpus with this LSB.
@@ -365,121 +415,90 @@ type LsbAnalysis struct {
 	TotalLsbCount uint64
 	// TotalLsbPerc is the percentage of bigrams in the corpus that are LSB.
 	TotalLsbPerc float32
+	//
+	NumRowsInOutput int
 }
 
-func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
-	an := &LsbAnalysis{
-		SplitLayout: sl,
-		Corpus:      corpus,
-		Lsbs:        make([]Lsb, 0),
-	}
+func (sl *SplitLayout) SimpleLsbs(corpus *Corpus) float64 {
+	var totalLsbCount uint64
 
-	sl.analyzeLsbs(corpus, an, 2.0, keyPairs20)
-	sl.analyzeLsbs(corpus, an, 3.5, keyPairs35)
-
-	return an
-}
-
-func (sl *SplitLayout) analyzeLsbs(corpus *Corpus, an *LsbAnalysis, minDistance float32, keyPairs [][2]int) {
-	for _, pair := range keyPairs {
-		r0, r1 := sl.Runes[pair[0]], sl.Runes[pair[1]]
+	for _, pair := range sl.KeyPairHorDistances {
+		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
-			continue
+			panic(fmt.Errorf("%c or %c not found on layout, which should be impossible", r0, r1))
 		}
 
 		// look up the bigram in the corpus
 		lsbBi := Bigram{r0, r1}
 		biCount, ok := corpus.Bigrams[lsbBi]
 		if !ok {
-			// Corpus doesn't have this LSB
+			// Corpus doesn't have this LSB, yay!
 			continue
 		}
 
-		// Look up rune details to get distance
-		biDist, err := sl.GetDistance(r0, r1)
-		if err != nil {
-			panic(fmt.Errorf("internal error finding runes %c or %c: ", r0, r1))
+		totalLsbCount += biCount
+	}
+
+	// This doesn't take into account the distance of each LSB!
+
+	return float64(totalLsbCount) / float64(corpus.TotalBigramsCount)
+}
+
+func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
+	an := &LsbAnalysis{
+		SplitLayout:     sl,
+		Corpus:          corpus,
+		Lsbs:            make([]Lsb, 0),
+		NumRowsInOutput: 10,
+	}
+
+	for _, pair := range sl.KeyPairHorDistances {
+		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
+		if r0 == 0 || r1 == 0 {
+			// position on layout has no character
+			panic(fmt.Errorf("%c or %c not found on layout, which should be impossible", r0, r1))
 		}
-		if biDist < minDistance {
-			// ignore bigrams with a short distance
+
+		// look up the bigram in the corpus
+		lsbBi := Bigram{r0, r1}
+		biCount, ok := corpus.Bigrams[lsbBi]
+		if !ok {
+			// Corpus doesn't have this LSB, yay!
 			continue
 		}
+
 		biPerc := float32(biCount) / float32(corpus.TotalBigramsCount)
 
 		// Add new LSB, update totals
 		lsb := Lsb{
-			Bigram:     lsbBi,
-			Distance:   biDist,
-			Count:      biCount,
-			Percentage: biPerc,
+			Bigram:      lsbBi,
+			HorDistance: pair.distance,
+			Count:       biCount,
+			Percentage:  biPerc,
 		}
 		an.Lsbs = append(an.Lsbs, lsb)
 		an.TotalLsbCount += biCount
 		an.TotalLsbPerc += biPerc
 	}
+
+	return an
 }
 
-// LSBs with >=2U
-var keyPairs20 = [][2]int{
-	{0, 2},
-	{0, 14},
-	{0, 26},
-	{12, 2},
-	{12, 14},
-	{12, 26},
-	{24, 2},
-	{24, 14},
-	{24, 26},
-	{3, 5},
-	{3, 17},
-	{3, 29},
-	{15, 5},
-	{15, 17},
-	{15, 29},
-	{27, 5},
-	{27, 17},
-	{27, 29},
-	{6, 8},
-	{6, 20},
-	{6, 32},
-	{18, 8},
-	{18, 20},
-	{18, 32},
-	{30, 8},
-	{30, 20},
-	{30, 32},
-	{9, 11},
-	{9, 23},
-	{9, 35},
-	{21, 11},
-	{21, 23},
-	{21, 35},
-	{33, 11},
-	{33, 23},
-	{33, 35},
-}
+// String returns a string representation of the LSB analysis.
+func (la *LsbAnalysis) String() string {
+	t := table.NewWriter()
+	t.SetAutoIndex(true)
+	t.SortBy([]table.SortBy{{Name: "Count", Mode: table.DscNumeric}})
+	t.SetStyle(table.StyleColoredBlackOnBlueWhite)
+	t.Style().Title.Align = text.AlignCenter
 
-// LSBs with >=3.5U
-var keyPairs35 = [][2]int{
-	{2, 16},
-	{2, 17},
-	{2, 28},
-	{2, 29},
-	{14, 28},
-	{14, 29},
-	{26, 4},
-	{26, 5},
-	{26, 16},
-	{26, 17},
-	{9, 18},
-	{9, 19},
-	{9, 30},
-	{9, 31},
-	{21, 6},
-	{21, 7},
-	{33, 6},
-	{33, 7},
-	{33, 18},
-	{33, 19},
+	t.SetTitle("Lateral Stretch Bigrams")
+	t.AppendHeader(table.Row{"LSB", "Distance", "Count", "%", "   "})
+	for _, lsb := range la.Lsbs {
+		t.AppendRow([]any{lsb.Bigram, Frac(lsb.HorDistance), lsb.Count, Perc(lsb.Percentage)})
+	}
+	t.AppendFooter(table.Row{"", "", Comma(la.TotalLsbCount), Perc(la.TotalLsbPerc)})
+
+	return t.Pager(table.PageSize(la.NumRowsInOutput)).Render()
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	ly "github.com/rbscholtus/kb/internal/layout"
 )
 
@@ -21,7 +22,7 @@ func main() {
 	}
 
 	// Load the layout from the specified file
-	layout, err := ly.NewLayoutFromFile("data/layouts/" + f.Layout)
+	layout, err := ly.NewLayoutFromFile(f.Layout, "data/layouts/"+f.Layout)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -30,9 +31,16 @@ func main() {
 	if !f.Optimize {
 		fmt.Println(layout)
 		doHandUsage(layout, corp)
-		doSfb(layout, corp)
-		doSfs(layout, corp)
-		doLsb(layout, corp)
+		sfb := layout.AnalyzeSfbs(corp)
+		sfs := layout.AnalyzeSfss(corp)
+		lsb := layout.AnalyzeLsbs(corp)
+
+		twOuter := table.NewWriter()
+		twOuter.AppendRow(table.Row{sfb, sfs})
+		twOuter.AppendRow(table.Row{lsb, ""})
+		twOuter.SetStyle(table.StyleLight)
+		twOuter.Style().Options.SeparateRows = true
+		fmt.Println(twOuter.Render())
 	} else {
 		fmt.Println(layout)
 
@@ -48,6 +56,7 @@ func main() {
 		doHandUsage(best, corp)
 		doSfb(best, corp)
 		doSfs(best, corp)
+		doLsb(best, corp)
 
 		err := best.SaveToFile("best.kb")
 		if err != nil {
