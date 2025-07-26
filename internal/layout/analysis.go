@@ -165,16 +165,22 @@ type SfbAnalysis struct {
 func (sa SfbAnalysis) String() string {
 	t := table.NewWriter()
 	t.SetAutoIndex(true)
-	t.SortBy([]table.SortBy{{Name: "Count", Mode: table.DscNumeric}})
 	t.SetStyle(table.StyleColoredBlackOnCyanWhite)
 	t.Style().Title.Align = text.AlignCenter
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Name: "orderby", Hidden: true},
+		{Name: "Distance", Transformer: Fraction},
+		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
+		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
+	})
+	t.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
 
 	t.SetTitle("Same Finger Bigrams")
-	t.AppendHeader(table.Row{"SFB", "Distance", "Count", "%", "   "})
+	t.AppendHeader(table.Row{"orderby", "SFB", "Distance", "Count", "%", "   "})
 	for _, sfb := range sa.Sfbs {
-		t.AppendRow([]any{sfb.Bigram, Frac(sfb.Distance), sfb.Count, Perc(sfb.Percentage)})
+		t.AppendRow([]any{sfb.Count, sfb.Bigram, sfb.Distance, sfb.Count, sfb.Percentage})
 	}
-	t.AppendFooter(table.Row{"", "", Comma(sa.TotalSfbCount), Perc(sa.TotalSfbPerc)})
+	t.AppendFooter(table.Row{"", "", "", sa.TotalSfbCount, sa.TotalSfbPerc})
 
 	return t.Pager(table.PageSize(sa.NumRowsInOutput)).Render()
 }
@@ -278,18 +284,24 @@ type SfsAnalysis struct {
 func (sa SfsAnalysis) String() string {
 	t := table.NewWriter()
 	t.SetAutoIndex(true)
-	t.SortBy([]table.SortBy{{Name: "Count", Mode: table.DscNumeric}})
 	t.SetStyle(table.StyleColoredCyanWhiteOnBlack)
 	t.Style().Title.Align = text.AlignCenter
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Name: "orderby", Hidden: true},
+		{Name: "Distance", Transformer: Fraction},
+		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
+		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
+	})
+	t.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
 
 	t.SetTitle("Same Finger Skipgrams (>=1.2U)")
-	t.AppendHeader(table.Row{"SFS", "Distance", "Count", "%", "   "})
+	t.AppendHeader(table.Row{"orderby", "SFS", "Distance", "Count", "%", "   "})
 	for _, sfs := range sa.MergedSfss {
 		if sfs.Distance >= sa.MinDistanceInOutput {
-			t.AppendRow([]any{sfs.Trigram, Frac(sfs.Distance), sfs.Count, Perc(sfs.Percentage)})
+			t.AppendRow([]any{sfs.Count, sfs.Trigram, sfs.Distance, sfs.Count, sfs.Percentage})
 		}
 	}
-	t.AppendFooter(table.Row{"", "", Comma(sa.TotalSfsCount), Perc(sa.TotalSfsPerc)})
+	t.AppendFooter(table.Row{"", "", "", sa.TotalSfsCount, sa.TotalSfsPerc})
 
 	return t.Pager(table.PageSize(sa.NumRowsInOutput)).Render()
 }
@@ -419,6 +431,31 @@ type LsbAnalysis struct {
 	NumRowsInOutput int
 }
 
+// String returns a string representation of the LSB analysis.
+func (la *LsbAnalysis) String() string {
+
+	t := table.NewWriter()
+	t.SetAutoIndex(true)
+	t.SetStyle(table.StyleColoredBlackOnBlueWhite)
+	t.Style().Title.Align = text.AlignCenter
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Name: "orderby", Hidden: true},
+		{Name: "Distance", Transformer: Fraction},
+		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
+		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
+	})
+	t.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
+
+	t.SetTitle("Lateral Stretch Bigrams")
+	t.AppendHeader(table.Row{"orderby", "LSB", "Distance", "Count", "%", "   "})
+	for _, lsb := range la.Lsbs {
+		t.AppendRow([]any{lsb.Count, lsb.Bigram, lsb.HorDistance, lsb.Count, lsb.Percentage})
+	}
+	t.AppendFooter(table.Row{"", "", "", la.TotalLsbCount, la.TotalLsbPerc})
+
+	return t.Pager(table.PageSize(la.NumRowsInOutput)).Render()
+}
+
 func (sl *SplitLayout) SimpleLsbs(corpus *Corpus) float64 {
 	var totalLsbCount uint64
 
@@ -483,22 +520,4 @@ func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
 	}
 
 	return an
-}
-
-// String returns a string representation of the LSB analysis.
-func (la *LsbAnalysis) String() string {
-	t := table.NewWriter()
-	t.SetAutoIndex(true)
-	t.SortBy([]table.SortBy{{Name: "Count", Mode: table.DscNumeric}})
-	t.SetStyle(table.StyleColoredBlackOnBlueWhite)
-	t.Style().Title.Align = text.AlignCenter
-
-	t.SetTitle("Lateral Stretch Bigrams")
-	t.AppendHeader(table.Row{"LSB", "Distance", "Count", "%", "   "})
-	for _, lsb := range la.Lsbs {
-		t.AppendRow([]any{lsb.Bigram, Frac(lsb.HorDistance), lsb.Count, Perc(lsb.Percentage)})
-	}
-	t.AppendFooter(table.Row{"", "", Comma(la.TotalLsbCount), Perc(la.TotalLsbPerc)})
-
-	return t.Pager(table.PageSize(la.NumRowsInOutput)).Render()
 }

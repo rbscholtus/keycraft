@@ -84,12 +84,25 @@ func Comma(v uint64) string {
 	return string(output)
 }
 
-func Frac(fl float32) string {
-	return fmt.Sprintf("%.2f", fl)
+func Fraction(val any) string {
+	if number, ok := val.(float32); ok {
+		return fmt.Sprintf("%.2f", number)
+	}
+	return fmt.Sprintf("%v", val)
 }
 
-func Perc(fl float32) string {
-	return fmt.Sprintf("%.2f%%", 100*fl)
+func Percentage(val any) string {
+	if number, ok := val.(float32); ok {
+		return fmt.Sprintf("%.2f%%", 100*number)
+	}
+	return fmt.Sprintf("%v", val)
+}
+
+func Thousands(val any) string {
+	if number, ok := val.(uint64); ok {
+		return Comma(number)
+	}
+	return fmt.Sprintf("%v", val)
 }
 
 // IfThen returns a value based on the given condition.
