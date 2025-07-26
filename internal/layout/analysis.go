@@ -10,6 +10,22 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 )
 
+func createTable(title string, style table.Style) table.Writer {
+	tw := table.NewWriter()
+	tw.SetAutoIndex(true)
+	tw.SetStyle(style)
+	tw.Style().Title.Align = text.AlignCenter
+	tw.SetColumnConfigs([]table.ColumnConfig{
+		{Name: "orderby", Hidden: true},
+		{Name: "Distance", Transformer: Fraction},
+		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
+		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
+	})
+	tw.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
+	tw.SetTitle(title)
+	return tw
+}
+
 // Usage represents the usage statistics for a hand, row, column, or finger.
 type Usage struct {
 	// Count is the total count of key presses.
@@ -163,25 +179,12 @@ type SfbAnalysis struct {
 
 // String returns a string representation of the SFB analysis.
 func (sa SfbAnalysis) String() string {
-	t := table.NewWriter()
-	t.SetAutoIndex(true)
-	t.SetStyle(table.StyleColoredBlackOnCyanWhite)
-	t.Style().Title.Align = text.AlignCenter
-	t.SetColumnConfigs([]table.ColumnConfig{
-		{Name: "orderby", Hidden: true},
-		{Name: "Distance", Transformer: Fraction},
-		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
-		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
-	})
-	t.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
-
-	t.SetTitle("Same Finger Bigrams")
+	t := createTable("Same Finger Bigrams", table.StyleColoredBlackOnCyanWhite)
 	t.AppendHeader(table.Row{"orderby", "SFB", "Distance", "Count", "%", "   "})
 	for _, sfb := range sa.Sfbs {
 		t.AppendRow([]any{sfb.Count, sfb.Bigram, sfb.Distance, sfb.Count, sfb.Percentage})
 	}
 	t.AppendFooter(table.Row{"", "", "", sa.TotalSfbCount, sa.TotalSfbPerc})
-
 	return t.Pager(table.PageSize(sa.NumRowsInOutput)).Render()
 }
 
@@ -282,19 +285,8 @@ type SfsAnalysis struct {
 
 // String returns a string representation of the SFS analysis.
 func (sa SfsAnalysis) String() string {
-	t := table.NewWriter()
-	t.SetAutoIndex(true)
-	t.SetStyle(table.StyleColoredCyanWhiteOnBlack)
-	t.Style().Title.Align = text.AlignCenter
-	t.SetColumnConfigs([]table.ColumnConfig{
-		{Name: "orderby", Hidden: true},
-		{Name: "Distance", Transformer: Fraction},
-		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
-		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
-	})
-	t.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
-
-	t.SetTitle("Same Finger Skipgrams (>=1.2U)")
+	title := fmt.Sprintf("Same Finger Skipgrams (>=%.1fU)", sa.MinDistanceInOutput)
+	t := createTable(title, table.StyleColoredCyanWhiteOnBlack)
 	t.AppendHeader(table.Row{"orderby", "SFS", "Distance", "Count", "%", "   "})
 	for _, sfs := range sa.MergedSfss {
 		if sfs.Distance >= sa.MinDistanceInOutput {
@@ -302,7 +294,6 @@ func (sa SfsAnalysis) String() string {
 		}
 	}
 	t.AppendFooter(table.Row{"", "", "", sa.TotalSfsCount, sa.TotalSfsPerc})
-
 	return t.Pager(table.PageSize(sa.NumRowsInOutput)).Render()
 }
 
@@ -433,26 +424,12 @@ type LsbAnalysis struct {
 
 // String returns a string representation of the LSB analysis.
 func (la *LsbAnalysis) String() string {
-
-	t := table.NewWriter()
-	t.SetAutoIndex(true)
-	t.SetStyle(table.StyleColoredBlackOnBlueWhite)
-	t.Style().Title.Align = text.AlignCenter
-	t.SetColumnConfigs([]table.ColumnConfig{
-		{Name: "orderby", Hidden: true},
-		{Name: "Distance", Transformer: Fraction},
-		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
-		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
-	})
-	t.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
-
-	t.SetTitle("Lateral Stretch Bigrams")
+	t := createTable("Lateral Stretch Bigrams", table.StyleColoredBlackOnBlueWhite)
 	t.AppendHeader(table.Row{"orderby", "LSB", "Distance", "Count", "%", "   "})
 	for _, lsb := range la.Lsbs {
 		t.AppendRow([]any{lsb.Count, lsb.Bigram, lsb.HorDistance, lsb.Count, lsb.Percentage})
 	}
 	t.AppendFooter(table.Row{"", "", "", la.TotalLsbCount, la.TotalLsbPerc})
-
 	return t.Pager(table.PageSize(la.NumRowsInOutput)).Render()
 }
 
