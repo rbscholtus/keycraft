@@ -3,6 +3,7 @@ package layout
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 )
@@ -62,54 +63,77 @@ const (
 	ColStagLayout LayoutType = "colstag"
 )
 
-type LSBKeyPair struct {
+type LSBInfo struct {
 	runeIdx1 int
 	runeIdx2 int
 	distance float32
 }
 
-// SplitLayout represents a split layout layout
+type ScissorInfo struct {
+	runeIdx1   int
+	runeIdx2   int
+	bigram     string // for debugging, should remove at some point
+	fingerDist uint8
+	rowDist    uint8
+	angle      float32
+}
+
+// SplitLayout represents a split layout
 type SplitLayout struct {
-	Filename            string
-	Name                string
-	Runes               [42]rune
-	RuneInfo            map[rune]KeyInfo
-	LayoutType          LayoutType
-	KeyPairHorDistances []LSBKeyPair
-	distances           *KeyDistance
-	Pinned              [42]bool
-	optCorpus           *Corpus
+	Filename    string
+	Name        string
+	Runes       [42]rune
+	RuneInfo    map[rune]KeyInfo
+	LayoutType  LayoutType
+	LSBInfo     []LSBInfo
+	ScissorInfo []ScissorInfo
+	distances   *KeyDistance
+	Pinned      [42]bool
+	optCorpus   *Corpus
 }
 
 // NewSplitLayout creates a new split layout
 func NewSplitLayout(filename, name string, runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) *SplitLayout {
 	return &SplitLayout{
-		Filename:            filename,
-		Name:                name,
-		Runes:               runes,
-		RuneInfo:            runeInfo,
-		LayoutType:          layoutType,
-		KeyPairHorDistances: calcKeyPairDistances(runes, runeInfo, layoutType),
-		distances:           NewKeyDistance(layoutType),
+		Filename:    filename,
+		Name:        name,
+		Runes:       runes,
+		RuneInfo:    runeInfo,
+		LayoutType:  layoutType,
+		LSBInfo:     calcLSBKeyPairs(runes, runeInfo, layoutType),
+		ScissorInfo: calcFSBKeyPairs(runes, runeInfo, layoutType, FsbPairs),
+		distances:   NewKeyDistance(layoutType),
 	}
 }
 
-func calcKeyPairDistances(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) []LSBKeyPair {
-	// Get the x "coordinate", which is adjusted for row-staggered keyboards
-	getAdjustedColumn := func(row uint8, column uint8) float32 {
-		if layoutType != RowStagLayout {
-			return float32(column)
-		}
-		switch row {
-		case 1:
-			return float32(column) + 0.25
-		case 2:
-			return float32(column) + 0.75
-		default:
-			return float32(column)
-		}
+// Get the x "coordinate", which is adjusted for row-staggered keyboards
+func getAdjustedColumnStaggered(row uint8, column uint8) float32 {
+	switch row {
+	case 1:
+		return float32(column) + 0.25
+	case 2:
+		return float32(column) + 0.75
+	default:
+		return float32(column)
 	}
+}
 
+// Get the x "coordinate", which is just the column for ortho and colstag
+func getAdjustedColumn(row uint8, column uint8) float32 {
+	return float32(column)
+}
+
+// Get the y "coordinate", which is adjusted for col-staggered keyboards
+func getAdjustedRowStaggered(row uint8, column uint8) float32 {
+	return float32(row) + colStagOffsets[column]
+}
+
+// Get the y "coordinate", which is just the row for ortho and rowstag
+func getAdjustedRow(row uint8, column uint8) float32 {
+	return float32(row)
+}
+
+func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) []LSBInfo {
 	// Which two fingers (nrs 0..9) may form pairs,
 	// and what it the minimum distance (2.0 or 3.5) to note them
 	// Each pair is noted in both directions
@@ -122,7 +146,14 @@ func calcKeyPairDistances(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType 
 		{9, 8}: 2, {8, 9}: 2,
 	}
 
-	keyPairHorDistances := []LSBKeyPair{}
+	var getColumn func(uint8, uint8) float32
+	if layoutType == RowStagLayout {
+		getColumn = getAdjustedColumnStaggered
+	} else {
+		getColumn = getAdjustedColumn
+	}
+
+	keyPairHorDistances := []LSBInfo{}
 
 	for i1, rune1 := range runes {
 		if rune1 == 0 {
@@ -150,9 +181,9 @@ func calcKeyPairDistances(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType 
 			}
 
 			// Get horizontal distance and add
-			dx := Abs(getAdjustedColumn(ri1.Row, ri1.Column) - getAdjustedColumn(ri2.Row, ri2.Column))
+			dx := Abs(getColumn(ri1.Row, ri1.Column) - getColumn(ri2.Row, ri2.Column))
 			if dx >= minHorDistance {
-				keyPairHorDistances = append(keyPairHorDistances, LSBKeyPair{i1, i2, dx})
+				keyPairHorDistances = append(keyPairHorDistances, LSBInfo{i1, i2, dx})
 			}
 		}
 	}
@@ -160,15 +191,142 @@ func calcKeyPairDistances(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType 
 	// As per Keyboard Layout Doc, section 7.4.2
 	// Add a few more notable LSBs on row-staggered
 	if layoutType == RowStagLayout {
-		keyPairHorDistances = append(keyPairHorDistances, LSBKeyPair{1, 26, float32(1.75)})
-		keyPairHorDistances = append(keyPairHorDistances, LSBKeyPair{2, 27, float32(1.75)})
-		keyPairHorDistances = append(keyPairHorDistances, LSBKeyPair{3, 28, float32(1.75)})
+		keyPairHorDistances = append(keyPairHorDistances, LSBInfo{1, 26, float32(1.75)})
+		keyPairHorDistances = append(keyPairHorDistances, LSBInfo{2, 27, float32(1.75)})
+		keyPairHorDistances = append(keyPairHorDistances, LSBInfo{3, 28, float32(1.75)})
 	}
 
 	return keyPairHorDistances
 }
 
-// String returns a string representation of the layout layout
+var FsbPairs = [][]int{
+	// Full Scissors
+	// left-hand side
+	{26, 1},
+	{27, 2},
+	{27, 4},
+	{27, 5},
+	{26, 4},
+	{26, 5},
+	{27, 1},
+	// right-hand side
+	{33, 10},
+	{32, 9},
+	{32, 7},
+	{32, 6},
+	{33, 7},
+	{33, 6},
+	{32, 10},
+	// pinky is lower than the ring
+	{25, 2},
+	{26, 3},
+	{34, 9},
+	{33, 8},
+	// Half Scissors
+	// left-hand side, row 0/1
+	{14, 1},
+	{15, 2},
+	{15, 4},
+	{15, 5},
+	{14, 4},
+	{14, 5},
+	{15, 1},
+	// left-hand, row 1/2
+	{26, 13},
+	{27, 14},
+	{27, 16},
+	{27, 17},
+	{26, 16},
+	{26, 17},
+	{27, 13},
+	// right-hand side, row 0/1
+	{21, 10},
+	{20, 9},
+	{20, 7},
+	{20, 6},
+	{21, 7},
+	{21, 6},
+	{20, 10},
+	// right-hand, row 1/2
+	{33, 22},
+	{32, 21},
+	{32, 19},
+	{32, 18},
+	{33, 19},
+	{33, 18},
+	{32, 22},
+	// // pinky is lower than the ring, row 0/1
+	// {13, 2},
+	// {14, 3},
+	// {22, 9},
+	// {21, 8},
+	// // pinky is lower than the ring, row 1/2
+	// {25, 14},
+	// {26, 15},
+	// {34, 21},
+	// {33, 20},
+}
+
+func calcFSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType, pairs [][]int) []ScissorInfo {
+	var getColumn, getRow func(uint8, uint8) float32
+	if layoutType == RowStagLayout {
+		getColumn = getAdjustedColumnStaggered
+	} else {
+		getColumn = getAdjustedColumn
+	}
+	if layoutType == ColStagLayout {
+		getRow = getAdjustedRowStaggered
+	} else {
+		getRow = getAdjustedRow
+	}
+
+	var keyPairs []ScissorInfo
+	for _, pair := range pairs {
+		r0, r1 := runes[pair[0]], runes[pair[1]]
+		if r0 == 0 || r1 == 0 {
+			// key on layout has no character
+			continue
+		}
+		ri1, ok := runeInfo[r0]
+		if !ok {
+			continue
+		}
+		ri2, ok := runeInfo[r1]
+		if !ok {
+			continue
+		}
+
+		// Calculate finger and row distance
+		fingerDist := IfThen(ri1.Finger > ri2.Finger, ri1.Finger-ri2.Finger, ri2.Finger-ri1.Finger)
+		rowDist := IfThen(ri1.Row > ri2.Row, ri1.Row-ri2.Row, ri2.Row-ri1.Row)
+
+		// Calculate angle
+		dx := Abs(getColumn(ri1.Row, ri1.Column) - getColumn(ri2.Row, ri2.Column))
+		dy := Abs(getRow(ri1.Row, ri1.Column) - getRow(ri2.Row, ri2.Column))
+		angle := float32(math.Atan2(float64(dy), float64(dx))) * 180 / math.Pi
+
+		// Add the new pair (bi-directional)
+		keyPairs = append(keyPairs, ScissorInfo{
+			runeIdx1:   pair[0],
+			runeIdx2:   pair[1],
+			bigram:     string([]rune{r0, r1}),
+			fingerDist: fingerDist,
+			rowDist:    rowDist,
+			angle:      angle,
+		}, ScissorInfo{
+			runeIdx1:   pair[1],
+			runeIdx2:   pair[0],
+			bigram:     string([]rune{r1, r0}),
+			fingerDist: fingerDist,
+			rowDist:    rowDist,
+			angle:      angle,
+		})
+	}
+
+	return keyPairs
+}
+
+// String returns a string representation of the layout
 func (sl *SplitLayout) String() string {
 	var sb strings.Builder
 	writeRune := func(r rune) {

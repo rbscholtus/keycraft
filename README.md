@@ -27,14 +27,17 @@ GUI ??
 
 To do
 -----
-  - replace corpus name and layout name with pointers
-  - Add LSB
-  - Add scissors
+  - Add trigram analysis
+  - replace corpus name and layout name with pointers (hand analysis)
+  - improve output (hand analysis)
+  - testing and documentation of all analysis
+  - Put Optimise in its own struct
   - add more than 1 layer
-  - Put Optimisise in its own struct
 
 Done
 ----
+  - Add Scissors done
+  - Add LSB done
   - rename KB file to ly file
   - Load layout type from kb file
   - pin characters according to a pin file DONE

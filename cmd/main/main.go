@@ -28,22 +28,9 @@ func main() {
 		return
 	}
 
-	if !f.Optimize {
+	if f.Optimize {
 		fmt.Println(layout)
-		doHandUsage(layout, corp)
-		sfb := layout.AnalyzeSfbs(corp)
-		sfs := layout.AnalyzeSfss(corp)
-		lsb := layout.AnalyzeLsbs(corp)
-
-		twOuter := table.NewWriter()
-		twOuter.AppendRow(table.Row{sfb, sfs})
-		twOuter.AppendRow(table.Row{lsb, ""})
-		twOuter.SetStyle(table.StyleLight)
-		twOuter.Style().Options.SeparateRows = true
-		fmt.Println(twOuter.Render())
-	} else {
-		fmt.Println(layout)
-
+		fmt.Println(layout.AnalyzeScissors(corp))
 		if f.Pins != "" {
 			err := layout.LoadPins("data/pins/" + f.Pins)
 			if err != nil {
@@ -51,14 +38,26 @@ func main() {
 				return
 			}
 		}
-		best := layout.Optimise(corp, f.Generations, f.AcceptWorse)
-		fmt.Println(best)
-		doHandUsage(best, corp)
-		doSfb(best, corp)
-		doSfs(best, corp)
-		doLsb(best, corp)
+		layout = layout.Optimise(corp, f.Generations, f.AcceptWorse)
+	}
 
-		err := best.SaveToFile("best.kb")
+	fmt.Println(layout)
+	doHandUsage(layout, corp)
+	sfb := layout.AnalyzeSfbs(corp)
+	sfs := layout.AnalyzeSfss(corp)
+	lsb := layout.AnalyzeLsbs(corp)
+	fsb := layout.AnalyzeScissors(corp)
+
+	twOuter := table.NewWriter()
+	twOuter.AppendRow(table.Row{sfb, sfs})
+	twOuter.AppendRow(table.Row{lsb, "LSS"})
+	twOuter.AppendRow(table.Row{fsb, "FSS"})
+	twOuter.SetStyle(table.StyleLight)
+	twOuter.Style().Options.SeparateRows = true
+	fmt.Println(twOuter.Render())
+
+	if f.Optimize {
+		err := layout.SaveToFile("best.kb")
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -68,19 +67,4 @@ func main() {
 func doHandUsage(lay *ly.SplitLayout, corp *ly.Corpus) {
 	handInfo := lay.AnalyzeHandUsage(corp)
 	fmt.Println(handInfo)
-}
-
-func doSfb(lay *ly.SplitLayout, corp *ly.Corpus) {
-	sfbInfo := lay.AnalyzeSfbs(corp)
-	fmt.Println(sfbInfo)
-}
-
-func doSfs(lay *ly.SplitLayout, corp *ly.Corpus) {
-	sfsInfo := lay.AnalyzeSfss(corp)
-	fmt.Println(sfsInfo)
-}
-
-func doLsb(layout *ly.SplitLayout, corp *ly.Corpus) {
-	lsb := layout.AnalyzeLsbs(corp)
-	fmt.Println(lsb)
 }

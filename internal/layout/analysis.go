@@ -18,6 +18,7 @@ func createTable(title string, style table.Style) table.Writer {
 	tw.SetColumnConfigs([]table.ColumnConfig{
 		{Name: "orderby", Hidden: true},
 		{Name: "Distance", Transformer: Fraction},
+		{Name: "Angle", Transformer: Fraction},
 		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
 		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
 	})
@@ -436,7 +437,7 @@ func (la *LsbAnalysis) String() string {
 func (sl *SplitLayout) SimpleLsbs(corpus *Corpus) float64 {
 	var totalLsbCount uint64
 
-	for _, pair := range sl.KeyPairHorDistances {
+	for _, pair := range sl.LSBInfo {
 		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
@@ -467,7 +468,7 @@ func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
 		NumRowsInOutput: 10,
 	}
 
-	for _, pair := range sl.KeyPairHorDistances {
+	for _, pair := range sl.LSBInfo {
 		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
@@ -494,6 +495,114 @@ func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
 		an.Lsbs = append(an.Lsbs, lsb)
 		an.TotalLsbCount += biCount
 		an.TotalLsbPerc += biPerc
+	}
+
+	return an
+}
+
+// Scissor represents a Full Scissor Bigram
+type Scissor struct {
+	// Bigram is the Scissor bigram.
+	Bigram Bigram
+	//
+	FingerDistance uint8
+	//
+	RowDistance uint8
+	//
+	Angle float32
+	// Count is the number of occurrences of the Scissor in a corpus.
+	Count uint64
+	// Percentage is the percentage of the corpus with this Scissor.
+	Percentage float32
+}
+
+type ScissorAnalysis struct {
+	// Reference to the analysed layout.
+	SplitLayout *SplitLayout
+	// Reference to the corpus used to analyse the layout.
+	Corpus *Corpus
+	// LSBs occurring in the corpus.
+	Scissors []Scissor
+	// TotalLsbCount is the total number of LSB occurences in the corpus.
+	TotalScissorCount uint64
+	// TotalLsbPerc is the percentage of bigrams in the corpus that are LSB.
+	TotalScissorPerc float32
+	//
+	NumRowsInOutput int
+}
+
+// String returns a string representation of the Scissors analysis.
+func (la *ScissorAnalysis) String() string {
+	t := createTable("Full Scissor Bigrams", table.StyleColoredBlackOnMagentaWhite)
+	t.AppendHeader(table.Row{"orderby", "Bigr", "Adj.", "Row", "Angle", "Count", "%"})
+	for _, sci := range la.Scissors {
+		t.AppendRow([]any{sci.Count, sci.Bigram, sci.FingerDistance, sci.RowDistance, sci.Angle, sci.Count, sci.Percentage})
+	}
+	t.AppendFooter(table.Row{"", "", "", "", "", la.TotalScissorCount, la.TotalScissorPerc})
+	return t.Pager(table.PageSize(la.NumRowsInOutput)).Render()
+}
+
+func (sl *SplitLayout) SimpleScissors(corpus *Corpus) float64 {
+	var totalScissorCount uint64
+
+	for _, pair := range sl.ScissorInfo {
+		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
+		if r0 == 0 || r1 == 0 {
+			// position on layout has no character
+			panic(fmt.Errorf("%c or %c not found on layout, which should be impossible", r0, r1))
+		}
+
+		// look up the bigram in the corpus
+		lsbBi := Bigram{r0, r1}
+		biCount, ok := corpus.Bigrams[lsbBi]
+		if !ok {
+			// Corpus doesn't have this Scissor, yay!
+			continue
+		}
+
+		totalScissorCount += biCount
+	}
+
+	return float64(totalScissorCount) / float64(corpus.TotalBigramsCount)
+}
+
+func (sl *SplitLayout) AnalyzeScissors(corpus *Corpus) *ScissorAnalysis {
+	an := &ScissorAnalysis{
+		SplitLayout:     sl,
+		Corpus:          corpus,
+		Scissors:        make([]Scissor, 0),
+		NumRowsInOutput: 30,
+	}
+
+	for _, pair := range sl.ScissorInfo {
+		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
+		if r0 == 0 || r1 == 0 {
+			// position on layout has no character
+			panic(fmt.Errorf("%c or %c not found on layout, which should be impossible", r0, r1))
+		}
+
+		// look up the bigram in the corpus
+		sciBi := Bigram{r0, r1}
+		biCount, ok := corpus.Bigrams[sciBi]
+		if !ok {
+			// Corpus doesn't have this FSB, yay!
+			continue
+		}
+
+		biPerc := float32(biCount) / float32(corpus.TotalBigramsCount)
+
+		// Add new FSB, update totals
+		scissor := Scissor{
+			Bigram:         sciBi,
+			FingerDistance: pair.fingerDist,
+			RowDistance:    pair.rowDist,
+			Angle:          pair.angle,
+			Count:          biCount,
+			Percentage:     biPerc,
+		}
+		an.Scissors = append(an.Scissors, scissor)
+		an.TotalScissorCount += biCount
+		an.TotalScissorPerc += biPerc
 	}
 
 	return an

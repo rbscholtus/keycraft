@@ -28,7 +28,7 @@ type Bigram [2]rune
 
 // String returns a string representation of the bigram
 func (b Bigram) String() string {
-	return string([]rune{b[0], b[1]})
+	return string(b[:])
 }
 
 // BigramCount represents a bigram and its count

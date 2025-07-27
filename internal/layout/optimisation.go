@@ -85,7 +85,8 @@ func (sl *SplitLayout) Optimise(corp *Corpus, generations uint, acceptWorse stri
 
 // Evaluate evaluates the fitness of the current layout.
 func (sl *SplitLayout) Evaluate() (float64, error) {
-	return 5*sl.SimpleSfbs(sl.optCorpus) + sl.SimpleLsbs(sl.optCorpus), nil
+	// return 5*sl.SimpleSfbs(sl.optCorpus) + sl.SimpleLsbs(sl.optCorpus), nil
+	return sl.SimpleScissors(sl.optCorpus), nil
 }
 
 // Mutate randomly swaps two keys in the layout.
@@ -122,15 +123,16 @@ func (sl *SplitLayout) Crossover(_ eaopt.Genome, _ *rand.Rand) {}
 // Clone returns a copy of the layout.
 func (sl *SplitLayout) Clone() eaopt.Genome {
 	cc := SplitLayout{
-		Filename:            sl.Filename,
-		Name:                sl.Name,
-		Runes:               sl.Runes,
-		RuneInfo:            make(map[rune]KeyInfo),
-		LayoutType:          sl.LayoutType,
-		KeyPairHorDistances: sl.KeyPairHorDistances,
-		distances:           sl.distances,
-		Pinned:              sl.Pinned,
-		optCorpus:           sl.optCorpus,
+		Filename:    sl.Filename,
+		Name:        sl.Name,
+		Runes:       sl.Runes,
+		RuneInfo:    make(map[rune]KeyInfo),
+		LayoutType:  sl.LayoutType,
+		LSBInfo:     sl.LSBInfo,
+		ScissorInfo: sl.ScissorInfo,
+		distances:   sl.distances,
+		Pinned:      sl.Pinned,
+		optCorpus:   sl.optCorpus,
 	}
 
 	maps.Copy(cc.RuneInfo, sl.RuneInfo)
