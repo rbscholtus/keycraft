@@ -8,6 +8,25 @@ import (
 	"strings"
 )
 
+const (
+	LP uint8 = iota
+	LR
+	LM
+	LI
+	LT
+
+	RT
+	RI
+	RM
+	RR
+	RP
+)
+
+var colToFingerMap = [...]uint8{
+	LP, LP, LR, LM, LI, LI,
+	RI, RI, RM, RR, RP, RP,
+}
+
 // KeyInfo represents a key's position on a keyboard
 type KeyInfo struct {
 	// Char   rune
@@ -15,11 +34,6 @@ type KeyInfo struct {
 	Row    uint8  // 0-3
 	Column uint8  // 0-11 for Row=0-2, 0-5 for Row=3
 	Finger uint8  // 0-9
-}
-
-var colToFingerMap = [...]uint8{
-	0, 0, 1, 2, 3, 3,
-	6, 6, 7, 8, 9, 9,
 }
 
 // NewKeyInfo returns a new KeyInfo struct with some fields derived from row and col.
@@ -58,20 +72,20 @@ func NewKeyInfo(row, col uint8) KeyInfo {
 type LayoutType string
 
 const (
-	RowStagLayout LayoutType = "rowstag"
-	OrthoLayout   LayoutType = "ortho"
-	ColStagLayout LayoutType = "colstag"
+	ROWSTAG LayoutType = "rowstag"
+	ORTHO   LayoutType = "ortho"
+	COLSTAG LayoutType = "colstag"
 )
 
 type LSBInfo struct {
-	runeIdx1 int
-	runeIdx2 int
+	keyIdx1  int
+	keyIdx2  int
 	distance float32
 }
 
 type ScissorInfo struct {
-	runeIdx1   int
-	runeIdx2   int
+	keyIdx1    int
+	keyIdx2    int
 	bigram     string // for debugging, should remove at some point
 	fingerDist uint8
 	rowDist    uint8
@@ -147,7 +161,7 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType Layou
 	}
 
 	var getColumn func(uint8, uint8) float32
-	if layoutType == RowStagLayout {
+	if layoutType == ROWSTAG {
 		getColumn = getAdjustedColumnStaggered
 	} else {
 		getColumn = getAdjustedColumn
@@ -190,7 +204,7 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType Layou
 
 	// As per Keyboard Layout Doc, section 7.4.2
 	// Add a few more notable LSBs on row-staggered
-	if layoutType == RowStagLayout {
+	if layoutType == ROWSTAG {
 		keyPairHorDistances = append(keyPairHorDistances, LSBInfo{1, 26, float32(1.75)})
 		keyPairHorDistances = append(keyPairHorDistances, LSBInfo{2, 27, float32(1.75)})
 		keyPairHorDistances = append(keyPairHorDistances, LSBInfo{3, 28, float32(1.75)})
@@ -269,12 +283,12 @@ var FsbPairs = [][]int{
 
 func calcFSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType, pairs [][]int) []ScissorInfo {
 	var getColumn, getRow func(uint8, uint8) float32
-	if layoutType == RowStagLayout {
+	if layoutType == ROWSTAG {
 		getColumn = getAdjustedColumnStaggered
 	} else {
 		getColumn = getAdjustedColumn
 	}
-	if layoutType == ColStagLayout {
+	if layoutType == COLSTAG {
 		getRow = getAdjustedRowStaggered
 	} else {
 		getRow = getAdjustedRow
@@ -307,15 +321,15 @@ func calcFSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, layoutType Layou
 
 		// Add the new pair (bi-directional)
 		keyPairs = append(keyPairs, ScissorInfo{
-			runeIdx1:   pair[0],
-			runeIdx2:   pair[1],
+			keyIdx1:    pair[0],
+			keyIdx2:    pair[1],
 			bigram:     string([]rune{r0, r1}),
 			fingerDist: fingerDist,
 			rowDist:    rowDist,
 			angle:      angle,
 		}, ScissorInfo{
-			runeIdx1:   pair[1],
-			runeIdx2:   pair[0],
+			keyIdx1:    pair[1],
+			keyIdx2:    pair[0],
 			bigram:     string([]rune{r1, r0}),
 			fingerDist: fingerDist,
 			rowDist:    rowDist,
@@ -403,13 +417,13 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 	var layoutType LayoutType
 	switch strings.ToLower(layoutTypeStr) {
 	case "rowstag":
-		layoutType = RowStagLayout
+		layoutType = ROWSTAG
 	case "ortho":
-		layoutType = OrthoLayout
+		layoutType = ORTHO
 	case "colstag":
-		layoutType = ColStagLayout
+		layoutType = COLSTAG
 	default:
-		types := []LayoutType{RowStagLayout, OrthoLayout, ColStagLayout}
+		types := []LayoutType{ROWSTAG, ORTHO, COLSTAG}
 		return nil, fmt.Errorf("invalid layout type: %s. Must be one of: %v", layoutTypeStr, types)
 	}
 

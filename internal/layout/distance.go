@@ -63,11 +63,11 @@ func (kd *KeyDistance) GetDistance(key1, key2 KeyInfo) float32 {
 func (kd *KeyDistance) calculateDistance(kp KeyPair) float32 {
 	// We assume keys are always on the same finger, and KeyPair is symmetric.
 	switch kd.layoutType {
-	case OrthoLayout:
+	case ORTHO:
 		return calcDistOrtho(kp)
-	case RowStagLayout:
+	case ROWSTAG:
 		return calcDistRowStag(kp)
-	case ColStagLayout:
+	case COLSTAG:
 		return calcDistColStag(kp)
 	default:
 		panic("unsupported layout type")

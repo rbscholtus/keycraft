@@ -339,7 +339,7 @@ func (sl *SplitLayout) SimpleLsbs(corpus *Corpus) float64 {
 	var totalLsbCount uint64
 
 	for _, pair := range sl.LSBInfo {
-		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
+		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
 			panic(fmt.Errorf("%c or %c not found on layout, which should be impossible", r0, r1))
@@ -370,7 +370,7 @@ func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
 	}
 
 	for _, pair := range sl.LSBInfo {
-		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
+		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
 			panic(fmt.Errorf("%c or %c not found on layout, which should be impossible", r0, r1))
@@ -436,7 +436,7 @@ func (sl *SplitLayout) SimpleScissors(corpus *Corpus) float64 {
 	var totalScissorCount uint64
 
 	for _, pair := range sl.ScissorInfo {
-		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
+		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
 			panic(fmt.Errorf("%c or %c not found on layout, which should be impossible", r0, r1))
@@ -465,7 +465,7 @@ func (sl *SplitLayout) AnalyzeScissors(corpus *Corpus) *ScissorAnalysis {
 	}
 
 	for _, pair := range sl.ScissorInfo {
-		r0, r1 := sl.Runes[pair.runeIdx1], sl.Runes[pair.runeIdx2]
+		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
 			panic(fmt.Errorf("%c or %c not found on layout, which should be impossible", r0, r1))
