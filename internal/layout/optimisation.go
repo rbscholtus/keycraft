@@ -102,7 +102,7 @@ func (sl *SplitLayout) Mutate(rng *rand.Rand) {
 
 	// Check if there are at least two pairs to swap.
 	if len(pairs) < 2 {
-		panic(fmt.Sprintf("Not enough keys on this layout to make a swap: %d", len(pairs)))
+		panic(fmt.Sprintf("Not enough unpinned keys on this layout to make a swap: %d", len(pairs)))
 	}
 
 	// Generate two random indexes for the pairs to swap.
