@@ -126,11 +126,11 @@ func (c *Corpus) AddText(text string) {
 	text = strings.ToLower(text)
 	var prev1, prev2 rune
 	for _, r := range text {
-		// if unicode.IsSpace(r) {
-		// 	prev1 = 0
-		// 	prev2 = 0
-		// 	continue
-		// }
+		if unicode.IsSpace(r) {
+			prev1 = 0
+			prev2 = 0
+			continue
+		}
 
 		c.AddUnigram(Unigram(r))
 		if prev1 != 0 {
