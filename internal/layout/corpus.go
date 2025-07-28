@@ -136,10 +136,11 @@ func (c *Corpus) AddText(text string) {
 		if prev1 != 0 {
 			bigram := Bigram{prev1, r}
 			c.AddBigram(bigram)
-		}
-		if prev2 != 0 && prev1 != 0 {
-			trigram := Trigram{prev2, prev1, r}
-			c.AddTrigram(trigram)
+
+			if prev2 != 0 {
+				trigram := Trigram{prev2, prev1, r}
+				c.AddTrigram(trigram)
+			}
 		}
 		prev2 = prev1
 		prev1 = r
