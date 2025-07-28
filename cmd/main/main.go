@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/goforj/godump"
 	"github.com/jedib0t/go-pretty/v6/table"
 	ly "github.com/rbscholtus/kb/internal/layout"
 )
@@ -27,6 +28,10 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+
+	an := ly.NewAnalyser(layout, corp)
+	godump.Dump(an.Metrics)
+	fmt.Println(an.Metrics)
 
 	if f.Optimize {
 		fmt.Println(layout)
