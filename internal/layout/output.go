@@ -10,6 +10,75 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 )
 
+func (an *Analyser) HandUsageString() string {
+	tw := table.NewWriter()
+	tw.SetStyle(table.StyleLight)
+	tw.Style().Options.SeparateRows = true
+	tw.Style().Title.Align = text.AlignCenter
+	tw.SetTitle(fmt.Sprintf("Hand Usage Analysis (%s)", an.layout.Name))
+
+	// Define column headers
+	fingerAbbreviations := table.Row{"LP", "LP", "LR", "LM", "LI", "LI", "RI", "RI", "RM", "RR", "RP", "RP"}
+	tw.AppendHeader(fingerAbbreviations, table.RowConfig{AutoMerge: true})
+
+	// Append row with ColumnUsage data
+	columnUsageRow := make(table.Row, 12)
+	for i := range columnUsageRow {
+		columnUsageRow[i] = fmt.Sprintf("%.2f%%", an.HandUsage.ColumnUsage[i])
+	}
+	tw.AppendRow(columnUsageRow)
+
+	// Append row with FingerUsage data and merged cells
+	fingerUsageRow := make(table.Row, 12)
+	fi := [12]int{0, 0, 1, 2, 3, 3, 6, 6, 7, 8, 9, 9}
+	for i := range fingerUsageRow {
+		fingerUsageRow[i] = fmt.Sprintf("%.2f%%", an.HandUsage.FingerUsage[fi[i]])
+	}
+	tw.AppendRow(fingerUsageRow, table.RowConfig{AutoMerge: true})
+
+	// Append row with HandUsage data in merged cells
+	handUsageRow := make(table.Row, 12)
+	hi := [12]int{0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1}
+	for i := range handUsageRow {
+		handUsageRow[i] = fmt.Sprintf("%.2f%%", an.HandUsage.HandUsage[hi[i]])
+	}
+	tw.AppendRow(handUsageRow, table.RowConfig{AutoMerge: true})
+
+	return tw.Render()
+}
+
+func (an *Analyser) MetricsString() string {
+	tw := table.NewWriter()
+	tw.SetStyle(table.StyleLight)
+	tw.Style().Options.SeparateRows = true
+	tw.Style().Title.Align = text.AlignCenter
+	tw.SetTitle("Metrics")
+
+	data := []table.Row{
+		{"Bigrams",
+			fmt.Sprintf("SFB: %.2f%%", an.Metrics["SFB"]),
+			fmt.Sprintf("LSB: %.2f%%", an.Metrics["LSB"]),
+			fmt.Sprintf("FSB: %.2f%%", an.Metrics["FSB"]),
+			fmt.Sprintf("HSB: %.2f%%", an.Metrics["HSB"]),
+		},
+		{"Skipgrams",
+			fmt.Sprintf("SFS: %.2f%%", an.Metrics["SFS"]),
+			fmt.Sprintf("LSS: %.2f%%", an.Metrics["LSS"]),
+			fmt.Sprintf("FSS: %.2f%%", an.Metrics["FSS"]),
+			fmt.Sprintf("HSS: %.2f%%", an.Metrics["HSS"]),
+		},
+		{"Trigrams",
+			fmt.Sprintf("ALT: %.2f%%", an.Metrics["ALT"]),
+			fmt.Sprintf("ROL: %.2f%%", an.Metrics["ROL"]),
+			fmt.Sprintf("ONE: %.2f%%", an.Metrics["ONE"]),
+			fmt.Sprintf("RED: %.2f%%", an.Metrics["RED"]),
+		},
+	}
+	tw.AppendRows(data)
+
+	return tw.Render()
+}
+
 func createTable(title string, style table.Style) table.Writer {
 	tw := table.NewWriter()
 	tw.SetAutoIndex(true)
