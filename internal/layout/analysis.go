@@ -74,7 +74,6 @@ func (sl *SplitLayout) AnalyzeHandUsage(corp *Corpus) HandAnalysis {
 	}
 
 	return HandAnalysis{
-		LayoutName:        sl.Filename,
 		CorpusName:        corp.Name,
 		TotalUnigramCount: totalUnigramCount,
 		HandUsage:         handUsage,

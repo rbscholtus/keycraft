@@ -94,7 +94,6 @@ type ScissorInfo struct {
 
 // SplitLayout represents a split layout
 type SplitLayout struct {
-	Filename    string
 	Name        string
 	Runes       [42]rune
 	RuneInfo    map[rune]KeyInfo
@@ -107,9 +106,8 @@ type SplitLayout struct {
 }
 
 // NewSplitLayout creates a new split layout
-func NewSplitLayout(filename, name string, runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) *SplitLayout {
+func NewSplitLayout(name string, runes [42]rune, runeInfo map[rune]KeyInfo, layoutType LayoutType) *SplitLayout {
 	return &SplitLayout{
-		Filename:    filename,
 		Name:        name,
 		Runes:       runes,
 		RuneInfo:    runeInfo,
@@ -466,7 +464,7 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 		return nil, err
 	}
 
-	return NewSplitLayout(filename, name, runeArray, runeInfoMap, layoutType), nil
+	return NewSplitLayout(name, runeArray, runeInfoMap, layoutType), nil
 }
 
 // SaveToFile saves a layout layout to a text file

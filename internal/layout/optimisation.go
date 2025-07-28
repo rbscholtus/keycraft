@@ -78,8 +78,6 @@ func (sl *SplitLayout) Optimise(corp *Corpus, generations uint, acceptWorse stri
 	hof0 := ga.HallOfFame[0]
 	best := hof0.Genome.(*SplitLayout)
 
-	best.Filename = "best.kb"
-
 	return best
 }
 
@@ -123,7 +121,6 @@ func (sl *SplitLayout) Crossover(_ eaopt.Genome, _ *rand.Rand) {}
 // Clone returns a copy of the layout.
 func (sl *SplitLayout) Clone() eaopt.Genome {
 	cc := SplitLayout{
-		Filename:    sl.Filename,
 		Name:        sl.Name,
 		Runes:       sl.Runes,
 		RuneInfo:    make(map[rune]KeyInfo),
