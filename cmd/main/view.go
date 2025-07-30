@@ -58,7 +58,9 @@ func viewAction(c *cli.Context) error {
 }
 
 func doViewLayout(lay *layout.SplitLayout, corp *layout.Corpus) {
+	fmt.Println(lay)
 	an := layout.NewAnalyser(lay, corp)
 	fmt.Println(an.HandUsageString())
+	fmt.Println(an.RowUsageString())
 	fmt.Println(an.MetricsString())
 }

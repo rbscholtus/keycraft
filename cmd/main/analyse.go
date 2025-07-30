@@ -60,7 +60,6 @@ func analyseAction(c *cli.Context) error {
 
 func doAnalysis(lay *layout.SplitLayout, corp *layout.Corpus, style string) {
 	fmt.Println(lay)
-	doHandUsage(lay, corp)
 	sfb := lay.AnalyzeSfbs(corp)
 	sfs := lay.AnalyzeSfss(corp)
 	lsb := lay.AnalyzeLsbs(corp)

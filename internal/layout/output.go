@@ -3,8 +3,6 @@ package layout
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -43,6 +41,20 @@ func (an *Analyser) HandUsageString() string {
 		handUsageRow[i] = fmt.Sprintf("%.2f%%", an.HandUsage.HandUsage[hi[i]])
 	}
 	tw.AppendRow(handUsageRow, table.RowConfig{AutoMerge: true})
+
+	return tw.Render()
+}
+
+func (an *Analyser) RowUsageString() string {
+	tw := table.NewWriter()
+	tw.SetStyle(table.StyleLight)
+	tw.Style().Options.SeparateRows = true
+	tw.Style().Title.Align = text.AlignCenter
+	tw.SetTitle("Row Usage")
+
+	tw.AppendRow(table.Row{"Top", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[0])})
+	tw.AppendRow(table.Row{"Middle", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[1])})
+	tw.AppendRow(table.Row{"Bottom", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[2])})
 
 	return tw.Render()
 }
@@ -94,48 +106,6 @@ func createTable(title string, style table.Style) table.Writer {
 	tw.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
 	tw.SetTitle(title)
 	return tw
-}
-
-// String returns a string representation of the hand analysis.
-func (ha HandAnalysis) String() string {
-	return fmt.Sprintf("%s (%s):\nHands: %s\nRows: %s\nColumns: %s\nFingers: %s\nUnavailable runes: %s",
-		ha.LayoutName,
-		ha.CorpusName,
-		formatUsage(ha.HandUsage[:]),
-		formatUsage(ha.RowUsage[:]),
-		formatUsage(ha.ColumnUsage[:]),
-		formatUsage(ha.FingerUsage[:]),
-		formatUnavailable(ha.RunesUnavailable),
-	)
-}
-
-// formatUsage formats the usage statistics for a slice of Usage.
-func formatUsage(usage []Usage) string {
-	var parts []string
-	for _, u := range usage {
-		parts = append(parts, fmt.Sprintf("%.1f%%", u.Percentage))
-	}
-	return strings.Join(parts, ", ")
-}
-
-// formatUnavailable formats the unavailable runes map.
-func formatUnavailable(na map[rune]uint64) string {
-	var pairs []CountPair[rune]
-	for r, c := range na {
-		pairs = append(pairs, CountPair[rune]{Key: r, Count: c})
-	}
-
-	// Sort pairs based on the count in descending orders
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].Count > pairs[j].Count
-	})
-
-	var parts []string
-	for _, pair := range pairs {
-		parts = append(parts, fmt.Sprintf("%c (%s)", pair.Key, Comma(pair.Count)))
-	}
-
-	return strings.Join(parts, ", ")
 }
 
 // String returns a string representation of the SFB analysis.

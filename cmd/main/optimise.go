@@ -105,14 +105,7 @@ func doOptimisation(lay *layout.SplitLayout, corp *layout.Corpus, pinsFile strin
 	}
 	best := lay.Optimise(corp, numGenerations, acceptFunction)
 	fmt.Println(best)
-	doHandUsage(best, corp)
 	doSfbs(best, corp)
-}
-
-func doHandUsage(lay *layout.SplitLayout, corp *layout.Corpus) {
-	handInfo := lay.AnalyzeHandUsage(corp)
-	fmt.Println(handInfo)
-	// godump.Dump(handInfo)
 }
 
 func doSfbs(lay *layout.SplitLayout, corp *layout.Corpus) {

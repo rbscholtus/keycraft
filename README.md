@@ -27,15 +27,16 @@ GUI ??
 
 To do
 -----
-  - Add trigram analysis
-  - replace corpus name and layout name with pointers (hand analysis)
-  - improve output (hand analysis)
+  - improve output (keyboard layout)
+  - add getreuer layouts
+  - ranking of all layouts
   - testing and documentation of all analysis
   - Put Optimise in its own struct
   - add more than 1 layer
 
 Done
 ----
+  - Add trigram analysis DONE
   - Add Scissors done
   - Add LSB done
   - rename KB file to ly file
