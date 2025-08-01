@@ -165,3 +165,48 @@ func Abs(x float32) float32 {
 	}
 	return x
 }
+
+// Calculate the median of a sorted slice
+func Median(sortedData []float64) float64 {
+	n := len(sortedData)
+	mid := n / 2
+	if n%2 == 0 {
+		return (sortedData[mid-1] + sortedData[mid]) / 2.0
+	} else {
+		return sortedData[mid]
+	}
+}
+
+// Calculate the first and third quartiles
+func Quartiles(sortedData []float64) (float64, float64) {
+	n := len(sortedData)
+	q1 := Median(sortedData[:n/2])
+	q3 := Median(sortedData[(n+1)/2:])
+	return q1, q3
+}
+
+// Robust scaling
+func RobustScale(data []float64) []float64 {
+	if len(data) == 0 {
+		return []float64{}
+	}
+
+	sortedData := make([]float64, len(data))
+	copy(sortedData, data)
+	sort.Float64s(sortedData)
+
+	medianValue := Median(sortedData)
+	q1, q3 := Quartiles(sortedData)
+	iqr := q3 - q1
+
+	if iqr == 0 {
+		return make([]float64, len(data))
+	}
+
+	scaledData := make([]float64, len(data))
+	for i, x := range data {
+		scaledData[i] = (x - medianValue) / iqr
+	}
+
+	return scaledData
+}
