@@ -41,6 +41,7 @@ To do
   - testing and documentation of all analysis
   - Put Optimise in its own struct
   - add more than 1 layer
+  - support angle mod
 
 Done
 ----
