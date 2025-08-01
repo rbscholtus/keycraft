@@ -344,7 +344,7 @@ func (sl *SplitLayout) String() string {
 	writeRune := func(r rune) {
 		switch r {
 		case 0:
-			sb.WriteString("no")
+			sb.WriteString("_")
 		case ' ':
 			sb.WriteString("spc")
 		default:
@@ -393,11 +393,28 @@ func (sl *SplitLayout) StringRunes() string {
 	return sb.String()
 }
 
+// readLine reads a line, ignoring empty lines and lines that start with #
+func readLine(scanner *bufio.Scanner) (string, error) {
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "#") && line != "" {
+			return line, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("unexpected end of file")
+}
+
 // NewLayoutFromFile loads a layout from a text file
+// Lines that begin with # are ignored
 // The file format is:
-//
-//	3 lines of 12 keys each (6 left, 6 right)
-//	1 line of 6 thumb keys (3 left, 3 right)
+// - 3 lines of 12 keys each (6 left, 6 right)
+// - 1 line of 6 thumb keys (3 left, 3 right)
+// - _ means no key
+// - spc means the Space character
+// - characters cannot be repeated
 func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -408,21 +425,23 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 	scanner := bufio.NewScanner(file)
 
 	// Read layout type
-	if !scanner.Scan() {
+	layoutTypeStr, err := readLine(scanner)
+	if err != nil {
 		return nil, fmt.Errorf("invalid file format: missing layout type")
 	}
-	layoutTypeStr := strings.TrimSpace(scanner.Text())
+
 	var layoutType LayoutType
-	switch strings.ToLower(layoutTypeStr) {
-	case "rowstag":
+	layoutTypeStr = strings.ToLower(layoutTypeStr)
+	switch {
+	case strings.HasPrefix(layoutTypeStr, "rowstag"):
 		layoutType = ROWSTAG
-	case "ortho":
+	case strings.HasPrefix(layoutTypeStr, "ortho"):
 		layoutType = ORTHO
-	case "colstag":
+	case strings.HasPrefix(layoutTypeStr, "colstag"):
 		layoutType = COLSTAG
 	default:
 		types := []LayoutType{ROWSTAG, ORTHO, COLSTAG}
-		return nil, fmt.Errorf("invalid layout type: %s. Must be one of: %v", layoutTypeStr, types)
+		return nil, fmt.Errorf("invalid layout type: %s. Must start with one of: %v", layoutTypeStr, types)
 	}
 
 	var runeArray [42]rune
@@ -431,16 +450,17 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 
 	index := 0
 	for row, expectedKeyCount := range expectedKeys {
-		if !scanner.Scan() {
+		line, err := readLine(scanner)
+		if err != nil {
 			return nil, fmt.Errorf("invalid file format: not enough rows")
 		}
-		keys := strings.Fields(scanner.Text())
+		keys := strings.Fields(line)
 		if len(keys) != expectedKeyCount {
 			return nil, fmt.Errorf("invalid file format: row %d has %d keys, expected %d", row+1, len(keys), expectedKeyCount)
 		}
 		for col, key := range keys {
 			switch strings.ToLower(key) {
-			case "no":
+			case "_":
 				runeArray[index] = rune(0)
 				index++
 			case "spc":
