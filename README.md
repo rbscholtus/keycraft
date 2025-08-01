@@ -27,9 +27,17 @@ GUI ??
 
 To do
 -----
-  - improve output (keyboard layout)
-  - add getreuer layouts
+  - add getreuer layouts MOSTLY DONE
   - ranking of all layouts
+  - improve output (keyboard layout)
+  - add Pinky-off stat
+  - split redirects vs bad redirects
+  - split Alt into alt vs alt-sfs
+  - add Effort stat
+  - add Hard words
+  - comparison of several layouts
+  - Add generic method to analyse using lists of keypairs
+  - load corpus from cache files
   - testing and documentation of all analysis
   - Put Optimise in its own struct
   - add more than 1 layer
