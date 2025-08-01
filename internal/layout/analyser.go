@@ -4,13 +4,13 @@ package layout
 // HandUsageAnalysis holds statistics about hand, finger, column, and row usage.
 type HandUsageAnalysis struct {
 	// HandUsage stores the percentage of usage for each hand.
-	HandUsage [2]float32
+	HandUsage [2]float64
 	// FingerUsage stores the percentage of usage for each finger.
-	FingerUsage [10]float32
+	FingerUsage [10]float64
 	// ColumnUsage stores the percentage of usage for each column.
-	ColumnUsage [12]float32
+	ColumnUsage [12]float64
 	// RowUsage stores the percentage of usage for each row.
-	RowUsage [4]float32
+	RowUsage [4]float64
 }
 
 // Analyser holds references to a keyboard layout and a corpus, and provides methods for analysis.
@@ -22,7 +22,7 @@ type Analyser struct {
 	// HandUsage holds statistics about hand usage.
 	HandUsage HandUsageAnalysis
 	// Metrics holds basic metrics about the layout.
-	Metrics map[string]float32
+	Metrics map[string]float64
 }
 
 // NewAnalyser creates a new Analyser instance and performs initial analysis.
@@ -30,7 +30,7 @@ func NewAnalyser(layout *SplitLayout, corpus *Corpus) *Analyser {
 	a := &Analyser{
 		layout:  layout,
 		corpus:  corpus,
-		Metrics: make(map[string]float32),
+		Metrics: make(map[string]float64),
 	}
 	a.quickHandAnalysis()
 	a.quickMetricAnalysis()
@@ -66,25 +66,25 @@ func (an *Analyser) quickHandAnalysis() {
 	}
 
 	// Calculate the percentages.
-	factor := 100 / float32(totalUnigramCount)
+	factor := 100 / float64(totalUnigramCount)
 	for i, c := range handCount {
-		an.HandUsage.HandUsage[i] = float32(c) * factor
+		an.HandUsage.HandUsage[i] = float64(c) * factor
 	}
 	for i, c := range fingerCount {
-		an.HandUsage.FingerUsage[i] = float32(c) * factor
+		an.HandUsage.FingerUsage[i] = float64(c) * factor
 	}
 	for i, c := range columnCount {
-		an.HandUsage.ColumnUsage[i] = float32(c) * factor
+		an.HandUsage.ColumnUsage[i] = float64(c) * factor
 	}
 	for i, c := range rowCount {
-		an.HandUsage.RowUsage[i] = float32(c) * factor
+		an.HandUsage.RowUsage[i] = float64(c) * factor
 	}
 }
 
 // quickMetricAnalysis calculates basic metrics about the layout.
 func (an *Analyser) quickMetricAnalysis() {
 	// Initialize counters and factor for percentage calculation.
-	var factor float32
+	var factor float64
 	var count1, count2, count3, count4 uint64
 
 	// Calculate basic bigram statistics.
@@ -132,11 +132,11 @@ func (an *Analyser) quickMetricAnalysis() {
 	}
 
 	// Calculate percentages for bigram statistics.
-	factor = 100 / float32(an.corpus.TotalBigramsNoSpace)
-	an.Metrics["SFB"] = float32(count1) * factor
-	an.Metrics["LSB"] = float32(count2) * factor
-	an.Metrics["FSB"] = float32(count3) * factor
-	an.Metrics["HSB"] = float32(count4) * factor
+	factor = 100 / float64(an.corpus.TotalBigramsNoSpace)
+	an.Metrics["SFB"] = float64(count1) * factor
+	an.Metrics["LSB"] = float64(count2) * factor
+	an.Metrics["FSB"] = float64(count3) * factor
+	an.Metrics["HSB"] = float64(count4) * factor
 
 	// Calculate skipgram statistics (SFS, LSS, FSS, HSS).
 	count1, count2, count3, count4 = 0, 0, 0, 0
@@ -185,11 +185,11 @@ func (an *Analyser) quickMetricAnalysis() {
 	}
 
 	// Calculate percentages for skipgram statistics.
-	factor = 100 / float32(an.corpus.TotalTrigramsCount)
-	an.Metrics["SFS"] = float32(count1) * factor
-	an.Metrics["LSS"] = float32(count2) * factor
-	an.Metrics["FSS"] = float32(count3) * factor
-	an.Metrics["HSS"] = float32(count4) * factor
+	factor = 100 / float64(an.corpus.TotalTrigramsCount)
+	an.Metrics["SFS"] = float64(count1) * factor
+	an.Metrics["LSS"] = float64(count2) * factor
+	an.Metrics["FSS"] = float64(count3) * factor
+	an.Metrics["HSS"] = float64(count4) * factor
 
 	// Calculate trigram statistics (ALT, ROL, ONE, RED).
 	count1, count2, count3, count4 = 0, 0, 0, 0
@@ -234,9 +234,9 @@ func (an *Analyser) quickMetricAnalysis() {
 	}
 
 	// Calculate percentages for trigram statistics.
-	factor = 100 / float32(an.corpus.TotalTrigramsCount)
-	an.Metrics["ALT"] = float32(count1) * factor
-	an.Metrics["ROL"] = float32(count2) * factor
-	an.Metrics["ONE"] = float32(count3) * factor
-	an.Metrics["RED"] = float32(count4) * factor
+	factor = 100 / float64(an.corpus.TotalTrigramsCount)
+	an.Metrics["ALT"] = float64(count1) * factor
+	an.Metrics["ROL"] = float64(count2) * factor
+	an.Metrics["ONE"] = float64(count3) * factor
+	an.Metrics["RED"] = float64(count4) * factor
 }
