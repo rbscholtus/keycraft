@@ -358,17 +358,20 @@ func (sl *SplitLayout) String() string {
 	for row := range 3 {
 		for col := range 12 {
 			if col == 6 {
+				// keyboard half separator
 				sb.WriteRune(' ')
 			}
 			writeRune(sl.Runes[row*12+col])
 			if col < 11 {
+				// character separator
 				sb.WriteRune(' ')
 			}
 		}
 		sb.WriteRune('\n')
 	}
 
-	sb.WriteString("    ")
+	// indent thumb cluster
+	sb.WriteString("      ")
 
 	for col := range 6 {
 		if col == 3 {

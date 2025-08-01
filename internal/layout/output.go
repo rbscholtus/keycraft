@@ -53,7 +53,7 @@ func (an *Analyser) RowUsageString() string {
 	tw.SetTitle("Row Usage")
 
 	tw.AppendRow(table.Row{"Top", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[0])})
-	tw.AppendRow(table.Row{"Middle", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[1])})
+	tw.AppendRow(table.Row{"Home", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[1])})
 	tw.AppendRow(table.Row{"Bottom", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[2])})
 
 	return tw.Render()
