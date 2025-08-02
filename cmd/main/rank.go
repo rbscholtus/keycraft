@@ -5,17 +5,17 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
-	"github.com/rbscholtus/kb/internal/layout"
+	ly "github.com/rbscholtus/kb/internal/layout"
 	"github.com/urfave/cli/v2"
 )
 
 var rankCommand = &cli.Command{
-	Name:      "rank",
-	Usage:     "Rank multiple layout files with a corpus file",
-	ArgsUsage: "<layout files...>",
-	Action:    rankAction,
+	Name:   "rank",
+	Usage:  "Rank layout files in data/layouts with a corpus file",
+	Action: rankAction,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "corpus",
@@ -23,61 +23,65 @@ var rankCommand = &cli.Command{
 			Usage:    "specify the corpus file",
 			Required: true,
 		},
+		&cli.StringFlag{
+			Name:    "weights",
+			Aliases: []string{"w"},
+			Usage:   "specify weights for metrics (e.g. sfb=3.0,lsb=2.0)",
+			Value:   "",
+		},
 	},
 }
 
 func rankAction(c *cli.Context) error {
-	layoutFiles := c.Args().Slice()
-	corpusFile := c.String("corpus")
+	if c.Args().Present() {
+		return fmt.Errorf("invalid argument(s) specified: %v", c.Args().Slice())
+	}
+	corpusPath := filepath.Join("data", "corpus", c.String("corpus"))
 
-	if len(layoutFiles) < 1 {
-		return fmt.Errorf("at least one layout file is required")
+	weights, err := parseWeights(c.String("weights"))
+	if err != nil {
+		return err
 	}
 
-	fmt.Printf("Ranking layouts: %v with corpus: %s\n", layoutFiles, corpusFile)
-	doRankings(corpusFile)
-	return nil
+	fmt.Printf("Ranking layouts in data/layouts with %s and weights: %v\n", corpusPath, weights)
+	return doRankings(corpusPath, "data/layouts", weights)
 }
 
 type LayoutScore struct {
-	Name  string
-	Score float64
+	Name    string
+	Penalty float64
 }
 
-func doRankings(corpusFile string) {
+func doRankings(corpusPath, layoutsDir string, weights map[string]float64) error {
 	// Read corpus
-	corpus, err := layout.NewCorpusFromFile("corpus", filepath.Join("data", "corpus", corpusFile))
+	corpus, err := ly.NewCorpusFromFile("corpus", corpusPath)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("error finding corpus %v: %v", corpusPath, err)
 	}
 
 	// Read layouts
-	layoutFiles, err := os.ReadDir("data/layouts")
+	layoutFiles, err := os.ReadDir(layoutsDir)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("error finding layout files in %v: %v", layoutsDir, err)
 	}
 
-	var layouts []*layout.SplitLayout
+	// Analyze layouts
+	var analysers = make([]*ly.Analyser, 0)
+	var metrics = make(map[string][]float64)
 	for _, file := range layoutFiles {
 		if !strings.HasSuffix(file.Name(), ".klf") {
 			continue
 		}
-		layout, err := layout.NewLayoutFromFile(file.Name(), filepath.Join("data", "layouts", file.Name()))
+		layoutPath := filepath.Join("data", "layouts", file.Name())
+		layout, err := ly.NewLayoutFromFile(file.Name(), layoutPath)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-		layouts = append(layouts, layout)
-	}
-
-	// Analyze layouts
-	var metrics = make(map[string][]float64)
-	for _, lay := range layouts {
-		analyser := layout.NewAnalyser(lay, corpus)
+		analyser := ly.NewAnalyser(layout, corpus)
+		analysers = append(analysers, analyser)
 		for metric, value := range analyser.Metrics {
-			metrics[metric] = append(metrics[metric], value)
+			metrics[metric] = append(metrics[metric], float64(value))
 		}
 	}
 
@@ -86,32 +90,69 @@ func doRankings(corpusFile string) {
 	iqr := make(map[string]float64)
 	for metric, values := range metrics {
 		sort.Float64s(values)
-		medians[metric] = layout.Median(values)
-		q1, q3 := layout.Quartiles(values)
+		medians[metric] = ly.Median(values)
+		q1, q3 := ly.Quartiles(values)
 		iqr[metric] = q3 - q1
+
 	}
 
 	// Scale and sum metrics
-	var layoutScores []LayoutScore
-	for _, lay := range layouts {
-		analyser := layout.NewAnalyser(lay, corpus)
-		score := 0.0
+	var layoutPenalties []LayoutScore
+	for _, analyser := range analysers {
+		penalty := 0.0
 		for metric, value := range analyser.Metrics {
-			scaledValue := (value - medians[metric]) / iqr[metric]
-			// You can choose to penalize or reward certain metrics by multiplying with a factor
-			score += scaledValue
+			weight, ok := weights[metric]
+			if !ok {
+				// default weightif unspecified}
+				weight = 1.0
+			}
+			var scaledValue float64
+			if iqr[metric] == 0 {
+				scaledValue = 0
+			} else {
+				scaledValue = (value - medians[metric]) / iqr[metric]
+			}
+			penalty += weight * scaledValue
 		}
-		layoutScores = append(layoutScores, LayoutScore{lay.Name, score})
+		layoutPenalties = append(layoutPenalties, LayoutScore{analyser.Layout.Name, penalty})
 	}
 
 	// Rank layouts
-	sort.Slice(layoutScores, func(i, j int) bool {
-		return layoutScores[i].Score < layoutScores[j].Score
+	sort.Slice(layoutPenalties, func(i, j int) bool {
+		return layoutPenalties[i].Penalty < layoutPenalties[j].Penalty
 	})
 
 	// Print results
 	fmt.Println("Ranking:")
-	for i, layoutScore := range layoutScores {
-		fmt.Printf("%d. %s (Score: %.2f)\n", i+1, layoutScore.Name, layoutScore.Score)
+	for i, layoutPenalty := range layoutPenalties {
+		fmt.Printf("%d. %s (Penalty: %.2f)\n", i+1, layoutPenalty.Name, layoutPenalty.Penalty)
 	}
+
+	return nil
+}
+
+func parseWeights(weightsStr string) (map[string]float64, error) {
+	weights := map[string]float64{
+		"ALT": -1,
+		"ROL": -1,
+	}
+
+	if weightsStr == "" {
+		return weights, nil
+	}
+
+	weightsStr = strings.ToUpper(strings.TrimSpace(weightsStr))
+	for pair := range strings.SplitSeq(weightsStr, ",") {
+		parts := strings.Split(pair, "=")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid weights format")
+		}
+		metric := strings.TrimSpace(parts[0])
+		weight, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid weight value for metric %s", metric)
+		}
+		weights[metric] = weight
+	}
+	return weights, nil
 }
