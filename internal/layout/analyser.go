@@ -15,10 +15,10 @@ type HandUsageAnalysis struct {
 
 // Analyser holds references to a keyboard layout and a corpus, and provides methods for analysis.
 type Analyser struct {
-	// Reference to the analysed layout.
-	layout *SplitLayout
-	// Reference to the corpus used to analyse the layout.
-	corpus *Corpus
+	// Reference to the analysed Layout.
+	Layout *SplitLayout
+	// Reference to the Corpus used to analyse the layout.
+	Corpus *Corpus
 	// HandUsage holds statistics about hand usage.
 	HandUsage HandUsageAnalysis
 	// Metrics holds basic metrics about the layout.
@@ -28,8 +28,8 @@ type Analyser struct {
 // NewAnalyser creates a new Analyser instance and performs initial analysis.
 func NewAnalyser(layout *SplitLayout, corpus *Corpus) *Analyser {
 	a := &Analyser{
-		layout:  layout,
-		corpus:  corpus,
+		Layout:  layout,
+		Corpus:  corpus,
 		Metrics: make(map[string]float64),
 	}
 	a.quickHandAnalysis()
@@ -47,8 +47,8 @@ func (an *Analyser) quickHandAnalysis() {
 	var rowCount [4]uint64
 
 	// Iterate over unigrams in the corpus and calculate usage statistics.
-	for uniGr, uniCnt := range an.corpus.Unigrams {
-		key, ok := an.layout.RuneInfo[rune(uniGr)]
+	for uniGr, uniCnt := range an.Corpus.Unigrams {
+		key, ok := an.Layout.RuneInfo[rune(uniGr)]
 		if !ok {
 			// Skip unigrams that are not present in the layout.
 			continue
@@ -88,9 +88,9 @@ func (an *Analyser) quickMetricAnalysis() {
 	var count1, count2, count3, count4 uint64
 
 	// Calculate basic bigram statistics.
-	for bi, biCnt := range an.corpus.Bigrams {
-		key1, ok1 := an.layout.RuneInfo[bi[0]]
-		key2, ok2 := an.layout.RuneInfo[bi[1]]
+	for bi, biCnt := range an.Corpus.Bigrams {
+		key1, ok1 := an.Layout.RuneInfo[bi[0]]
+		key2, ok2 := an.Layout.RuneInfo[bi[1]]
 		if !ok1 || !ok2 {
 			// Skip bigrams that are not present in the layout.
 			continue
@@ -132,7 +132,7 @@ func (an *Analyser) quickMetricAnalysis() {
 	}
 
 	// Calculate percentages for bigram statistics.
-	factor = 100 / float64(an.corpus.TotalBigramsNoSpace)
+	factor = 100 / float64(an.Corpus.TotalBigramsNoSpace)
 	an.Metrics["SFB"] = float64(count1) * factor
 	an.Metrics["LSB"] = float64(count2) * factor
 	an.Metrics["FSB"] = float64(count3) * factor
@@ -141,9 +141,9 @@ func (an *Analyser) quickMetricAnalysis() {
 	// Calculate skipgram statistics (SFS, LSS, FSS, HSS).
 	count1, count2, count3, count4 = 0, 0, 0, 0
 
-	for tri, triCnt := range an.corpus.Trigrams {
-		key1, ok1 := an.layout.RuneInfo[tri[0]]
-		key2, ok2 := an.layout.RuneInfo[tri[2]]
+	for tri, triCnt := range an.Corpus.Trigrams {
+		key1, ok1 := an.Layout.RuneInfo[tri[0]]
+		key2, ok2 := an.Layout.RuneInfo[tri[2]]
 		if !ok1 || !ok2 {
 			// Skip trigrams that are not present in the layout.
 			continue
@@ -185,7 +185,7 @@ func (an *Analyser) quickMetricAnalysis() {
 	}
 
 	// Calculate percentages for skipgram statistics.
-	factor = 100 / float64(an.corpus.TotalTrigramsCount)
+	factor = 100 / float64(an.Corpus.TotalTrigramsCount)
 	an.Metrics["SFS"] = float64(count1) * factor
 	an.Metrics["LSS"] = float64(count2) * factor
 	an.Metrics["FSS"] = float64(count3) * factor
@@ -194,10 +194,10 @@ func (an *Analyser) quickMetricAnalysis() {
 	// Calculate trigram statistics (ALT, ROL, ONE, RED).
 	count1, count2, count3, count4 = 0, 0, 0, 0
 
-	for tri, triCnt := range an.corpus.Trigrams {
-		key1, ok1 := an.layout.RuneInfo[tri[0]]
-		key2, ok2 := an.layout.RuneInfo[tri[1]]
-		key3, ok3 := an.layout.RuneInfo[tri[2]]
+	for tri, triCnt := range an.Corpus.Trigrams {
+		key1, ok1 := an.Layout.RuneInfo[tri[0]]
+		key2, ok2 := an.Layout.RuneInfo[tri[1]]
+		key3, ok3 := an.Layout.RuneInfo[tri[2]]
 		if !ok1 || !ok2 || !ok3 {
 			// Skip trigrams that are not present in the layout.
 			continue
@@ -234,7 +234,7 @@ func (an *Analyser) quickMetricAnalysis() {
 	}
 
 	// Calculate percentages for trigram statistics.
-	factor = 100 / float64(an.corpus.TotalTrigramsCount)
+	factor = 100 / float64(an.Corpus.TotalTrigramsCount)
 	an.Metrics["ALT"] = float64(count1) * factor
 	an.Metrics["ROL"] = float64(count2) * factor
 	an.Metrics["ONE"] = float64(count3) * factor

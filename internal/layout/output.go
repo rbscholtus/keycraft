@@ -13,7 +13,7 @@ func (an *Analyser) HandUsageString() string {
 	tw.SetStyle(table.StyleLight)
 	tw.Style().Options.SeparateRows = true
 	tw.Style().Title.Align = text.AlignCenter
-	tw.SetTitle(fmt.Sprintf("Hand Usage Analysis (%s)", an.layout.Name))
+	tw.SetTitle(fmt.Sprintf("Hand Usage Analysis (%s)", an.Layout.Name))
 
 	// Define column headers
 	fingerAbbreviations := table.Row{"LP", "LP", "LR", "LM", "LI", "LI", "RI", "RI", "RM", "RR", "RP", "RP"}
