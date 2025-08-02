@@ -138,6 +138,10 @@ func doRankings(corpusPath, layoutsDir string, weights map[string]float64) error
 	return nil
 }
 
+// parseWeights parses a string of weighted metrics into a map of metric names to weights.
+// The input string is expected to be in the format "metric1=value1,metric2=value2,...".
+// If a metric is not specified in the input string, its weight will default to the value specified in the weights map.
+// Currently, ALT and ROL have default weights of -1, because they are "positive penalties".
 func parseWeights(weightsStr string) (map[string]float64, error) {
 	weights := map[string]float64{
 		"ALT": -1,
@@ -147,8 +151,8 @@ func parseWeights(weightsStr string) (map[string]float64, error) {
 	if weightsStr == "" {
 		return weights, nil
 	}
-
 	weightsStr = strings.ToUpper(strings.TrimSpace(weightsStr))
+
 	for pair := range strings.SplitSeq(weightsStr, ",") {
 		parts := strings.Split(pair, "=")
 		if len(parts) != 2 {
@@ -161,5 +165,6 @@ func parseWeights(weightsStr string) (map[string]float64, error) {
 		}
 		weights[metric] = weight
 	}
+
 	return weights, nil
 }
