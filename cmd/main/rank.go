@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// the "rank" cli command for ranking all layouts
 var rankCommand = &cli.Command{
 	Name:   "rank",
 	Usage:  "Rank layout files in data/layouts with a corpus file",
@@ -32,7 +33,9 @@ var rankCommand = &cli.Command{
 	},
 }
 
+// rankAction is the action function for the rank command.
 func rankAction(c *cli.Context) error {
+	// Check if any arguments were specified (none are expected)
 	if c.Args().Present() {
 		return fmt.Errorf("invalid argument(s) specified: %v", c.Args().Slice())
 	}
@@ -47,11 +50,13 @@ func rankAction(c *cli.Context) error {
 	return doRankings(corpusPath, "data/layouts", weights)
 }
 
+// LayoutScore represents a layout's score, including its name and penalty value.
 type LayoutScore struct {
 	Name    string
 	Penalty float64
 }
 
+// doRankings performs the ranking of layouts based on the corpus and weights.
 func doRankings(corpusPath, layoutsDir string, weights map[string]float64) error {
 	// Read corpus
 	corpus, err := ly.NewCorpusFromFile("corpus", corpusPath)
@@ -86,6 +91,7 @@ func doRankings(corpusPath, layoutsDir string, weights map[string]float64) error
 	}
 
 	// Calculate median and interquartile range for each metric
+	// This is used to normalize/scale the metric values
 	medians := make(map[string]float64)
 	iqr := make(map[string]float64)
 	for metric, values := range metrics {
@@ -97,13 +103,14 @@ func doRankings(corpusPath, layoutsDir string, weights map[string]float64) error
 	}
 
 	// Scale and sum metrics
+	// Calculate the penalty for each layout based on the scaled metric values and weights
 	var layoutPenalties []LayoutScore
 	for _, analyser := range analysers {
 		penalty := 0.0
 		for metric, value := range analyser.Metrics {
 			weight, ok := weights[metric]
 			if !ok {
-				// default weightif unspecified}
+				// default weight, if unspecified
 				weight = 1.0
 			}
 			var scaledValue float64
