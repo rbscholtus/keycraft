@@ -30,11 +30,9 @@ To do
   - add Pinky-off stat
   - split redirects vs bad redirects
   - split Alt into alt vs alt-sfs
-  - add getreuer layouts MOSTLY DONE
   - comparison of several layouts
   - add Effort stat
   - add Hard words
-  - Add generic method to analyse using lists of keypairs MOSTLY DONE?
   - load corpus from cache files
   - testing and documentation of all analysis
   - Put Optimise in its own struct
@@ -44,7 +42,9 @@ To do
 Done
 ----
   - improve output (keyboard layout)
+  - Add generic method to analyse using lists of keypairs MOSTLY DONE?
   - generic distances data structure
+  - add getreuer layouts MOSTLY DONE
   - ranking of all layouts DONE
   - Add trigram analysis DONE
   - Add Scissors done
