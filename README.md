@@ -27,7 +27,6 @@ GUI ??
 
 To do
 -----
-  - improve output (keyboard layout)
   - add Pinky-off stat
   - split redirects vs bad redirects
   - split Alt into alt vs alt-sfs
@@ -44,6 +43,7 @@ To do
 
 Done
 ----
+  - improve output (keyboard layout)
   - generic distances data structure
   - ranking of all layouts DONE
   - Add trigram analysis DONE

@@ -8,12 +8,70 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 )
 
+// String returns a string representation of the layout
+func (sl *SplitLayout) String() string {
+	var ch = "\u200B   "
+	printRune := func(r rune) string {
+		switch r {
+		case 0:
+			if ch == "\u200B   " {
+				ch = "\u200D   "
+			} else {
+				ch = "\u200B   "
+			}
+			return fmt.Sprintf("%3s", ch)
+		case ' ':
+			return "spc"
+		default:
+			return fmt.Sprintf(" %c ", r)
+		}
+	}
+
+	tw := table.NewWriter()
+	tw.SetStyle(table.StyleRounded)
+	tw.Style().Options.SeparateRows = true
+	tw.Style().Title.Align = text.AlignCenter
+	tw.SetColumnConfigs([]table.ColumnConfig{
+		{Number: 7, AutoMerge: true},
+	})
+	tw.SetTitle(fmt.Sprintf("%s [%s]", sl.Name, sl.LayoutType))
+
+	for row := range 3 {
+		tableRow := make(table.Row, 13)
+		for col := range 13 {
+			if col < 6 {
+				tableRow[col] = printRune(sl.Runes[row*12+col])
+			} else if col == 6 {
+				tableRow[col] = "       "
+			} else {
+				tableRow[col] = printRune(sl.Runes[row*12+col-1])
+			}
+		}
+		tw.AppendRow(tableRow)
+	}
+	tableRow := make(table.Row, 13)
+	for col := range 13 {
+		if col < 3 || col > 9 {
+			tableRow[col] = " "
+		} else if col == 6 {
+			tableRow[col] = "       "
+		} else if col < 6 {
+			tableRow[col] = printRune(sl.Runes[33+col])
+		} else {
+			tableRow[col] = printRune(sl.Runes[32+col])
+		}
+	}
+	tw.AppendRow(tableRow, table.RowConfig{AutoMerge: true})
+
+	return tw.Render()
+}
+
 func (an *Analyser) HandUsageString() string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleLight)
 	tw.Style().Options.SeparateRows = true
 	tw.Style().Title.Align = text.AlignCenter
-	tw.SetTitle(fmt.Sprintf("Hand Usage Analysis (%s)", an.Layout.Name))
+	tw.SetTitle("Hand Usage Analysis")
 
 	// Define column headers
 	fingerAbbreviations := table.Row{"LP", "LP", "LR", "LM", "LI", "LI", "RI", "RI", "RM", "RR", "RP", "RP"}

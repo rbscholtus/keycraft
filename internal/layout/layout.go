@@ -136,54 +136,6 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 	}
 }
 
-// String returns a string representation of the layout
-func (sl *SplitLayout) String() string {
-	var sb strings.Builder
-	writeRune := func(r rune) {
-		switch r {
-		case 0:
-			sb.WriteString("_")
-		case ' ':
-			sb.WriteString("spc")
-		default:
-			sb.WriteRune(r)
-		}
-	}
-
-	sb.WriteString(strings.ToLower(string(sl.LayoutType)))
-	sb.WriteRune('\n')
-
-	for row := range 3 {
-		for col := range 12 {
-			if col == 6 {
-				// keyboard half separator
-				sb.WriteRune(' ')
-			}
-			writeRune(sl.Runes[row*12+col])
-			if col < 11 {
-				// character separator
-				sb.WriteRune(' ')
-			}
-		}
-		sb.WriteRune('\n')
-	}
-
-	// indent thumb cluster
-	sb.WriteString("      ")
-
-	for col := range 6 {
-		if col == 3 {
-			sb.WriteRune(' ')
-		}
-		writeRune(sl.Runes[36+col])
-		if col < 5 {
-			sb.WriteRune(' ')
-		}
-	}
-
-	return sb.String()
-}
-
 // StringRunes returns a string that represents	the characters on a layout.
 func (sl *SplitLayout) StringRunes() string {
 	var sb strings.Builder
@@ -288,7 +240,7 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 	writeRune := func(r rune) {
 		switch r {
 		case 0:
-			_, _ = fmt.Fprint(writer, "no")
+			_, _ = fmt.Fprint(writer, "_")
 		case ' ':
 			_, _ = fmt.Fprint(writer, "spc")
 		default:
