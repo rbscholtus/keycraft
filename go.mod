@@ -1,6 +1,6 @@
 module github.com/rbscholtus/kb
 
-go 1.24.4
+go 1.24.5
 
 require (
 	github.com/MaxHalford/eaopt v0.4.3-0.20250127080647-822946c06468
