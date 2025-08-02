@@ -27,16 +27,15 @@ GUI ??
 
 To do
 -----
-  - add getreuer layouts MOSTLY DONE
-  - ranking of all layouts
   - improve output (keyboard layout)
   - add Pinky-off stat
   - split redirects vs bad redirects
   - split Alt into alt vs alt-sfs
+  - add getreuer layouts MOSTLY DONE
+  - comparison of several layouts
   - add Effort stat
   - add Hard words
-  - comparison of several layouts
-  - Add generic method to analyse using lists of keypairs
+  - Add generic method to analyse using lists of keypairs MOSTLY DONE?
   - load corpus from cache files
   - testing and documentation of all analysis
   - Put Optimise in its own struct
@@ -45,6 +44,8 @@ To do
 
 Done
 ----
+  - generic distances data structure
+  - ranking of all layouts DONE
   - Add trigram analysis DONE
   - Add Scissors done
   - Add LSB done

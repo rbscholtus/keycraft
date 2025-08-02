@@ -19,11 +19,11 @@ type Sfb struct {
 	// Bigram is the SFB bigram.
 	Bigram Bigram
 	// The distance from one key to the next
-	Distance float32
+	Distance float64
 	// Count is the count of the SFB.
 	Count uint64
 	// Percentage is the percentage of the SFB.
-	Percentage float32
+	Percentage float64
 }
 
 // SfbAnalysis represents the SFB analysis for a layout and corpus.
@@ -37,7 +37,7 @@ type SfbAnalysis struct {
 	// TotalSfbCount is the total count of SFBs.
 	TotalSfbCount uint64
 	// TotalSfbPerc is the total percentage of SFBs.
-	TotalSfbPerc float32
+	TotalSfbPerc float64
 	// Bigrams not supported by the layout due to missing characters.
 	Unsupported []BigramCount
 	//
@@ -84,10 +84,11 @@ func (sl *SplitLayout) AnalyzeSfbs(corpus *Corpus) SfbAnalysis {
 			// detected a bigram that has a rune not on the layout
 			an.Unsupported = append(an.Unsupported, BigramCount{bi, biCount})
 		} else if rune0.Finger == rune1.Finger {
-			biPerc := float32(biCount) / float32(corpus.TotalBigramsNoSpace)
+			dist := sl.KeyPairDistances[KeyPair{rune0.Index, rune1.Index}].Distance
+			biPerc := float64(biCount) / float64(corpus.TotalBigramsNoSpace)
 			sfb := Sfb{
 				Bigram:     bi,
-				Distance:   sl.distances.GetDistance(rune0, rune1),
+				Distance:   dist,
 				Count:      biCount,
 				Percentage: biPerc,
 			}
@@ -110,11 +111,11 @@ type Sfs struct {
 	// Trigram is the SFS trigram.
 	Trigram Trigram
 	// The distance from one key to the next
-	Distance float32
+	Distance float64
 	// The number of times the SFS occurs in a corpus.
 	Count uint64
 	// Percentage of trigrams in a corpus with this SFS.
-	Percentage float32
+	Percentage float64
 }
 
 // SfsAnalysis represents the SFS analysis for a layout and corpus.
@@ -128,7 +129,7 @@ type SfsAnalysis struct {
 	// TotalSfbCount is the total count of SFSs.
 	TotalSfsCount uint64
 	// TotalSfbPerc is the total percentage of SFSs.
-	TotalSfsPerc float32
+	TotalSfsPerc float64
 	// SFSs with the same first and last character merged.
 	MergedSfss []Sfs
 	// Trigrams not supported by the layout due to missing characters.
@@ -136,7 +137,7 @@ type SfsAnalysis struct {
 	//
 	NumRowsInOutput int
 	//
-	MinDistanceInOutput float32
+	MinDistanceInOutput float64
 }
 
 // SimpleSfss analyzes the SFSs for this layout and some corpus.
@@ -187,8 +188,8 @@ func (sl *SplitLayout) AnalyzeSfss(corpus *Corpus) SfsAnalysis {
 		if !ok0 || !ok1 || !ok2 {
 			an.Unsupported = append(an.Unsupported, TrigramCount{tri, triCount})
 		} else if rune0.Finger == rune2.Finger && rune0.Finger != rune1.Finger {
-			triDist := sl.distances.GetDistance(rune0, rune2)
-			triPerc := float32(triCount) / float32(corpus.TotalTrigramsCount)
+			triDist := sl.KeyPairDistances[KeyPair{rune0.Index, rune2.Index}].Distance
+			triPerc := float64(triCount) / float64(corpus.TotalTrigramsCount)
 			sfs := Sfs{
 				Trigram:    tri,
 				Distance:   triDist,
@@ -242,11 +243,11 @@ type Lsb struct {
 	// Bigram is the LSB bigram.
 	Bigram Bigram
 	// The horizontal distance from one key to the next
-	HorDistance float32
+	HorDistance float64
 	// Count is the number of occurrences of the LSB in a corpus.
 	Count uint64
 	// Percentage is the percentage of the corpus with this LSB.
-	Percentage float32
+	Percentage float64
 }
 
 type LsbAnalysis struct {
@@ -259,7 +260,7 @@ type LsbAnalysis struct {
 	// TotalLsbCount is the total number of LSB occurences in the corpus.
 	TotalLsbCount uint64
 	// TotalLsbPerc is the percentage of bigrams in the corpus that are LSB.
-	TotalLsbPerc float32
+	TotalLsbPerc float64
 	//
 	NumRowsInOutput int
 }
@@ -313,7 +314,7 @@ func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
 			continue
 		}
 
-		biPerc := float32(biCount) / float32(corpus.TotalBigramsCount)
+		biPerc := float64(biCount) / float64(corpus.TotalBigramsCount)
 
 		// Add new LSB, update totals
 		lsb := Lsb{
@@ -330,20 +331,20 @@ func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
 	return an
 }
 
-// Scissor represents a Full Scissor Bigram
+// Scissor represents a Full or Half Scissor Bigram
 type Scissor struct {
 	// Bigram is the Scissor bigram.
 	Bigram Bigram
 	//
 	FingerDistance uint8
 	//
-	RowDistance uint8
+	RowDistance float64
 	//
-	Angle float32
+	Angle float64
 	// Count is the number of occurrences of the Scissor in a corpus.
 	Count uint64
 	// Percentage is the percentage of the corpus with this Scissor.
-	Percentage float32
+	Percentage float64
 }
 
 type ScissorAnalysis struct {
@@ -356,7 +357,7 @@ type ScissorAnalysis struct {
 	// TotalLsbCount is the total number of LSB occurences in the corpus.
 	TotalScissorCount uint64
 	// TotalLsbPerc is the percentage of bigrams in the corpus that are LSB.
-	TotalScissorPerc float32
+	TotalScissorPerc float64
 	//
 	NumRowsInOutput int
 }
@@ -408,7 +409,7 @@ func (sl *SplitLayout) AnalyzeScissors(corpus *Corpus) *ScissorAnalysis {
 			continue
 		}
 
-		biPerc := float32(biCount) / float32(corpus.TotalBigramsCount)
+		biPerc := float64(biCount) / float64(corpus.TotalBigramsCount)
 
 		// Add new FSB, update totals
 		scissor := Scissor{

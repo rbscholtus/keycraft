@@ -121,15 +121,17 @@ func (sl *SplitLayout) Crossover(_ eaopt.Genome, _ *rand.Rand) {}
 // Clone returns a copy of the layout.
 func (sl *SplitLayout) Clone() eaopt.Genome {
 	cc := SplitLayout{
-		Name:        sl.Name,
-		Runes:       sl.Runes,
-		RuneInfo:    make(map[rune]KeyInfo),
-		LayoutType:  sl.LayoutType,
-		LSBInfo:     sl.LSBInfo,
-		ScissorInfo: sl.ScissorInfo,
-		distances:   sl.distances,
-		Pinned:      sl.Pinned,
-		optCorpus:   sl.optCorpus,
+		Name:             sl.Name,
+		LayoutType:       sl.LayoutType,
+		Runes:            sl.Runes,
+		RuneInfo:         make(map[rune]KeyInfo),
+		GetRowDist:       sl.GetRowDist,
+		GetColDist:       sl.GetColDist,
+		KeyPairDistances: sl.KeyPairDistances,
+		LSBInfo:          sl.LSBInfo,
+		ScissorInfo:      sl.ScissorInfo,
+		Pinned:           sl.Pinned,
+		optCorpus:        sl.optCorpus,
 	}
 
 	maps.Copy(cc.RuneInfo, sl.RuneInfo)

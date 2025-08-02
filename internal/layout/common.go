@@ -85,14 +85,14 @@ func Comma(v uint64) string {
 }
 
 func Fraction(val any) string {
-	if number, ok := val.(float32); ok {
+	if number, ok := val.(float64); ok {
 		return fmt.Sprintf("%.2f", number)
 	}
 	return fmt.Sprintf("%v", val)
 }
 
 func Percentage(val any) string {
-	if number, ok := val.(float32); ok {
+	if number, ok := val.(float64); ok {
 		return fmt.Sprintf("%.2f%%", 100*number)
 	}
 	return fmt.Sprintf("%v", val)
@@ -157,13 +157,6 @@ func FlushWriter(writer *bufio.Writer) {
 	if err := writer.Flush(); err != nil {
 		log.Printf("Error flushing writer: %v", err)
 	}
-}
-
-func Abs(x float32) float32 {
-	if x < 0 {
-		return -x
-	}
-	return x
 }
 
 // Calculate the median of a sorted slice

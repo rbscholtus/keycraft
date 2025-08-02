@@ -99,6 +99,7 @@ func createTable(title string, style table.Style) table.Writer {
 	tw.SetColumnConfigs([]table.ColumnConfig{
 		{Name: "orderby", Hidden: true},
 		{Name: "Distance", Transformer: Fraction},
+		{Name: "Row", Transformer: Fraction},
 		{Name: "Angle", Transformer: Fraction},
 		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
 		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
