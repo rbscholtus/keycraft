@@ -9,8 +9,9 @@ import (
 )
 
 var experimentCommand = &cli.Command{
-	Name:  "experiment",
-	Usage: "Run experiments",
+	Name:   "experiment",
+	Usage:  "Run experiments",
+	Action: experimentAction,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "corpus",
@@ -19,7 +20,6 @@ var experimentCommand = &cli.Command{
 			Required: true,
 		},
 	},
-	Action: experimentAction,
 }
 
 func experimentAction(c *cli.Context) error {
@@ -41,40 +41,40 @@ func experimentAction(c *cli.Context) error {
 }
 
 func doExperiment1(corp *ly.Corpus) {
-	a := ly.SortedMap(corp.Unigrams)
-	for _, v := range a[:10] {
-		fmt.Println(v.Key.String(), " ", v.Count)
-	}
+	// a := ly.SortedMap(corp.Unigrams)
+	// for _, v := range a[:10] {
+	// 	fmt.Println(v.Key.String(), " ", v.Count)
+	// }
+	fmt.Println(corp)
+	// var fav *ly.KeyInfo
 
-	var fav *ly.KeyInfo
+	// keys := [42]ly.KeyInfo{}
+	// for i := range keys {
+	// 	keys[i].Column = I2col(i)
+	// 	keys[i].Row = I2row(i)
+	// 	if i == 17 {
+	// 		fav = &keys[i]
+	// 	}
+	// }
+	// for _, k := range keys {
+	// 	fmt.Println(k)
+	// }
+	// fmt.Println(*fav)
+	// fmt.Println(fav)
+	// fmt.Println(fav.Row)
 
-	keys := [42]ly.KeyInfo{}
-	for i := range keys {
-		keys[i].Column = I2col(i)
-		keys[i].Row = I2row(i)
-		if i == 17 {
-			fav = &keys[i]
-		}
-	}
-	for _, k := range keys {
-		fmt.Println(k)
-	}
-	fmt.Println(*fav)
-	fmt.Println(fav)
-	fmt.Println(fav.Row)
-
-	for i := range 42 {
-		ik := ly.NewKeyInfo(uint8(i/12), uint8(i%12))
-		for j := range 42 {
-			if i == j {
-				continue
-			}
-			jk := ly.NewKeyInfo(uint8(j/12), uint8(j%12))
-			if ik.Finger == jk.Finger {
-				// fmt.Printf("SFB: %d,%d: %v %v\n", i, j, ik, jk)
-			}
-		}
-	}
+	// for i := range 42 {
+	// 	ik := ly.NewKeyInfo(uint8(i/12), uint8(i%12))
+	// 	for j := range 42 {
+	// 		if i == j {
+	// 			continue
+	// 		}
+	// 		jk := ly.NewKeyInfo(uint8(j/12), uint8(j%12))
+	// 		if ik.Finger == jk.Finger {
+	// 			// fmt.Printf("SFB: %d,%d: %v %v\n", i, j, ik, jk)
+	// 		}
+	// 	}
+	// }
 
 }
 

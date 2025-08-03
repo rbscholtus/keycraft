@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/rbscholtus/kb/internal/layout"
@@ -14,46 +13,21 @@ var analyseCommand = &cli.Command{
 	Usage:     "Analyse a layout file with a corpus file and style",
 	ArgsUsage: "<layout file>",
 	Action:    analyseAction,
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "corpus",
-			Aliases:  []string{"c"},
-			Usage:    "specify the corpus file",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:     "style",
-			Usage:    "specify the style",
-			Required: false,
-		},
-	},
+	Flags:     []cli.Flag{},
 }
 
 func analyseAction(c *cli.Context) error {
-	layoutFile := c.Args().First()
-	corpusFile := c.String("corpus")
+	corp, err := loadCorpus(c)
+	if err != nil {
+		return err
+	}
+
+	lay, err := loadLayout(c)
+	if err != nil {
+		return err
+	}
+
 	style := c.String("style")
-
-	if layoutFile == "" {
-		return fmt.Errorf("layout file is required")
-	}
-
-	if corpusFile == "" {
-		return fmt.Errorf("corpus file is required")
-	}
-
-	layoutPath := filepath.Join(layoutDir, layoutFile)
-	lay, err := layout.NewLayoutFromFile(layoutFile, layoutPath)
-	if err != nil {
-		return fmt.Errorf("failed to load layout from %s: %v", layoutPath, err)
-	}
-
-	corpusPath := filepath.Join(corpusDir, corpusFile)
-	corp, err := layout.NewCorpusFromFile(corpusFile, corpusPath)
-	if err != nil {
-		return fmt.Errorf("failed to load corpus from %s: %v", corpusPath, err)
-	}
-
 	doAnalysis(lay, corp, style)
 	return nil
 }

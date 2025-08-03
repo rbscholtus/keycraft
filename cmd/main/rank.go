@@ -19,12 +19,6 @@ var rankCommand = &cli.Command{
 	Action: rankAction,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "corpus",
-			Aliases:  []string{"c"},
-			Usage:    "specify the corpus file",
-			Required: true,
-		},
-		&cli.StringFlag{
 			Name:    "weights",
 			Aliases: []string{"w"},
 			Usage:   "specify weights for metrics (e.g. sfb=3.0,lsb=2.0)",
@@ -39,15 +33,20 @@ func rankAction(c *cli.Context) error {
 	if c.Args().Present() {
 		return fmt.Errorf("invalid argument(s) specified: %v", c.Args().Slice())
 	}
-	corpusPath := filepath.Join("data", "corpus", c.String("corpus"))
+
+	corp, err := loadCorpus(c)
+	if err != nil {
+		return err
+	}
 
 	weights, err := parseWeights(c.String("weights"))
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Ranking layouts in data/layouts with %s and weights: %v\n", corpusPath, weights)
-	return doRankings(corpusPath, "data/layouts", weights)
+	style := c.String("style")
+
+	return doRankings(corp, layoutDir, weights, style)
 }
 
 // LayoutScore represents a layout's score, including its name and penalty value.
@@ -57,12 +56,8 @@ type LayoutScore struct {
 }
 
 // doRankings performs the ranking of layouts based on the corpus and weights.
-func doRankings(corpusPath, layoutsDir string, weights map[string]float64) error {
-	// Read corpus
-	corpus, err := ly.NewCorpusFromFile("corpus", corpusPath)
-	if err != nil {
-		return fmt.Errorf("error finding corpus %v: %v", corpusPath, err)
-	}
+func doRankings(corpus *ly.Corpus, layoutsDir string, weights map[string]float64, style string) error {
+	fmt.Printf("Ranking layouts in data/layouts with %s and weights: %v\n", corpus, weights)
 
 	// Read layouts
 	layoutFiles, err := os.ReadDir(layoutsDir)
@@ -83,7 +78,7 @@ func doRankings(corpusPath, layoutsDir string, weights map[string]float64) error
 			fmt.Println(err)
 			continue
 		}
-		analyser := ly.NewAnalyser(layout, corpus)
+		analyser := ly.NewAnalyser(layout, corpus, style)
 		analysers = append(analysers, analyser)
 		for metric, value := range analyser.Metrics {
 			metrics[metric] = append(metrics[metric], float64(value))
@@ -146,6 +141,7 @@ func parseWeights(weightsStr string) (map[string]float64, error) {
 	weights := map[string]float64{
 		"ALT": -1,
 		"ROL": -1,
+		"ONE": -1,
 	}
 
 	if weightsStr == "" {
