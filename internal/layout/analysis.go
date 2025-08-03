@@ -268,7 +268,7 @@ type LsbAnalysis struct {
 func (sl *SplitLayout) SimpleLsbs(corpus *Corpus) float64 {
 	var totalLsbCount uint64
 
-	for _, pair := range sl.LSBInfo {
+	for _, pair := range sl.LSBs {
 		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
@@ -299,7 +299,7 @@ func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
 		NumRowsInOutput: 10,
 	}
 
-	for _, pair := range sl.LSBInfo {
+	for _, pair := range sl.LSBs {
 		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
@@ -319,7 +319,7 @@ func (sl *SplitLayout) AnalyzeLsbs(corpus *Corpus) *LsbAnalysis {
 		// Add new LSB, update totals
 		lsb := Lsb{
 			Bigram:      lsbBi,
-			HorDistance: pair.distance,
+			HorDistance: pair.colDistance,
 			Count:       biCount,
 			Percentage:  biPerc,
 		}
@@ -365,7 +365,7 @@ type ScissorAnalysis struct {
 func (sl *SplitLayout) SimpleScissors(corpus *Corpus) float64 {
 	var totalScissorCount uint64
 
-	for _, pair := range sl.ScissorInfo {
+	for _, pair := range sl.Scirrors {
 		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
@@ -394,7 +394,7 @@ func (sl *SplitLayout) AnalyzeScissors(corpus *Corpus) *ScissorAnalysis {
 		NumRowsInOutput: 10,
 	}
 
-	for _, pair := range sl.ScissorInfo {
+	for _, pair := range sl.Scirrors {
 		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
