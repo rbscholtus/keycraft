@@ -66,7 +66,7 @@ func (c *Corpus) StringSorted(limit int) string {
 	}
 
 	// Print trigrams
-	sb.WriteString("\nTrigrams:\n")
+	sb.WriteString("Trigrams:\n")
 	tc := SortedMap(c.Trigrams)
 	if limit > len(tc) {
 		limit = len(tc)
