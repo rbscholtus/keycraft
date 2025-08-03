@@ -3,67 +3,94 @@ package layout
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 )
 
+const (
+	rowstagTempl = `%s
+╭─────┬─────┬─────┬─────┬─────┬─────╮   ╭─────┬─────┬─────┬─────┬─────┬─────╮
+│ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │   │ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │
+╰┬────┴┬────┴┬────┴┬────┴┬────┴┬────┴╮  ╰┬────┴┬────┴┬────┴┬────┴┬────┴┬────┴╮
+ │ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │   │ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │
+ ╰──┬──┴──┬──┴──┬──┴──┬──┴──┬──┴──┬──┴──╮╰──┬──┴──┬──┴──┬──┴──┬──┴──┬──┴──┬──┴──╮
+    │ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │   │ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │
+    ╰─────┴─────┴─────┼─────┼─────┼─────┤   ├─────┼─────┼─────┼─────┴─────┴─────╯
+                      │ %3s │ %3s │ %3s │   │ %3s │ %3s │ %3s │                 
+                      ╰─────┴─────┴─────╯   ╰─────┴─────┴─────╯`
+	orthoTempl = `%s
+╭─────┬─────┬─────┬─────┬─────┬─────╮         ╭─────┬─────┬─────┬─────┬─────┬─────╮
+│ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │         │ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │
+├─────┼─────┼─────┼─────┼─────┼─────┤         ├─────┼─────┼─────┼─────┼─────┼─────┤
+│ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │         │ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │
+├─────┼─────┼─────┼─────┼─────┼─────┤         ├─────┼─────┼─────┼─────┼─────┼─────┤
+│ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │         │ %3s │ %3s │ %3s │ %3s │ %3s │ %3s │
+╰─────┴─────┴─────┼─────┼─────┼─────┤         ├─────┼─────┼─────┼─────┴─────┴─────╯
+                  │ %3s │ %3s │ %3s │         │ %3s │ %3s │ %3s │                 
+                  ╰─────┴─────┴─────╯         ╰─────┴─────┴─────╯`
+	colstagTempl = `%s
+            ╭─────┬─────┬─────╮                     ╭─────┬─────┬─────╮
+╭─────┬─────┤ %3s │ %3s │ %3s ├─────╮         ╭─────┤ %3s │ %3s │ %3s ├─────┬─────╮
+│ %3s │ %3s ├─────┼─────┼─────┤ %3s │         │ %3s ├─────┼─────┼─────┤ %3s │ %3s │
+├─────┼─────┤ %3s │ %3s │ %3s ├─────┤         ├─────┤ %3s │ %3s │ %3s ├─────┼─────┤
+│ %3s │ %3s ├─────┼─────┼─────┤ %3s │         │ %3s ├─────┼─────┼─────┤ %3s │ %3s │
+├─────┼─────┤ %3s │ %3s │ %3s ├─────┤         ├─────┤ %3s │ %3s │ %3s ├─────┼─────┤
+│ %3s │ %3s ├─────┼─────┼─────┤ %3s │         │ %3s ├─────┼─────┼─────┤ %3s │ %3s │
+╰─────┴─────╯     │ %3s │ %3s ├─────┤         ├─────┤ %3s │ %3s │     ╰─────┴─────╯           
+                  ╰─────┴─────┤ %3s │         │ %3s ├─────┴─────╯
+                              ╰─────╯         ╰─────╯`
+)
+
 // String returns a string representation of the layout
 func (sl *SplitLayout) String() string {
-	var ch = "\u200B   "
-	printRune := func(r rune) string {
-		switch r {
-		case 0:
-			if ch == "\u200B   " {
-				ch = "\u200D   "
-			} else {
-				ch = "\u200B   "
-			}
-			return fmt.Sprintf("%3s", ch)
-		case ' ':
-			return "spc"
-		default:
-			return fmt.Sprintf(" %c ", r)
+	switch sl.LayoutType {
+	case ORTHO:
+		return sl.genLayoutString(orthoTempl, 84, nil)
+	case COLSTAG:
+		mapper := [42]int{
+			2, 3, 4, 7, 8, 9,
+			0, 1, 5, 6, 10, 11,
+			14, 15, 16, 19, 20, 21,
+			12, 13, 17, 18, 22, 23,
+			26, 27, 28, 31, 32, 33,
+			24, 25, 29, 30, 34, 35,
+			36, 37, 40, 41,
+			38, 39,
 		}
+		return sl.genLayoutString(colstagTempl, 84, mapper[:])
+	default:
+		return sl.genLayoutString(rowstagTempl, 77, nil)
 	}
+}
 
-	tw := table.NewWriter()
-	tw.SetStyle(table.StyleRounded)
-	tw.Style().Options.SeparateRows = true
-	tw.Style().Title.Align = text.AlignCenter
-	tw.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 7, AutoMerge: true},
-	})
-	tw.SetTitle(fmt.Sprintf("%s [%s]", sl.Name, sl.LayoutType))
+func (sl *SplitLayout) genLayoutString(template string, width int, mapper []int) string {
+	// spaces for center alignment
+	spaces := strings.Repeat(" ", (width-len(sl.Name))/2)
 
-	for row := range 3 {
-		tableRow := make(table.Row, 13)
-		for col := range 13 {
-			if col < 6 {
-				tableRow[col] = printRune(sl.Runes[row*12+col])
-			} else if col == 6 {
-				tableRow[col] = "       "
-			} else {
-				tableRow[col] = printRune(sl.Runes[row*12+col-1])
-			}
-		}
-		tw.AppendRow(tableRow)
-	}
-	tableRow := make(table.Row, 13)
-	for col := range 13 {
-		if col < 3 || col > 9 {
-			tableRow[col] = " "
-		} else if col == 6 {
-			tableRow[col] = "       "
-		} else if col < 6 {
-			tableRow[col] = printRune(sl.Runes[33+col])
+	// make array for filling in template
+	args := make([]any, len(sl.Runes)+1)
+	args[0] = spaces + sl.Name
+	for i, r := range sl.Runes {
+		var m rune
+		if mapper != nil {
+			m = sl.Runes[mapper[i]]
 		} else {
-			tableRow[col] = printRune(sl.Runes[32+col])
+			m = r
+		}
+		switch m {
+		case 0:
+			args[i+1] = " "
+		case ' ':
+			args[i+1] = "spc"
+		default:
+			args[i+1] = string(m) + " "
 		}
 	}
-	tw.AppendRow(tableRow, table.RowConfig{AutoMerge: true})
 
-	return tw.Render()
+	// fill in template
+	return fmt.Sprintf(template, args...)
 }
 
 func (an *Analyser) HandUsageString() string {
