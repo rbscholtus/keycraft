@@ -23,7 +23,7 @@ vendor/
 /*.log
 /main
 *.go.bak
-/out.txt
+/*.txt
 /logs/
 *.html
 /*.conf
