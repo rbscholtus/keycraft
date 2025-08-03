@@ -110,23 +110,6 @@ func (an *Analyser) quickMetricAnalysis() {
 			count1 += biCnt
 			continue
 		}
-
-		// Function to check if a finger is on the bottom row.
-		bRow := func(fgr uint8) bool {
-			return fgr == 1 || fgr == 2 || fgr == 7 || fgr == 8
-		}
-
-		// Calculate FSB (Forward Stretch Bigram) count.
-		if (key2.Row-key1.Row == 2 && bRow(key2.Finger)) ||
-			(key1.Row-key2.Row == 2 && bRow(key1.Finger)) {
-			count3 += biCnt
-		}
-
-		// Calculate HSB (Home row Stretch Bigram) count.
-		if (key2.Row-key1.Row == 1 && bRow(key2.Finger)) ||
-			(key1.Row-key2.Row == 1 && bRow(key1.Finger)) {
-			count4 += biCnt
-		}
 	}
 
 	// Calculate LSB (Lateral Stretch Bigram) count.
@@ -134,6 +117,18 @@ func (an *Analyser) quickMetricAnalysis() {
 		bi := Bigram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
 		if cnt, ok := an.Corpus.Bigrams[bi]; ok {
 			count2 += cnt
+		}
+	}
+
+	// Calculate Scissors counts.
+	for _, sci := range an.Layout.Scirrors {
+		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		if cnt, ok := an.Corpus.Bigrams[bi]; ok {
+			if sci.rowDist > 1.5 {
+				count3 += cnt
+			} else {
+				count4 += cnt
+			}
 		}
 	}
 
@@ -301,6 +296,7 @@ func (an *Analyser) keysolvewebMetricAnalysis() {
 		if (key2.Row-key1.Row == 2 && bRow(key2.Finger)) ||
 			(key1.Row-key2.Row == 2 && bRow(key1.Finger)) {
 			count3 += biCnt
+
 		}
 
 		// Calculate HSB (Home row Stretch Bigram) count.
