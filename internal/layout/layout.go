@@ -107,11 +107,10 @@ type SplitLayout struct {
 	GetRowDist       func(uint8, uint8, uint8, uint8) float64
 	GetColDist       func(uint8, uint8, uint8, uint8) float64
 	KeyPairDistances map[KeyPair]KeyPairDistance
-	//
-	LSBInfo     []LSBInfo
-	ScissorInfo []ScissorInfo
-	Pinned      [42]bool
-	optCorpus   *Corpus
+	LSBs             []LSBInfo
+	Scirrors         []ScissorInfo
+	Pinned           [42]bool
+	optCorpus        *Corpus
 }
 
 // NewSplitLayout creates a new split layout
@@ -130,8 +129,8 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 		GetRowDist:       rowDistFunc,
 		GetColDist:       colDistFunc,
 		KeyPairDistances: keyDistances,
-		LSBInfo:          lsbs,
-		ScissorInfo:      scissors,
+		LSBs:             lsbs,
+		Scirrors:         scissors,
 		// distances:        NewKeyDistance(layoutType),
 	}
 }
@@ -342,6 +341,7 @@ func readLine(scanner *bufio.Scanner) (string, error) {
 	return "", fmt.Errorf("unexpected end of file")
 }
 
+// There is a minor error in the calcs for the thumb keys!
 func getKeyDistances(rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64, colDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64) map[KeyPair]KeyPairDistance {
 	keyDistances := make(map[KeyPair]KeyPairDistance)
 
@@ -376,6 +376,11 @@ func getKeyDistances(rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 u
 			// skip if the keys are on different hands
 			if ((row1 < 3 && col1 < 6) || (row1 >= 3 && col1 < 3)) !=
 				((row2 < 3 && col2 < 6) || (row2 >= 3 && col2 < 3)) {
+				continue
+			}
+
+			// skip if exactly one of the keys is on the thumb cluster
+			if (row1 < 3) != (row2 < 3) {
 				continue
 			}
 
@@ -414,9 +419,9 @@ func AbsColDistAdj(row1, col1, row2, col2 uint8) float64 {
 }
 
 type LSBInfo struct {
-	keyIdx1  int
-	keyIdx2  int
-	distance float64
+	keyIdx1     int
+	keyIdx2     int
+	colDistance float64
 }
 
 func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map[KeyPair]KeyPairDistance, layoutType LayoutType) []LSBInfo {
