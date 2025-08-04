@@ -100,15 +100,9 @@ func (an *Analyser) quickMetricAnalysis() {
 			continue
 		}
 
-		// All bigram stats are on 1 hand.
-		if key1.Hand != key2.Hand {
-			continue
-		}
-
 		// Calculate SFB (Same Finger Bigram) count.
 		if key1.Finger == key2.Finger && key1 != key2 {
 			count1 += biCnt
-			continue
 		}
 	}
 
@@ -121,7 +115,7 @@ func (an *Analyser) quickMetricAnalysis() {
 	}
 
 	// Calculate Scissors counts.
-	for _, sci := range an.Layout.Scirrors {
+	for _, sci := range an.Layout.Scissors {
 		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
 		if cnt, ok := an.Corpus.Bigrams[bi]; ok {
 			if sci.rowDist > 1.5 {
@@ -142,51 +136,42 @@ func (an *Analyser) quickMetricAnalysis() {
 	// Calculate skipgram statistics (SFS, LSS, FSS, HSS).
 	count1, count2, count3, count4 = 0, 0, 0, 0
 
-	for tri, triCnt := range an.Corpus.Trigrams {
-		key1, ok1 := an.Layout.RuneInfo[tri[0]]
-		key2, ok2 := an.Layout.RuneInfo[tri[2]]
+	for skp, skpCnt := range an.Corpus.Skipgrams {
+		key1, ok1 := an.Layout.RuneInfo[skp[0]]
+		key2, ok2 := an.Layout.RuneInfo[skp[1]]
 		if !ok1 || !ok2 {
-			// Skip trigrams that are not present in the layout.
-			continue
-		}
-
-		// First and third character are on 1 hand.
-		if key1.Hand != key2.Hand {
+			// Skip skipgrams that are not present in the layout.
 			continue
 		}
 
 		// Calculate SFS (Same Finger Skipgram) count.
 		if key1.Finger == key2.Finger && key1 != key2 {
-			count1 += triCnt
-			continue
+			count1 += skpCnt
 		}
+	}
 
-		// Calculate LSS (Lateral Stretch Skipgram) count.
-		if (key1.Column == 5 || key1.Column == 6 || key2.Column == 5 || key2.Column == 6) &&
-			(key1.Column == 3 || key1.Column == 8 || key2.Column == 3 || key2.Column == 8) {
-			count2 += triCnt
+	// Calculate LSS count.
+	for _, lsb := range an.Layout.LSBs {
+		skp := Skipgram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		if cnt, ok := an.Corpus.Skipgrams[skp]; ok {
+			count2 += cnt
 		}
+	}
 
-		// Function to check if a finger is on the bottom row.
-		bRow := func(fgr uint8) bool {
-			return fgr == 1 || fgr == 2 || fgr == 7 || fgr == 8
-		}
-
-		// Calculate FSS (Full Scissor Skipgram) count.
-		if (key2.Row-key1.Row == 2 && bRow(key2.Finger)) ||
-			(key1.Row-key2.Row == 2 && bRow(key1.Finger)) {
-			count3 += triCnt
-		}
-
-		// Calculate HSS (Half Scissor Skipgram) count.
-		if (key2.Row-key1.Row == 1 && bRow(key2.Finger)) ||
-			(key1.Row-key2.Row == 1 && bRow(key1.Finger)) {
-			count4 += triCnt
+	// Calculate Scissor skipgrams counts.
+	for _, sci := range an.Layout.Scissors {
+		skp := Skipgram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		if cnt, ok := an.Corpus.Skipgrams[skp]; ok {
+			if sci.rowDist > 1.5 {
+				count3 += cnt
+			} else {
+				count4 += cnt
+			}
 		}
 	}
 
 	// Calculate percentages for skipgram statistics.
-	factor = 100 / float64(an.Corpus.TotalTrigramsCount)
+	factor = 100 / float64(an.Corpus.TotalSkipgramsCount)
 	an.Metrics["SFS"] = float64(count1) * factor
 	an.Metrics["LSS"] = float64(count2) * factor
 	an.Metrics["FSS"] = float64(count3) * factor
@@ -316,11 +301,11 @@ func (an *Analyser) keysolvewebMetricAnalysis() {
 	// Calculate skipgram statistics (SFS, LSS, FSS, HSS).
 	count1, count2, count3, count4 = 0, 0, 0, 0
 
-	for tri, triCnt := range an.Corpus.Trigrams {
-		key1, ok1 := an.Layout.RuneInfo[tri[0]]
-		key2, ok2 := an.Layout.RuneInfo[tri[2]]
+	for skp, skpCnt := range an.Corpus.Skipgrams {
+		key1, ok1 := an.Layout.RuneInfo[skp[0]]
+		key2, ok2 := an.Layout.RuneInfo[skp[1]]
 		if !ok1 || !ok2 {
-			// Skip trigrams that are not present in the layout.
+			// Skip skipgrams that are not present in the layout.
 			continue
 		}
 
@@ -329,16 +314,16 @@ func (an *Analyser) keysolvewebMetricAnalysis() {
 			continue
 		}
 
-		// Calculate SFS (Same Finger Skipgram) count.
+		// Calculate SFS count.
 		if key1.Finger == key2.Finger && key1 != key2 {
-			count1 += triCnt
+			count1 += skpCnt
 			continue
 		}
 
-		// Calculate LSS (Lateral Stretch Skipgram) count.
+		// Calculate LSS count.
 		if (key1.Column == 5 || key1.Column == 6 || key2.Column == 5 || key2.Column == 6) &&
 			(key1.Column == 3 || key1.Column == 8 || key2.Column == 3 || key2.Column == 8) {
-			count2 += triCnt
+			count2 += skpCnt
 		}
 
 		// Function to check if a finger is on the bottom row.
@@ -346,21 +331,21 @@ func (an *Analyser) keysolvewebMetricAnalysis() {
 			return fgr == 1 || fgr == 2 || fgr == 7 || fgr == 8
 		}
 
-		// Calculate FSS (Full Scissor Skipgram) count.
+		// Calculate FSS count.
 		if (key2.Row-key1.Row == 2 && bRow(key2.Finger)) ||
 			(key1.Row-key2.Row == 2 && bRow(key1.Finger)) {
-			count3 += triCnt
+			count3 += skpCnt
 		}
 
-		// Calculate HSS (Half Scissor Skipgram) count.
+		// Calculate HSS count.
 		if (key2.Row-key1.Row == 1 && bRow(key2.Finger)) ||
 			(key1.Row-key2.Row == 1 && bRow(key1.Finger)) {
-			count4 += triCnt
+			count4 += skpCnt
 		}
 	}
 
 	// Calculate percentages for skipgram statistics.
-	factor = 100 / float64(an.Corpus.TotalTrigramsCount)
+	factor = 100 / float64(an.Corpus.TotalSkipgramsCount)
 	an.Metrics["SFS"] = float64(count1) * factor
 	an.Metrics["LSS"] = float64(count2) * factor
 	an.Metrics["FSS"] = float64(count3) * factor

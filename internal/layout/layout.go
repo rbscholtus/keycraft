@@ -108,7 +108,7 @@ type SplitLayout struct {
 	GetColDist       func(uint8, uint8, uint8, uint8) float64
 	KeyPairDistances map[KeyPair]KeyPairDistance
 	LSBs             []LSBInfo
-	Scirrors         []ScissorInfo
+	Scissors         []ScissorInfo
 	Pinned           [42]bool
 	optCorpus        *Corpus
 }
@@ -130,7 +130,7 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 		GetColDist:       colDistFunc,
 		KeyPairDistances: keyDistances,
 		LSBs:             lsbs,
-		Scirrors:         scissors,
+		Scissors:         scissors,
 		// distances:        NewKeyDistance(layoutType),
 	}
 }

@@ -129,7 +129,7 @@ func (sl *SplitLayout) Clone() eaopt.Genome {
 		GetColDist:       sl.GetColDist,
 		KeyPairDistances: sl.KeyPairDistances,
 		LSBs:             sl.LSBs,
-		Scirrors:         sl.Scirrors,
+		Scissors:         sl.Scissors,
 		Pinned:           sl.Pinned,
 		optCorpus:        sl.optCorpus,
 	}

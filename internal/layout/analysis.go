@@ -365,7 +365,7 @@ type ScissorAnalysis struct {
 func (sl *SplitLayout) SimpleScissors(corpus *Corpus) float64 {
 	var totalScissorCount uint64
 
-	for _, pair := range sl.Scirrors {
+	for _, pair := range sl.Scissors {
 		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
@@ -394,7 +394,7 @@ func (sl *SplitLayout) AnalyzeScissors(corpus *Corpus) *ScissorAnalysis {
 		NumRowsInOutput: 10,
 	}
 
-	for _, pair := range sl.Scirrors {
+	for _, pair := range sl.Scissors {
 		r0, r1 := sl.Runes[pair.keyIdx1], sl.Runes[pair.keyIdx2]
 		if r0 == 0 || r1 == 0 {
 			// position on layout has no character
