@@ -59,7 +59,7 @@ func (sl *SplitLayout) SimpleSfbs(corp *Corpus) float64 {
 		}
 	}
 
-	return float64(totalCount) / float64(corp.TotalBigramsNoSpace)
+	return float64(totalCount) / float64(corp.TotalBigramsCount)
 }
 
 // AnalyzeSfbs analyzes the SFBs for a layout and corpus.
@@ -85,7 +85,7 @@ func (sl *SplitLayout) AnalyzeSfbs(corpus *Corpus) SfbAnalysis {
 			an.Unsupported = append(an.Unsupported, BigramCount{bi, biCount})
 		} else if rune0.Finger == rune1.Finger {
 			dist := sl.KeyPairDistances[KeyPair{rune0.Index, rune1.Index}].Distance
-			biPerc := float64(biCount) / float64(corpus.TotalBigramsNoSpace)
+			biPerc := float64(biCount) / float64(corpus.TotalBigramsCount)
 			sfb := Sfb{
 				Bigram:     bi,
 				Distance:   dist,

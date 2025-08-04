@@ -133,7 +133,7 @@ func (an *Analyser) quickMetricAnalysis() {
 	}
 
 	// Calculate percentages for bigram statistics.
-	factor = 100 / float64(an.Corpus.TotalBigramsNoSpace)
+	factor = 100 / float64(an.Corpus.TotalBigramsCount)
 	an.Metrics["SFB"] = float64(count1) * factor
 	an.Metrics["LSB"] = float64(count2) * factor
 	an.Metrics["FSB"] = float64(count3) * factor
@@ -307,7 +307,7 @@ func (an *Analyser) keysolvewebMetricAnalysis() {
 	}
 
 	// Calculate percentages for bigram statistics.
-	factor = 100 / float64(an.Corpus.TotalBigramsNoSpace)
+	factor = 100 / float64(an.Corpus.TotalBigramsCount)
 	an.Metrics["SFB"] = float64(count1) * factor
 	an.Metrics["LSB"] = float64(count2) * factor
 	an.Metrics["FSB"] = float64(count3) * factor

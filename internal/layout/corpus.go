@@ -12,25 +12,25 @@ import (
 
 // Corpus represents a corpus of text
 type Corpus struct {
-	Name                 string
-	Unigrams             map[Unigram]uint64 // map of unigrams to their counts
-	TotalUnigramsCount   uint64             // total count of unigrams
-	TotalUnigramsNoSpace uint64             // total count of unigrams with no spaces
-	Bigrams              map[Bigram]uint64  // map of bigrams to their counts
-	TotalBigramsCount    uint64             // total count of bigrams
-	TotalBigramsNoSpace  uint64             // total count of bigrams with no spaces
-	Trigrams             map[Trigram]uint64 // map of trigrams to their counts
-	TotalTrigramsCount   uint64             // total count of trigrams
-	TotalTrigramsNoSpace uint64             // total count of trigrams with no spaces
+	Name                string
+	Unigrams            map[Unigram]uint64  // map of unigrams to their counts
+	TotalUnigramsCount  uint64              // total count of unigrams
+	Bigrams             map[Bigram]uint64   // map of bigrams to their counts
+	TotalBigramsCount   uint64              // total count of bigrams
+	Trigrams            map[Trigram]uint64  // map of trigrams to their counts
+	TotalTrigramsCount  uint64              // total count of trigrams
+	Skipgrams           map[Skipgram]uint64 // map of skipgrams to their counts
+	TotalSkipgramsCount uint64              // total count of skipgrams
 }
 
 // NewCorpus creates a new corpus with the given name
 func NewCorpus(name string) *Corpus {
 	return &Corpus{
-		Name:     name,
-		Unigrams: make(map[Unigram]uint64),
-		Bigrams:  make(map[Bigram]uint64),
-		Trigrams: make(map[Trigram]uint64),
+		Name:      name,
+		Unigrams:  make(map[Unigram]uint64),
+		Bigrams:   make(map[Bigram]uint64),
+		Trigrams:  make(map[Trigram]uint64),
+		Skipgrams: make(map[Skipgram]uint64),
 	}
 }
 
@@ -98,27 +98,24 @@ func NewCorpusFromFile(name, filename string) (*Corpus, error) {
 func (c *Corpus) AddUnigram(u Unigram) {
 	c.Unigrams[u]++
 	c.TotalUnigramsCount++
-	if !unicode.IsSpace(rune(u)) {
-		c.TotalUnigramsNoSpace++
-	}
 }
 
 // AddBigram adds a bigram to the corpus and increments its count
 func (c *Corpus) AddBigram(bigram Bigram) {
 	c.Bigrams[bigram]++
 	c.TotalBigramsCount++
-	if !unicode.IsSpace(bigram[0]) && !unicode.IsSpace(bigram[1]) {
-		c.TotalBigramsNoSpace++
-	}
 }
 
 // AddTrigram adds a trigram to the corpus and increments its count
 func (c *Corpus) AddTrigram(trigram Trigram) {
 	c.Trigrams[trigram]++
 	c.TotalTrigramsCount++
-	if !unicode.IsSpace(trigram[0]) && !unicode.IsSpace(trigram[1]) && !unicode.IsSpace(trigram[2]) {
-		c.TotalTrigramsNoSpace++
-	}
+}
+
+// AddTrigram adds a trigram to the corpus and increments its count
+func (c *Corpus) AddSkipgram(skipgram Skipgram) {
+	c.Skipgrams[skipgram]++
+	c.TotalSkipgramsCount++
 }
 
 // AddText adds Unigrams, Bigrams, and Trigrams in the text to the corpus, skipping n-grams with a space
@@ -140,6 +137,8 @@ func (c *Corpus) AddText(text string) {
 			if prev2 != 0 {
 				trigram := Trigram{prev2, prev1, r}
 				c.AddTrigram(trigram)
+				skipgram := Skipgram{prev2, r}
+				c.AddSkipgram(skipgram)
 			}
 		}
 		prev2 = prev1

@@ -51,6 +51,20 @@ type TrigramCount struct {
 	Count   uint64
 }
 
+// Skipgram represents the first and last character of a 3-character sequence
+type Skipgram [2]rune
+
+// String returns a string representation of the skipgram
+func (b Skipgram) String() string {
+	return string(b[:])
+}
+
+// SkipgramCount represents a skipgram and its count
+type SkipgramCount struct {
+	Skipgram Skipgram
+	Count    uint64
+}
+
 // Comma returns a string representation of the given number with commas.
 func Comma(v uint64) string {
 	// Calculate the number of digits and commas needed.
