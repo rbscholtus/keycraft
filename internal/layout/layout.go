@@ -198,7 +198,7 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 		}
 		for col, key := range keys {
 			switch strings.ToLower(key) {
-			case "_":
+			case "~":
 				runeArray[index] = rune(0)
 				index++
 			case "spc":
@@ -239,7 +239,7 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 	writeRune := func(r rune) {
 		switch r {
 		case 0:
-			_, _ = fmt.Fprint(writer, "_")
+			_, _ = fmt.Fprint(writer, "~")
 		case ' ':
 			_, _ = fmt.Fprint(writer, "spc")
 		default:
@@ -487,7 +487,6 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map
 type ScissorInfo struct {
 	keyIdx1    uint8
 	keyIdx2    uint8
-	bigram     string // for debugging, should remove at some point
 	fingerDist uint8
 	rowDist    float64
 	angle      float64
@@ -580,19 +579,19 @@ func calcScissorKeyPairs(runes [42]rune, keyPairDists map[KeyPair]KeyPairDistanc
 		scissors = append(scissors, ScissorInfo{
 			keyIdx1:    idxPair[0],
 			keyIdx2:    idxPair[1],
-			bigram:     string([]rune{runes[idxPair[0]], runes[idxPair[1]]}),
 			fingerDist: kp.FingerDist,
 			rowDist:    dy,
 			angle:      angle,
 		}, ScissorInfo{
 			keyIdx1:    idxPair[1],
 			keyIdx2:    idxPair[0],
-			bigram:     string([]rune{r1, r0}),
 			fingerDist: kp.FingerDist,
 			rowDist:    dy,
 			angle:      angle,
 		})
 	}
+
+	// godump.Dump(scissors)
 
 	return scissors
 }
