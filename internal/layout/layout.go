@@ -154,6 +154,13 @@ func (sl *SplitLayout) StringRunes() string {
 // - spc means the Space character
 // - characters cannot be repeated
 func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
+	keyMap := map[string]rune{
+		"~":  rune(0),
+		"_":  rune(' '),
+		"~~": rune('~'),
+		"__": rune('_'),
+	}
+
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -196,23 +203,19 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 		if len(keys) != expectedKeyCount {
 			return nil, fmt.Errorf("invalid file format: row %d has %d keys, expected %d", row+1, len(keys), expectedKeyCount)
 		}
+
 		for col, key := range keys {
-			switch strings.ToLower(key) {
-			case "~":
-				runeArray[index] = rune(0)
-				index++
-			case "spc":
-				r := rune(' ')
-				runeArray[index] = r
-				index++
-				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col))
-			default:
+			r, ok := keyMap[strings.ToLower(key)]
+			if !ok {
 				if len(key) != 1 {
-					return nil, fmt.Errorf("invalid file format: key '%s' in row %d must have 1 character or be 'no' or 'spc'", key, row+1)
+					return nil, fmt.Errorf("invalid file format: key '%s' in row %d must have 1 character or be '__' (for _) or '~~' (for ~)", key, row+1)
 				}
-				r := rune(key[0])
-				runeArray[index] = r
-				index++
+				r = rune(key[0])
+			}
+
+			runeArray[index] = r
+			index++
+			if r != rune(0) {
 				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col))
 			}
 		}
@@ -227,6 +230,13 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 
 // SaveToFile saves a layout layout to a text file
 func (sl *SplitLayout) SaveToFile(filename string) error {
+	inverseKeyMap := map[rune]string{
+		rune(0): "~",
+		' ':     "_",
+		'~':     "~~",
+		'_':     "__",
+	}
+
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -237,12 +247,9 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 	defer FlushWriter(writer)
 
 	writeRune := func(r rune) {
-		switch r {
-		case 0:
-			_, _ = fmt.Fprint(writer, "~")
-		case ' ':
-			_, _ = fmt.Fprint(writer, "spc")
-		default:
+		if str, ok := inverseKeyMap[r]; ok {
+			_, _ = fmt.Fprint(writer, str)
+		} else {
 			_, _ = fmt.Fprintf(writer, "%c", r)
 		}
 	}
