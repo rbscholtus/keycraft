@@ -30,7 +30,7 @@ To do
   - add Pinky-off stat
   - split redirects vs bad redirects
   - split Alt into alt vs alt-sfs
-  - comparison of several layouts
+  - comparison of several layouts MOSTLY DONE
   - add Effort stat
   - add Hard words
   - load corpus from cache files
