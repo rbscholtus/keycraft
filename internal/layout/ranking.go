@@ -15,8 +15,8 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 )
 
-// metricNames defines which metrics will be included in the ranking.
-var metricNames = []string{"SFB", "LSB", "FSB", "HSB", "SFS", "LSS", "FSS", "HSS", "ALT", "ROL", "ONE", "RED"}
+// MetricNames defines which metrics will be included in the ranking.
+var MetricNames = []string{"SFB", "LSB", "FSB", "HSB", "SFS", "LSS", "FSS", "HSS", "ALT", "ROL", "ONE", "RED"}
 
 // LayoutScore holds the name of a layout, its computed penalty score,
 // and the analyser used to generate metrics.
@@ -121,7 +121,7 @@ func renderTable(scores []LayoutScore) {
 			return fmt.Sprintf("%.2f", a)
 		}},
 	}
-	for _, metricName := range metricNames {
+	for _, metricName := range MetricNames {
 		configs = append(configs, table.ColumnConfig{
 			Name:  metricName,
 			Align: text.AlignRight,
@@ -133,14 +133,14 @@ func renderTable(scores []LayoutScore) {
 	tw.SetColumnConfigs(configs)
 
 	headerRow := []any{"Name", "Penalty"}
-	for _, metricName := range metricNames {
+	for _, metricName := range MetricNames {
 		headerRow = append(headerRow, metricName)
 	}
 	tw.AppendHeader(headerRow)
 
 	for _, scores := range scores {
 		row := []any{scores.Name, scores.Penalty}
-		for _, metricName := range metricNames {
+		for _, metricName := range MetricNames {
 			val, ok := scores.Analyser.Metrics[metricName]
 			if !ok {
 				continue
