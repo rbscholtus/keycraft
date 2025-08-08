@@ -72,8 +72,7 @@ func loadCorpus(c *cli.Context) (*layout.Corpus, error) {
 	return layout.NewCorpusFromFile(corpusFile, corpusPath)
 }
 
-func loadLayout(c *cli.Context) (*layout.SplitLayout, error) {
-	layoutFile := c.Args().First()
+func loadLayout(layoutFile string) (*layout.SplitLayout, error) {
 	if layoutFile == "" {
 		return nil, fmt.Errorf("layout file is required")
 	}

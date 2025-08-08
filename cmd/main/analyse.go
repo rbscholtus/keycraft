@@ -22,7 +22,7 @@ func analyseAction(c *cli.Context) error {
 		return err
 	}
 
-	lay, err := loadLayout(c)
+	lay, err := loadLayout(c.Args().First())
 	if err != nil {
 		return err
 	}
