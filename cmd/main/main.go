@@ -55,7 +55,7 @@ func main() {
 func validateFlags(c *cli.Context) error {
 	style := c.String("style")
 	if style != "" && style != "layoutsdoc" && style != "keysolve" {
-		return cli.NewExitError("Invalid style. Supported styles are 'layoutsdoc' and 'keysolve'.", 1)
+		return cli.Exit("Invalid style. Supported styles are 'layoutsdoc' and 'keysolve'.", 1)
 	}
 	return nil
 }
