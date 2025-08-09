@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 
 	ly "github.com/rbscholtus/kb/internal/layout"
 	"github.com/urfave/cli/v2"
@@ -12,32 +11,99 @@ var experimentCommand = &cli.Command{
 	Name:   "experiment",
 	Usage:  "Run experiments",
 	Action: experimentAction,
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "corpus",
-			Aliases:  []string{"c"},
-			Usage:    "specify the corpus file",
-			Required: true,
-		},
-	},
 }
 
 func experimentAction(c *cli.Context) error {
 	fmt.Println("Running experiment...")
 
-	corpusFile := c.String("corpus")
-	if corpusFile == "" {
-		return fmt.Errorf("corpus file is required")
-	}
-
-	corpusPath := filepath.Join(corpusDir, corpusFile)
-	corp, err := ly.NewCorpusFromFile(corpusFile, corpusPath)
+	corp, err := loadCorpus(c)
 	if err != nil {
-		return fmt.Errorf("failed to load corpus from %s: %v", corpusPath, err)
+		return err
 	}
 
-	doExperiment1(corp)
+	lay, err := loadLayout(c.Args().First())
+	if err != nil {
+		return err
+	}
+
+	// style := c.String("style")
+
+	doExperiment2(corp, lay)
 	return nil
+}
+
+func doExperiment2(corp *ly.Corpus, lay *ly.SplitLayout) {
+	stats := make(map[string]uint64)
+	for tri, cnt := range corp.Trigrams {
+		r0, ok0 := lay.RuneInfo[tri[0]]
+		r1, ok1 := lay.RuneInfo[tri[1]]
+		r2, ok2 := lay.RuneInfo[tri[2]]
+		if !ok0 || !ok1 || !ok2 {
+			stats["SKP"] += cnt
+			continue
+		}
+		if r0.Hand == r2.Hand {
+			if r0.Hand != r1.Hand {
+				if r0.Finger == r2.Finger && r0.Index != r2.Index {
+					stats["ALT-SFS"] += cnt
+				} else {
+					stats["ALT"] += cnt
+				}
+			} else {
+				// One hand trigrams here
+				if r0.Finger == r1.Finger || r1.Finger == r2.Finger {
+					// Same finger in a row
+					stats["OTH"] += cnt
+				} else if (r0.Finger < r1.Finger) == (r1.Finger < r2.Finger) {
+					// 3-roll in or out
+					if (r0.Finger < r1.Finger) == (r0.Hand == ly.LEFT) {
+						stats["3RL-I"] += cnt
+					} else {
+						stats["3RL-O"] += cnt
+					}
+				} else {
+					// redirects
+					if r0.Finger != 3 && r0.Finger != 6 && r1.Finger != 3 && r1.Finger != 6 && r2.Finger != 3 && r2.Finger != 6 {
+						stats["RED-BAD"] += cnt
+					} else if r0.Finger == r2.Finger && r0.Index != r2.Index {
+						stats["RED-SFS"] += cnt
+					} else {
+						stats["RED"] += cnt
+					}
+				}
+			}
+
+			continue
+		}
+
+		// At this point r0.Hand != r2.Hand
+
+		// Helper to add 2-roll stats
+		add2Roll := func(h uint8, f0, f1 uint8) {
+			if f0 == f1 {
+				stats["OTH"] += cnt
+			} else if (f0 < f1) == (h == ly.LEFT) {
+				stats["2RL-I"] += cnt
+			} else {
+				stats["2RL-O"] += cnt
+			}
+		}
+
+		// Check pairs r0,r1 or r1,r2 for same hand
+		if r0.Hand == r1.Hand {
+			add2Roll(r0.Hand, r0.Finger, r1.Finger)
+		} else {
+			add2Roll(r1.Hand, r1.Finger, r2.Finger)
+		}
+	}
+
+	tot := 0.0
+	for k, v := range stats {
+		tot += float64(v)
+		fmt.Println(k, float64(v)/float64(corp.TotalTrigramsCount)*100)
+	}
+	fmt.Println(float64(tot) / float64(corp.TotalTrigramsCount) * 100)
+	// godump.Dump(stats)
 }
 
 func doExperiment1(corp *ly.Corpus) {
