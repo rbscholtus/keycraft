@@ -47,14 +47,19 @@ var colStagOffsets = [12]float64{
 	0.35, 0.35, 0.1, 0, 0.1, 0.2, 0.2, 0.1, 0, 0.1, 0.35, 0.35,
 }
 
+const (
+	LEFT  uint8 = 0
+	RIGHT uint8 = 1
+)
+
 // KeyInfo represents a key's position on a keyboard
 type KeyInfo struct {
 	// Char   rune
 	Index  uint8
-	Hand   string // "left" or "right"
-	Row    uint8  // 0-3
-	Column uint8  // 0-11 for Row=0-2, 0-5 for Row=3
-	Finger uint8  // 0-9
+	Hand   uint8 // LEFT or RIGHT
+	Row    uint8 // 0-3
+	Column uint8 // 0-11 for Row=0-2, 0-5 for Row=3
+	Finger uint8 // 0-9
 }
 
 // NewKeyInfo returns a new KeyInfo struct with some fields derived from row and col.
@@ -71,11 +76,11 @@ func NewKeyInfo(row, col uint8) KeyInfo {
 		panic(fmt.Sprintf("index exceeds max value: %d", index))
 	}
 
-	hand := "right"
+	hand := RIGHT
 	if row < 3 && col < 6 {
-		hand = "left"
+		hand = LEFT
 	} else if row == 3 && col < 3 {
-		hand = "left"
+		hand = LEFT
 	}
 
 	finger := colToFingerMap[index]
@@ -131,7 +136,6 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 		KeyPairDistances: keyDistances,
 		LSBs:             lsbs,
 		Scissors:         scissors,
-		// distances:        NewKeyDistance(layoutType),
 	}
 }
 
@@ -139,7 +143,7 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 func (sl *SplitLayout) StringRunes() string {
 	var sb strings.Builder
 	for k, v := range sl.RuneInfo {
-		sb.WriteString(fmt.Sprintf("Key: %c, Hand: %s, Row: %d, Column: %d, Finger: %d\n",
+		sb.WriteString(fmt.Sprintf("Key: %c, Hand: %d, Row: %d, Column: %d, Finger: %d\n",
 			k, v.Hand, v.Row, v.Column, v.Finger))
 	}
 	return sb.String()

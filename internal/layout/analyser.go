@@ -60,7 +60,7 @@ func (an *Analyser) quickHandAnalysis() {
 		}
 
 		totalUnigramCount += uniCnt
-		if key.Hand == "left" {
+		if key.Hand == LEFT {
 			handCount[0] += uniCnt
 		} else {
 			handCount[1] += uniCnt
