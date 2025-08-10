@@ -1,4 +1,4 @@
-// compare.go provides the implementation for the "compare" command in the kb CLI tool.
+// list.go provides the implementation for the "list" command in the kb CLI tool.
 // It allows users to compare keyboard layouts based on various metrics and user-defined weights.
 // The command can compare specific layouts or all layouts in a directory, and supports ordering
 // of results and custom metric weighting.
@@ -15,16 +15,17 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// listCommand defines the "list" CLI command.
-// This command lists keyboard layouts from the specified directory.
-// It supports filtering by layout filenames, ordering the output,
-// applying metric weights, and optionally showing delta rows between layouts.
+// listCommand defines the "list" CLI command for the kb tool.
+// It lists keyboard layouts from a specified directory, optionally filtered by filename.
+// Users can:
+//   - Filter which layouts are listed (by CLI args or all .klf files in the directory)
+//   - Apply metric weights directly or from a file
+//   - Control the ordering of layouts ('cli' or 'rank')
+//   - Display delta rows showing metric differences between layouts
+//   - Show extended metrics for deeper analysis
 //
-// Flags:
-//
-//	--weights / -w    : Specify metric weights, e.g., sfb=3.0,lsb=2.0
-//	--order   / -o    : Specify layout ordering: 'rank' (by score) or 'cli' (as listed)
-//	--show-deltas / -d: Display delta rows comparing metrics between layouts (default: true)
+// By default, layouts are shown in CLI-specified order unless `--show-deltas` is enabled,
+// in which case the default order switches to 'rank'.
 var listCommand = &cli.Command{
 	Name:   "list",
 	Usage:  "List keyboard layouts with optional delta rows",
@@ -52,6 +53,12 @@ var listCommand = &cli.Command{
 			Name:    "show-deltas",
 			Aliases: []string{"d"},
 			Usage:   "show delta rows in the output - sets order to rank by default",
+			Value:   false,
+		},
+		&cli.BoolFlag{
+			Name:    "show-extended",
+			Aliases: []string{"x"},
+			Usage:   "show extended metrics",
 			Value:   false,
 		},
 	},
@@ -132,5 +139,5 @@ func listAction(c *cli.Context) error {
 
 	// Perform the layout comparison and display results,
 	// passing all relevant parameters including the showDeltas flag.
-	return layout.DoLayoutList(corpus, layoutDir, weights, c.String("style"), layoutsToCompare, orderOption, c.Bool("show-deltas"))
+	return layout.DoLayoutList(corpus, layoutDir, weights, c.String("style"), layoutsToCompare, orderOption, c.Bool("show-deltas"), c.Bool("show-extended"))
 }

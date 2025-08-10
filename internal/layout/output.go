@@ -173,12 +173,18 @@ func (an *Analyser) MetricsString() string {
 		},
 		{"Trigrams",
 			fmt.Sprintf("ALT: %.2f%%", an.Metrics["ALT"]),
+			fmt.Sprintf("2RL: %.2f%%", an.Metrics["2RL"]),
+			fmt.Sprintf("3RL: %.2f%%", an.Metrics["3RL"]),
+			fmt.Sprintf("RED: %.2f%%", an.Metrics["RED"]),
+		},
+		{"Trigrams",
+			fmt.Sprintf("ALT-SFS: %.2f%%", an.Metrics["ALT-SFS"]),
 			fmt.Sprintf("2RL-IN: %.2f%%", an.Metrics["2RL-IN"]),
 			fmt.Sprintf("3RL-IN: %.2f%%", an.Metrics["3RL-IN"]),
 			fmt.Sprintf("RED-BAD: %.2f%%", an.Metrics["RED-BAD"]),
 		},
 		{"Trigrams",
-			fmt.Sprintf("ALT-SFS: %.2f%%", an.Metrics["ALT-SFS"]),
+			fmt.Sprintf("ALT-OTH: %.2f%%", an.Metrics["ALT-OTH"]),
 			fmt.Sprintf("2RL-OUT: %.2f%%", an.Metrics["2RL-OUT"]),
 			fmt.Sprintf("3RL-OUT: %.2f%%", an.Metrics["3RL-OUT"]),
 			fmt.Sprintf("RED-SFS: %.2f%%", an.Metrics["RED-SFS"]),
@@ -187,10 +193,17 @@ func (an *Analyser) MetricsString() string {
 			"",
 			fmt.Sprintf("2RL-SF: %.2f%%", an.Metrics["2RL-SF"]),
 			fmt.Sprintf("3RL-SF: %.2f%%", an.Metrics["3RL-SF"]),
-			fmt.Sprintf("RED: %.2f%%", an.Metrics["RED"]),
+			fmt.Sprintf("RED-OTH: %.2f%%", an.Metrics["RED-OTH"]),
 		},
 	}
 	tw.AppendRows(data)
+
+	tw.AppendRow(table.Row{"Trigrams",
+		"",
+		fmt.Sprintf("IN:OUT: %.2f", an.Metrics["IN:OUT"]),
+		fmt.Sprintf("IN:OUT: %.2f", an.Metrics["IN:OUT"]),
+		"",
+	}, table.RowConfig{AutoMerge: true})
 
 	return tw.Render()
 }

@@ -6,6 +6,7 @@ package layout
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,6 +17,22 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 )
 
+var MetricNames = []string{
+	"SFB", "LSB", "FSB", "HSB",
+	"SFS", "LSS", "FSS", "HSS",
+	"ALT", "2RL", "3RL", "IN:OUT", "RED",
+}
+
+var MetricNamesExtended = []string{
+	"SFB", "LSB", "FSB", "HSB",
+	"SFS", "LSS", "FSS", "HSS",
+	"ALT", "ALT-SFS", "ALT-OTH",
+	"2RL", "2RL-IN", "2RL-OUT", "2RL-SF",
+	"3RL", "3RL-IN", "3RL-OUT", "3RL-SF",
+	"IN:OUT",
+	"RED", "RED-BAD", "RED-SFS", "RED-OTH",
+}
+
 // Weights holds metric weights used for scoring layouts.
 // Metrics not explicitly set in the input string default to predefined values.
 // ALT, ROL, and ONE have default negative weights since they represent positive aspects.
@@ -23,14 +40,31 @@ type Weights struct {
 	weights map[string]float64
 }
 
+// DefaultMetrics defines metrics where a higher value is considered better,
+// and thus their color coding for deltas is reversed.
+var DefaultMetrics = map[string]float64{
+	"ALT":     1.0,
+	"ALT-OTH": 0.0,
+	"ALT-SFS": 0.0,
+	"IN:OUT":  0.0,
+	"2RL":     1.0,
+	"2RL-IN":  0.0,
+	"2RL-OUT": 0.0,
+	"2RL-SF":  0.0,
+	"3RL":     1.0,
+	"3RL-IN":  0.0,
+	"3RL-OUT": 0.0,
+	"3RL-SF":  0.0,
+	"RED":     -1.0,
+	"RED-BAD": 0.0,
+	"RED-OTH": 0.0,
+	"RED-SFS": 0.0,
+}
+
 // NewWeights creates a Weights struct with positive metrics from PositiveMetrics set to 1.0.
 func NewWeights() *Weights {
 	weights := make(map[string]float64)
-	for metr, pos := range PositiveMetrics {
-		if pos {
-			weights[metr] = 1.0
-		}
-	}
+	maps.Copy(weights, DefaultMetrics)
 	return &Weights{weights}
 }
 
@@ -162,9 +196,9 @@ func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weigh
 // renderTable prints the ranked layout scores as a formatted table.
 // Includes layout names, scores, individual metric values,
 // and optionally, delta rows showing changes compared to the previous layout.
-func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title string) {
+func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, metrics []string) {
 	tw := table.NewWriter()
-	tw.SetTitle(title)
+	tw.SetTitle("Layout List")
 	tw.Style().Title.Align = text.AlignCenter
 
 	// Configure columns: index, name, score, then each metric
@@ -173,21 +207,21 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title 
 		{Name: "Name", Align: text.AlignLeft},
 		{Name: "Score", Align: text.AlignRight},
 	}
-	for _, metric := range MetricNames {
+	for _, metric := range metrics {
 		colConfigs = append(colConfigs, table.ColumnConfig{Name: metric, Align: text.AlignRight})
 	}
 	tw.SetColumnConfigs(colConfigs)
 
 	// Header row with column names
 	header := table.Row{"#", "Name", "Score"}
-	for _, metric := range MetricNames {
+	for _, metric := range metrics {
 		header = append(header, metric)
 	}
 	tw.AppendHeader(header)
 
 	// Weight row displayed after header with blank index and score columns
 	weightRow := table.Row{"", "Weight", ""}
-	for _, metric := range MetricNames {
+	for _, metric := range metrics {
 		weight := weights.Get(metric)
 		weightRow = append(weightRow, fmt.Sprintf("%.2f", weight))
 	}
@@ -200,13 +234,17 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title 
 		// Main row for each layout
 		row := table.Row{index, score.Name, fmt.Sprintf("%+.2f", score.Score)}
 
-		currMetrics := make([]float64, 0, len(MetricNames))
-		for _, metric := range MetricNames {
+		currMetrics := make([]float64, 0, len(metrics))
+		for _, metric := range metrics {
 			val, ok := score.Analyser.Metrics[metric]
 			if !ok {
 				val = 0.0
 			}
-			row = append(row, fmt.Sprintf("%.2f%%", val))
+			if metric == "IN:OUT" {
+				row = append(row, fmt.Sprintf("%.2f", val))
+			} else {
+				row = append(row, fmt.Sprintf("%.2f%%", val))
+			}
 			currMetrics = append(currMetrics, val)
 		}
 
@@ -214,7 +252,7 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title 
 		if showDeltas && i > 0 {
 			deltaRow := table.Row{"", "", ""}
 			for idx, currVal := range currMetrics {
-				metric := MetricNames[idx]
+				metric := metrics[idx]
 				delta := currVal - prevMetrics[idx]
 				deltaRow = append(deltaRow, formatDelta(metric, delta, weights))
 			}
@@ -232,7 +270,7 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title 
 // formatDelta returns a color-coded string for the delta value of a metric.
 // For metrics flagged as reversed, the colors for positive and negative deltas are swapped.
 func formatDelta(metric string, delta float64, weights *Weights) string {
-	positive := weights.Get(metric) > 0
+	positive := weights.Get(metric) >= 0
 	var c text.Color
 
 	switch {
@@ -258,7 +296,8 @@ func formatDelta(metric string, delta float64, weights *Weights) string {
 // - layouts: list of layout names to include; if empty, no filtering is applied.
 // - orderOption: if "rank", results are sorted by score descending.
 // - showDeltas: whether to show delta rows between layouts in the output.
-func DoLayoutList(corpus *Corpus, layoutsDir string, weights *Weights, style string, layouts []string, orderOption string, showDeltas bool) error {
+// - showExtended: whether to use the extended metric set for display.
+func DoLayoutList(corpus *Corpus, layoutsDir string, weights *Weights, style string, layouts []string, orderOption string, showDeltas bool, showExtended bool) error {
 	// Load all analysers for layouts in the directory
 	analysers, err := loadAnalysers(layoutsDir, corpus, style)
 	if err != nil {
@@ -292,8 +331,11 @@ func DoLayoutList(corpus *Corpus, layoutsDir string, weights *Weights, style str
 		})
 	}
 
+	// Choose metric list based on showExtended flag
+	metrics := IfThen(showExtended, MetricNamesExtended, MetricNames)
+
 	// Render results in a formatted table
-	renderTable(layoutScores, weights, showDeltas, "Layout List")
+	renderTable(layoutScores, weights, showDeltas, metrics)
 
 	return nil
 }

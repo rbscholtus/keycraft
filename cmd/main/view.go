@@ -15,6 +15,10 @@ var viewCommand = &cli.Command{
 }
 
 func viewAction(c *cli.Context) error {
+	if c.Args().Len() != 1 {
+		return fmt.Errorf("expected exactly 1 layout file, got %d", c.Args().Len())
+	}
+
 	corp, err := loadCorpus(c)
 	if err != nil {
 		return err
@@ -33,7 +37,7 @@ func viewAction(c *cli.Context) error {
 func doViewLayout(lay *layout.SplitLayout, corp *layout.Corpus, style string) {
 	fmt.Println(lay)
 	an := layout.NewAnalyser(lay, corp, style)
-	// fmt.Println(an.HandUsageString())
-	// fmt.Println(an.RowUsageString())
+	fmt.Println(an.HandUsageString())
+	fmt.Println(an.RowUsageString())
 	fmt.Println(an.MetricsString())
 }

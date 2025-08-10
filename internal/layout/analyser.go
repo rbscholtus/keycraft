@@ -1,38 +1,6 @@
 // Package layout provides functionality for analyzing keyboard layouts.
 package layout
 
-// MetricNames lists the metrics included in the layout ranking calculations.
-// SFB - Same Finger Bigram: percentage of bigrams typed with the same finger.
-// LSB - Lateral Stretch Bigram: percentage of bigrams with lateral stretch (between index and pinky fingers).
-// FSB - Full Scissor Bigram: percentage of bigrams typed with full scissor motion.
-// HSB - Half Scissor Bigram: percentage of bigrams typed with half scissor motion.
-// SFS - Same Finger Skipgram: percentage of skipgrams (trigrams with the first and last key typed by the same finger) typed with the same finger.
-// LSS - Lateral Stretch Skipgram: percentage of skipgrams with lateral stretch.
-// FSS - Full Scissor Skipgram: percentage of skipgrams typed with full scissor motion.
-// HSS - Half Scissor Skipgram: percentage of skipgrams typed with half scissor motion.
-// ALT - Alternation: percentage of trigrams where the first and last key are typed by the same hand and the middle key is typed by the other hand.
-// ROL - Roll: percentage of trigrams where each key is typed by a different finger and the hands alternate.
-// ONE - One hand, fingers in order: percentage of trigrams typed with one hand and fingers in order.
-// RED - Redirection: percentage of trigrams typed with one hand, all fingers different, and fingers not in order.
-var MetricNames = []string{
-	"SFB", "LSB", "FSB", "HSB",
-	"SFS", "LSS", "FSS", "HSS",
-	"ALT", "ALT-SFS",
-	"2RL-IN", "2RL-OUT", "2RL-SF",
-	"3RL-IN", "3RL-OUT", "3RL-SF",
-	"RED", "RED-SFS", "RED-BAD",
-}
-
-// PositiveMetrics defines metrics where a higher value is considered better,
-// and thus their color coding for deltas is reversed.
-var PositiveMetrics = map[string]bool{
-	"ALT":     true,
-	"2RL-IN":  true,
-	"2RL-OUT": true,
-	"3RL-IN":  true,
-	"3RL-OUT": true,
-}
-
 // HandUsageAnalysis holds statistics about hand, finger, column, and row usage.
 type HandUsageAnalysis struct {
 	// HandUsage stores the percentage of usage for each hand.
@@ -119,6 +87,39 @@ func (an *Analyser) quickHandAnalysis() {
 	}
 }
 
+// quickMetricAnalysis computes a core set of ergonomic and motion pattern metrics for the layout.
+// It analyzes bigrams, skipgrams, and trigrams from the corpus using the current layout mapping.
+// The metrics are grouped as follows:
+//
+// Bigram metrics:
+// - SFB (Same Finger Bigram): % of bigrams typed with the same finger.
+// - LSB (Lateral Stretch Bigram): % of bigrams involving a lateral stretch (index ↔ pinky).
+// - FSB (Full Scissor Bigram): % requiring large vertical movement.
+// - HSB (Half Scissor Bigram): % requiring smaller vertical movement.
+//
+// Skipgram metrics (compare first and last keys in a trigram):
+// - SFS (Same Finger Skipgram): % of skipgrams typed with the same finger.
+// - LSS (Lateral Stretch Skipgram): % involving a lateral stretch.
+// - FSS (Full Scissor Skipgram): % requiring large vertical movement.
+// - HSS (Half Scissor Skipgram): % requiring smaller vertical movement.
+//
+// Trigram / sequence metrics:
+// - ALT: Alternation between hands.
+// - ALT-SFS: Alternation patterns that are also same-finger skipgrams.
+// - 2RL-IN / 2RL-OUT: Two-key rolls inward/outward between adjacent fingers.
+// - 2RL-SF: Two-key rolls using the same finger.
+// - 3RL-IN / 3RL-OUT: Three-key inward/outward rolls on one hand.
+// - 3RL-SF: Three-key rolls with a same-finger occurrence.
+// - RED: Redirections (direction changes on one hand).
+// - RED-SFS: Redirections that are also same-finger skipgrams.
+// - RED-BAD: Less ergonomic redirections (no pinky involvement).
+// - ALT: Sum of ALT-OTH and ALT-SFS, total alternation percentage.
+// - 2RL: Sum of 2RL-IN and 2RL-OUT, total two-key rolls.
+// - 3RL: Sum of 3RL-IN and 3RL-OUT, total three-key rolls.
+// - RED: Sum of RED-OTH, RED-SFS, and RED-BAD, total redirections.
+// - IN:OUT: Ratio of inward to outward rolls (2-key and 3-key combined).
+//
+// All percentages are stored in an.Metrics for later ranking and comparison.
 func (an *Analyser) quickMetricAnalysis() {
 	// Initialize counters and factor for percentage calculation.
 	var factor float64
@@ -283,13 +284,19 @@ func (an *Analyser) quickMetricAnalysis() {
 		an.Metrics["2RL-IN"] = float64(count2) * factor
 		an.Metrics["2RL-OUT"] = float64(count3) * factor
 		an.Metrics["ALT-SFS"] = float64(count4) * factor
-		an.Metrics["ALT"] = float64(count5) * factor
+		an.Metrics["ALT-OTH"] = float64(count5) * factor
 		an.Metrics["3RL-SF"] = float64(count6) * factor
 		an.Metrics["3RL-IN"] = float64(count7) * factor
 		an.Metrics["3RL-OUT"] = float64(count8) * factor
 		an.Metrics["RED-BAD"] = float64(count9) * factor
 		an.Metrics["RED-SFS"] = float64(count10) * factor
-		an.Metrics["RED"] = float64(count11) * factor
+		an.Metrics["RED-OTH"] = float64(count11) * factor
+
+		an.Metrics["ALT"] = an.Metrics["ALT-OTH"] + an.Metrics["ALT-SFS"]
+		an.Metrics["2RL"] = an.Metrics["2RL-IN"] + an.Metrics["2RL-OUT"]
+		an.Metrics["3RL"] = an.Metrics["3RL-IN"] + an.Metrics["3RL-OUT"]
+		an.Metrics["RED"] = an.Metrics["RED-OTH"] + an.Metrics["RED-SFS"] + an.Metrics["RED-BAD"]
+		an.Metrics["IN:OUT"] = (an.Metrics["2RL-IN"] + an.Metrics["3RL-IN"]) / (an.Metrics["2RL-OUT"] + an.Metrics["3RL-OUT"])
 	}
 }
 
