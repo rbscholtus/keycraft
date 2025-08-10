@@ -27,10 +27,10 @@ GUI ??
 
 To do
 -----
+  - add hand balance analysis
+  - add detailed tables
+  - add metrics based on Dist vs %
   - add Pinky-off stat
-  - split redirects vs bad redirects
-  - split Alt into alt vs alt-sfs
-  - comparison of several layouts MOSTLY DONE
   - add Effort stat
   - add Hard words
   - load corpus from cache files
@@ -41,8 +41,11 @@ To do
 
 Done
 ----
+  - split redirects vs bad redirects DONE
+  - split Alt into alt vs alt-sfs DONE
+  - comparison of several layouts DONE
   - improve output (keyboard layout)
-  - Add generic method to analyse using lists of keypairs MOSTLY DONE?
+  - Add generic method to analyse using lists of keypairs MOSTLY DONE
   - generic distances data structure
   - add getreuer layouts MOSTLY DONE
   - ranking of all layouts DONE
