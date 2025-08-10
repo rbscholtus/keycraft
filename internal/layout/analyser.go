@@ -1,6 +1,38 @@
 // Package layout provides functionality for analyzing keyboard layouts.
 package layout
 
+// MetricNames lists the metrics included in the layout ranking calculations.
+// SFB - Same Finger Bigram: percentage of bigrams typed with the same finger.
+// LSB - Lateral Stretch Bigram: percentage of bigrams with lateral stretch (between index and pinky fingers).
+// FSB - Full Scissor Bigram: percentage of bigrams typed with full scissor motion.
+// HSB - Half Scissor Bigram: percentage of bigrams typed with half scissor motion.
+// SFS - Same Finger Skipgram: percentage of skipgrams (trigrams with the first and last key typed by the same finger) typed with the same finger.
+// LSS - Lateral Stretch Skipgram: percentage of skipgrams with lateral stretch.
+// FSS - Full Scissor Skipgram: percentage of skipgrams typed with full scissor motion.
+// HSS - Half Scissor Skipgram: percentage of skipgrams typed with half scissor motion.
+// ALT - Alternation: percentage of trigrams where the first and last key are typed by the same hand and the middle key is typed by the other hand.
+// ROL - Roll: percentage of trigrams where each key is typed by a different finger and the hands alternate.
+// ONE - One hand, fingers in order: percentage of trigrams typed with one hand and fingers in order.
+// RED - Redirection: percentage of trigrams typed with one hand, all fingers different, and fingers not in order.
+var MetricNames = []string{
+	"SFB", "LSB", "FSB", "HSB",
+	"SFS", "LSS", "FSS", "HSS",
+	"ALT", "ALT-SFS",
+	"2RL-IN", "2RL-OUT", "2RL-SF",
+	"3RL-IN", "3RL-OUT", "3RL-SF",
+	"RED", "RED-SFS", "RED-BAD",
+}
+
+// PositiveMetrics defines metrics where a higher value is considered better,
+// and thus their color coding for deltas is reversed.
+var PositiveMetrics = map[string]bool{
+	"ALT":     true,
+	"2RL-IN":  true,
+	"2RL-OUT": true,
+	"3RL-IN":  true,
+	"3RL-OUT": true,
+}
+
 // HandUsageAnalysis holds statistics about hand, finger, column, and row usage.
 type HandUsageAnalysis struct {
 	// HandUsage stores the percentage of usage for each hand.
@@ -43,6 +75,7 @@ func NewAnalyser(layout *SplitLayout, corpus *Corpus, style string) *Analyser {
 }
 
 // quickHandAnalysis calculates hand, finger, column, and row usage statistics.
+// All metrics exclude n-grams with space characters.
 func (an *Analyser) quickHandAnalysis() {
 	// Initialize counters for total unigrams, hand usage, finger usage, column usage, and row usage.
 	var totalUnigramCount uint64
@@ -178,69 +211,89 @@ func (an *Analyser) quickMetricAnalysis() {
 	an.Metrics["HSS"] = float64(count4) * factor
 
 	// Calculate trigram statistics (ALT, ROL, ONE, RED).
+	// var countSkipped uint64
 	count1, count2, count3, count4 = 0, 0, 0, 0
+	var count5, count6, count7, count8, count9, count10, count11 uint64
 
-	for tri, triCnt := range an.Corpus.Trigrams {
-		key1, ok1 := an.Layout.RuneInfo[tri[0]]
-		key2, ok2 := an.Layout.RuneInfo[tri[1]]
-		key3, ok3 := an.Layout.RuneInfo[tri[2]]
-		if !ok1 || !ok2 || !ok3 {
-			// Skip trigrams that are not present in the layout.
+	for tri, cnt := range an.Corpus.Trigrams {
+		// Cross-hand trigrams
+		add2Roll := func(h, fA, fB uint8) {
+			switch {
+			case fA == fB:
+				count1 += cnt
+			case (fA < fB) == (h == LEFT):
+				count2 += cnt
+			default:
+				count3 += cnt
+			}
+		}
+
+		r0, ok0 := an.Layout.RuneInfo[tri[0]]
+		r1, ok1 := an.Layout.RuneInfo[tri[1]]
+		r2, ok2 := an.Layout.RuneInfo[tri[2]]
+		if !ok0 || !ok1 || !ok2 {
+			//countSkipped += cnt
 			continue
 		}
 
-		// Calculate ALT (Alternation) count.
-		if key1.Hand == key3.Hand && key1.Hand != key2.Hand {
-			count1 += triCnt
+		h0, h1, h2 := r0.Hand, r1.Hand, r2.Hand
+		f0, f1, f2 := r0.Finger, r1.Finger, r2.Finger
+		diffIdx02 := r0.Index != r2.Index
+
+		//lint:ignore QF1003 use if for clarity
+		if h0 == h2 {
+			if h0 != h1 {
+				// ALT or ALT-SFS
+				if f0 == f2 && diffIdx02 {
+					count4 += cnt
+				} else {
+					count5 += cnt
+				}
+			} else {
+				// One-hand trigrams
+				switch {
+				case f0 == f1 || f1 == f2:
+					count6 += cnt // 3-roll with same finger
+				case (f0 < f1) == (f1 < f2):
+					if (f0 < f1) == (h0 == LEFT) {
+						count7 += cnt // 3-roll in
+					} else {
+						count8 += cnt // 3-roll out
+					}
+				default:
+					if f0 != LI && f0 != RI &&
+						f1 != LI && f1 != RI &&
+						f2 != LI && f2 != RI {
+						count9 += cnt // bad/weak redirect (without pinky)
+					} else if f0 == f2 && diffIdx02 {
+						count10 += cnt // redirect skipgram
+					} else {
+						count11 += cnt // redirect
+					}
+				}
+			}
+		} else if h0 == h1 {
+			add2Roll(h0, f0, f1)
+		} else { // h1 == h2
+			add2Roll(h1, f1, f2)
 		}
 
-		// Calculate ROL (Roll) count.
-		if key1.Hand != key3.Hand &&
-			key1.Finger != key2.Finger && key2.Finger != key3.Finger {
-			count2 += triCnt
-		}
-
-		// Check if all fingers are on the same hand and in order.
-		allSameHand := key1.Hand == key2.Hand && key1.Hand == key3.Hand
-		inOrder := (key1.Finger < key2.Finger && key2.Finger < key3.Finger) ||
-			(key1.Finger > key2.Finger && key2.Finger > key3.Finger)
-		allDiffFingers := key1.Finger != key2.Finger &&
-			key1.Finger != key3.Finger &&
-			key2.Finger != key3.Finger
-
-		// Calculate ONE (One hand, fingers in order) count.
-		if allSameHand && inOrder {
-			count3 += triCnt
-		}
-
-		// Calculate RED (Redirection) count.
-		if allSameHand && allDiffFingers && !inOrder {
-			count4 += triCnt
-		}
+		factor = 100 / float64(an.Corpus.TotalTrigramsCount)
+		an.Metrics["2RL-SF"] = float64(count1) * factor
+		an.Metrics["2RL-IN"] = float64(count2) * factor
+		an.Metrics["2RL-OUT"] = float64(count3) * factor
+		an.Metrics["ALT-SFS"] = float64(count4) * factor
+		an.Metrics["ALT"] = float64(count5) * factor
+		an.Metrics["3RL-SF"] = float64(count6) * factor
+		an.Metrics["3RL-IN"] = float64(count7) * factor
+		an.Metrics["3RL-OUT"] = float64(count8) * factor
+		an.Metrics["RED-BAD"] = float64(count9) * factor
+		an.Metrics["RED-SFS"] = float64(count10) * factor
+		an.Metrics["RED"] = float64(count11) * factor
 	}
-
-	// Calculate percentages for trigram statistics.
-	factor = 100 / float64(an.Corpus.TotalTrigramsCount)
-	an.Metrics["ALT"] = float64(count1) * factor
-	an.Metrics["ROL"] = float64(count2) * factor
-	an.Metrics["ONE"] = float64(count3) * factor
-	an.Metrics["RED"] = float64(count4) * factor
 }
 
 // quickMetricAnalysis calculates basic metrics about the layout, based on Keysolve-web.
-// All metrics exclude n-grams with space characters.
-// SFB - Same Finger Bigram: percentage of bigrams typed with the same finger.
-// LSB - Lateral Stretch Bigram: percentage of bigrams with lateral stretch (between index and pinky fingers).
-// FSB - Full Scissor Bigram: percentage of bigrams typed with full scissor motion.
-// HSB - Half Scissor Bigram: percentage of bigrams typed with half scissor motion.
-// SFS - Same Finger Skipgram: percentage of skipgrams (trigrams with the first and last key typed by the same finger) typed with the same finger.
-// LSS - Lateral Stretch Skipgram: percentage of skipgrams with lateral stretch.
-// FSS - Full Scissor Skipgram: percentage of skipgrams typed with full scissor motion.
-// HSS - Half Scissor Skipgram: percentage of skipgrams typed with half scissor motion.
-// ALT - Alternation: percentage of trigrams where the first and last key are typed by the same hand and the middle key is typed by the other hand.
-// ROL - Roll: percentage of trigrams where each key is typed by a different finger and the hands alternate.
-// ONE - One hand, fingers in order: percentage of trigrams typed with one hand and fingers in order.
-// RED - Redirection: percentage of trigrams typed with one hand, all fingers different, and fingers not in order.
 func (an *Analyser) keysolvewebMetricAnalysis() {
 	// Initialize counters and factor for percentage calculation.
 	var factor float64

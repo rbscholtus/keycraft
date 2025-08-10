@@ -1,5 +1,5 @@
 // listing.go provides functionality to evaluate and rank keyboard layouts
-// based on various ergonomic and usage metrics. It calculates penalty scores
+// based on various ergonomic and usage metrics. It calculates scores
 // that help determine the relative quality of each layout.
 
 package layout
@@ -27,10 +27,12 @@ type Weights struct {
 // Input format: "metric1=value1,metric2=value2,...", case-insensitive.
 // Returns an error if the format is invalid or weights cannot be parsed.
 func NewWeightsFromString(weightsStr string) (*Weights, error) {
-	weights := map[string]float64{
-		"ALT": -1,
-		"ROL": -1,
-		"ONE": -1,
+	// populate reverse metrics by default
+	weights := make(map[string]float64)
+	for metr, pos := range PositiveMetrics {
+		if pos {
+			weights[metr] = 1
+		}
 	}
 
 	if weightsStr == "" {
@@ -60,21 +62,14 @@ func (w *Weights) Get(metric string) float64 {
 	if val, ok := w.weights[metric]; ok {
 		return val
 	}
-	return 1.0
+	return -1.0
 }
 
-// MetricNames lists the metrics included in the layout ranking calculations.
-var MetricNames = []string{"SFB", "LSB", "FSB", "HSB", "SFS", "LSS", "FSS", "HSS", "ALT", "ROL", "ONE", "RED"}
-
-// ReversedMetrics defines metrics where a higher value is considered better,
-// and thus their color coding for deltas is reversed.
-var ReversedMetrics = map[string]bool{"ALT": true, "ROL": true, "ONE": true}
-
-// LayoutScore represents a keyboard layout's name, its total penalty score,
+// LayoutScore represents a keyboard layout's name, its total score,
 // and the analyser that computed its metrics.
 type LayoutScore struct {
 	Name     string    // Layout identifier or filename.
-	Penalty  float64   // Weighted penalty score for ranking.
+	Score    float64   // Weighted score for ranking.
 	Analyser *Analyser // Analyser with detailed metric values.
 }
 
@@ -129,14 +124,14 @@ func computeMediansAndIQR(analysers []*Analyser) (map[string]float64, map[string
 	return medians, iqr
 }
 
-// computeScores calculates weighted penalty scores for each layout.
+// computeScores calculates weighted scores for each layout.
 // Metrics are normalized by subtracting the median and dividing by the IQR.
-// The weighted sum of these normalized metrics produces the layout's penalty score.
+// The weighted sum of these normalized metrics produces the layout's score.
 func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weights *Weights) []LayoutScore {
 	var layoutScores []LayoutScore
 
 	for _, analyser := range analysers {
-		penalty := 0.0
+		score := 0.0
 		for metric, value := range analyser.Metrics {
 			weight := weights.Get(metric)
 			var scaledValue float64
@@ -145,27 +140,27 @@ func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weigh
 			} else {
 				scaledValue = (value - medians[metric]) / iqr[metric]
 			}
-			penalty += weight * scaledValue
+			score += weight * scaledValue
 		}
-		layoutScores = append(layoutScores, LayoutScore{analyser.Layout.Name, penalty, analyser})
+		layoutScores = append(layoutScores, LayoutScore{analyser.Layout.Name, score, analyser})
 	}
 
 	return layoutScores
 }
 
 // renderTable prints the ranked layout scores as a formatted table.
-// Includes layout names, penalty scores, individual metric values,
+// Includes layout names, scores, individual metric values,
 // and optionally, delta rows showing changes compared to the previous layout.
 func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title string) {
 	tw := table.NewWriter()
 	tw.SetTitle(title)
 	tw.Style().Title.Align = text.AlignCenter
 
-	// Configure columns: index, name, penalty, then each metric
+	// Configure columns: index, name, score, then each metric
 	colConfigs := []table.ColumnConfig{
 		{Name: "Index", Align: text.AlignRight},
 		{Name: "Name", Align: text.AlignLeft},
-		{Name: "Penalty", Align: text.AlignRight},
+		{Name: "Score", Align: text.AlignRight},
 	}
 	for _, metric := range MetricNames {
 		colConfigs = append(colConfigs, table.ColumnConfig{Name: metric, Align: text.AlignRight})
@@ -173,13 +168,13 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title 
 	tw.SetColumnConfigs(colConfigs)
 
 	// Header row with column names
-	header := table.Row{"#", "Name", "Penalty"}
+	header := table.Row{"#", "Name", "Score"}
 	for _, metric := range MetricNames {
 		header = append(header, metric)
 	}
 	tw.AppendHeader(header)
 
-	// Weight row displayed after header with blank index and penalty columns
+	// Weight row displayed after header with blank index and score columns
 	weightRow := table.Row{"", "Weight", ""}
 	for _, metric := range MetricNames {
 		weight := weights.Get(metric)
@@ -192,7 +187,7 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title 
 
 	for i, score := range scores {
 		// Main row for each layout
-		row := table.Row{index, score.Name, fmt.Sprintf("%+.2f", score.Penalty)}
+		row := table.Row{index, score.Name, fmt.Sprintf("%+.2f", score.Score)}
 
 		currMetrics := make([]float64, 0, len(MetricNames))
 		for _, metric := range MetricNames {
@@ -210,7 +205,7 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title 
 			for idx, currVal := range currMetrics {
 				metric := MetricNames[idx]
 				delta := currVal - prevMetrics[idx]
-				deltaRow = append(deltaRow, formatDelta(metric, delta))
+				deltaRow = append(deltaRow, formatDelta(metric, delta, weights))
 			}
 			tw.AppendRow(deltaRow)
 		}
@@ -225,15 +220,15 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, title 
 
 // formatDelta returns a color-coded string for the delta value of a metric.
 // For metrics flagged as reversed, the colors for positive and negative deltas are swapped.
-func formatDelta(metric string, delta float64) string {
-	reversed := ReversedMetrics[metric]
+func formatDelta(metric string, delta float64, weights *Weights) string {
+	positive := weights.Get(metric) > 0
 	var c text.Color
 
 	switch {
-	case delta > 0:
-		c = IfThen(reversed, text.FgGreen, text.FgRed)
-	case delta < 0:
-		c = IfThen(reversed, text.FgRed, text.FgGreen)
+	case delta >= 0.01:
+		c = IfThen(positive, text.FgGreen, text.FgRed)
+	case delta <= -0.01:
+		c = IfThen(positive, text.FgRed, text.FgGreen)
 	default:
 		c = text.Reset
 	}
@@ -242,7 +237,7 @@ func formatDelta(metric string, delta float64) string {
 
 // DoLayoutList evaluates and ranks keyboard layouts based on the given parameters.
 // It loads all layouts from the specified directory, computes normalization stats,
-// filters layouts if a subset is specified, computes weighted penalty scores,
+// filters layouts if a subset is specified, computes weighted scores,
 // optionally sorts by rank, and renders the results including delta rows if requested.
 // Parameters:
 // - corpus: text corpus used for layout analysis.
@@ -250,7 +245,7 @@ func formatDelta(metric string, delta float64) string {
 // - weights: metric weights to apply during scoring.
 // - style: analysis style parameter.
 // - layouts: list of layout names to include; if empty, no filtering is applied.
-// - orderOption: if "rank", results are sorted by penalty score ascending.
+// - orderOption: if "rank", results are sorted by score descending.
 // - showDeltas: whether to show delta rows between layouts in the output.
 func DoLayoutList(corpus *Corpus, layoutsDir string, weights *Weights, style string, layouts []string, orderOption string, showDeltas bool) error {
 	// Load all analysers for layouts in the directory
@@ -276,13 +271,13 @@ func DoLayoutList(corpus *Corpus, layoutsDir string, weights *Weights, style str
 		}
 	}
 
-	// Compute weighted penalty scores for filtered layouts
+	// Compute weighted scores for filtered layouts
 	layoutScores := computeScores(filteredAnalysers, medians, iqrs, weights)
 
-	// Sort layouts by penalty if requested
+	// Sort layouts by if requested
 	if orderOption == "rank" {
 		sort.Slice(layoutScores, func(i, j int) bool {
-			return layoutScores[i].Penalty < layoutScores[j].Penalty
+			return layoutScores[i].Score > layoutScores[j].Score
 		})
 	}
 

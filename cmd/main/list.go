@@ -23,7 +23,7 @@ import (
 // Flags:
 //
 //	--weights / -w    : Specify metric weights, e.g., sfb=3.0,lsb=2.0
-//	--order   / -o    : Specify layout ordering: 'rank' (by penalty score) or 'cli' (as listed)
+//	--order   / -o    : Specify layout ordering: 'rank' (by score) or 'cli' (as listed)
 //	--show-deltas / -d: Display delta rows comparing metrics between layouts (default: true)
 var listCommand = &cli.Command{
 	Name:   "list",
@@ -33,19 +33,19 @@ var listCommand = &cli.Command{
 		&cli.StringFlag{
 			Name:    "weights",
 			Aliases: []string{"w"},
-			Usage:   "specify weights for metrics, e.g. sfb=3.0,lsb=2.0",
+			Usage:   "specify weights for metrics, e.g. sfb=-3.0,lsb=-2.0",
 			Value:   "",
 		},
 		&cli.StringFlag{
 			Name:    "order",
 			Aliases: []string{"o"},
 			Usage:   "Order of layouts: 'rank' or 'cli' (as listed)",
-			Value:   "rank",
+			Value:   "cli",
 		},
 		&cli.BoolFlag{
 			Name:    "show-deltas",
 			Aliases: []string{"d"},
-			Usage:   "show delta rows in the output",
+			Usage:   "show delta rows in the output - sets order to rank by default",
 			Value:   false,
 		},
 	},
@@ -93,13 +93,18 @@ func listAction(c *cli.Context) error {
 		}
 	}
 
-	// Step 4: Validate the --order flag; it must be 'cli' or 'rank'.
+	// Step 4: Determine the order option, considering if the user explicitly set it.
 	orderOption := c.String("order")
+	if !c.IsSet("order") && c.Bool("show-deltas") {
+		orderOption = "rank"
+	}
+
+	// Step 5: Validate the --order flag; it must be 'cli' or 'rank'.
 	if orderOption != "cli" && orderOption != "rank" {
 		return fmt.Errorf("invalid order option %q; must be 'cli' or 'rank'", orderOption)
 	}
 
-	// Step 5: Perform the layout comparison and display results,
+	// Step 6: Perform the layout comparison and display results,
 	// passing all relevant parameters including the showDeltas flag.
 	return layout.DoLayoutList(corpus, layoutDir, weights, c.String("style"), layoutsToCompare, orderOption, c.Bool("show-deltas"))
 }

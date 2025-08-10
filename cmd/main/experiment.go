@@ -34,76 +34,77 @@ func experimentAction(c *cli.Context) error {
 
 func doExperiment2(corp *ly.Corpus, lay *ly.SplitLayout) {
 	stats := make(map[string]uint64)
+
 	for tri, cnt := range corp.Trigrams {
+		// Cross-hand trigrams
+		add2Roll := func(h, fA, fB uint8) {
+			switch {
+			case fA == fB:
+				stats["2RL-SF"] += cnt
+			case (fA < fB) == (h == ly.LEFT):
+				stats["2RL-I"] += cnt
+			default:
+				stats["2RL-O"] += cnt
+			}
+		}
+
 		r0, ok0 := lay.RuneInfo[tri[0]]
 		r1, ok1 := lay.RuneInfo[tri[1]]
 		r2, ok2 := lay.RuneInfo[tri[2]]
 		if !ok0 || !ok1 || !ok2 {
-			stats["SKP"] += cnt
+			stats["TRI-SKP"] += cnt
 			continue
 		}
-		if r0.Hand == r2.Hand {
-			if r0.Hand != r1.Hand {
-				if r0.Finger == r2.Finger && r0.Index != r2.Index {
+
+		h0, h1, h2 := r0.Hand, r1.Hand, r2.Hand
+		f0, f1, f2 := r0.Finger, r1.Finger, r2.Finger
+		diffIdx02 := r0.Index != r2.Index
+
+		if h0 == h2 {
+			if h0 != h1 {
+				// ALT or ALT-SFS
+				if f0 == f2 && diffIdx02 {
 					stats["ALT-SFS"] += cnt
 				} else {
 					stats["ALT"] += cnt
 				}
 			} else {
-				// One hand trigrams here
-				if r0.Finger == r1.Finger || r1.Finger == r2.Finger {
-					// Same finger in a row
-					stats["OTH"] += cnt
-				} else if (r0.Finger < r1.Finger) == (r1.Finger < r2.Finger) {
-					// 3-roll in or out
-					if (r0.Finger < r1.Finger) == (r0.Hand == ly.LEFT) {
+				// One-hand trigrams
+				switch {
+				case f0 == f1 || f1 == f2:
+					stats["3RL-SF"] += cnt
+				case (f0 < f1) == (f1 < f2):
+					if (f0 < f1) == (h0 == ly.LEFT) {
 						stats["3RL-I"] += cnt
 					} else {
 						stats["3RL-O"] += cnt
 					}
-				} else {
-					// redirects
-					if r0.Finger != 3 && r0.Finger != 6 && r1.Finger != 3 && r1.Finger != 6 && r2.Finger != 3 && r2.Finger != 6 {
+				default:
+					if f0 != 3 && f0 != 6 &&
+						f1 != 3 && f1 != 6 &&
+						f2 != 3 && f2 != 6 {
 						stats["RED-BAD"] += cnt
-					} else if r0.Finger == r2.Finger && r0.Index != r2.Index {
+					} else if f0 == f2 && diffIdx02 {
 						stats["RED-SFS"] += cnt
 					} else {
 						stats["RED"] += cnt
 					}
 				}
 			}
-
-			continue
-		}
-
-		// At this point r0.Hand != r2.Hand
-
-		// Helper to add 2-roll stats
-		add2Roll := func(h uint8, f0, f1 uint8) {
-			if f0 == f1 {
-				stats["OTH"] += cnt
-			} else if (f0 < f1) == (h == ly.LEFT) {
-				stats["2RL-I"] += cnt
-			} else {
-				stats["2RL-O"] += cnt
-			}
-		}
-
-		// Check pairs r0,r1 or r1,r2 for same hand
-		if r0.Hand == r1.Hand {
-			add2Roll(r0.Hand, r0.Finger, r1.Finger)
-		} else {
-			add2Roll(r1.Hand, r1.Finger, r2.Finger)
+		} else if h0 == h1 {
+			add2Roll(h0, f0, f1)
+		} else { // h1 == h2
+			add2Roll(h1, f1, f2)
 		}
 	}
 
+	// Print stats
 	tot := 0.0
 	for k, v := range stats {
 		tot += float64(v)
 		fmt.Println(k, float64(v)/float64(corp.TotalTrigramsCount)*100)
 	}
 	fmt.Println(float64(tot) / float64(corp.TotalTrigramsCount) * 100)
-	// godump.Dump(stats)
 }
 
 func doExperiment1(corp *ly.Corpus) {
