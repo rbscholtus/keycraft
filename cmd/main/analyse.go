@@ -32,7 +32,7 @@ func analyseAction(c *cli.Context) error {
 	return nil
 }
 
-func doAnalysis(lay *layout.SplitLayout, corp *layout.Corpus, style string) {
+func doAnalysis(lay *layout.SplitLayout, corp *layout.Corpus, _ string) {
 	fmt.Println(lay)
 	sfb := lay.AnalyzeSfbs(corp)
 	sfs := lay.AnalyzeSfss(corp)
