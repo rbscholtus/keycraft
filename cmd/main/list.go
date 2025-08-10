@@ -37,6 +37,12 @@ var listCommand = &cli.Command{
 			Value:   "",
 		},
 		&cli.StringFlag{
+			Name:    "weights-file",
+			Aliases: []string{"wf"},
+			Usage:   "load weights from a text file; weights flag overrides these values",
+			Value:   "",
+		},
+		&cli.StringFlag{
 			Name:    "order",
 			Aliases: []string{"o"},
 			Usage:   "Order of layouts: 'rank' or 'cli' (as listed)",
@@ -52,19 +58,39 @@ var listCommand = &cli.Command{
 }
 
 func listAction(c *cli.Context) error {
-	// Step 1: Load the corpus used for analyzing layouts.
+	// Load the corpus used for analyzing layouts.
 	corpus, err := loadCorpus(c)
 	if err != nil {
 		return err
 	}
 
-	// Step 2: Parse the user-provided weights for layout metrics.
-	weights, err := layout.NewWeightsFromString(c.String("weights"))
-	if err != nil {
-		return err
+	weights := layout.NewWeights()
+
+	// Parse the user-provided weights for layout metrics.
+	// First, optionally load weights from a file.
+	weightsFile := c.String("weights-file")
+	if weightsFile != "" {
+		data, err := os.ReadFile(weightsFile)
+		if err != nil {
+			return fmt.Errorf("failed to read weights file %q: %v", weightsFile, err)
+		}
+
+		for line := range strings.SplitSeq(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if !strings.HasPrefix(line, "#") && line != "" {
+				if err := weights.AddWeightsFromString(line); err != nil {
+					return fmt.Errorf("failed to parse weights from file %q: %v", weightsFile, err)
+				}
+			}
+		}
 	}
 
-	// Step 3: Determine which layouts to list.
+	// Now parse the --weights string and override values from file if present.
+	if err := weights.AddWeightsFromString(c.String("weights")); err != nil {
+		return fmt.Errorf("failed to parse weights: %v", err)
+	}
+
+	// Determine which layouts to list.
 	// If no layout filenames are provided as CLI arguments,
 	// scan the layout directory for all .klf files and use them.
 	// Otherwise, use the provided layout filenames and verify their existence.
@@ -93,18 +119,18 @@ func listAction(c *cli.Context) error {
 		}
 	}
 
-	// Step 4: Determine the order option, considering if the user explicitly set it.
+	// Determine the order option, considering if the user explicitly set it.
 	orderOption := c.String("order")
 	if !c.IsSet("order") && c.Bool("show-deltas") {
 		orderOption = "rank"
 	}
 
-	// Step 5: Validate the --order flag; it must be 'cli' or 'rank'.
+	// Validate the --order flag; it must be 'cli' or 'rank'.
 	if orderOption != "cli" && orderOption != "rank" {
 		return fmt.Errorf("invalid order option %q; must be 'cli' or 'rank'", orderOption)
 	}
 
-	// Step 6: Perform the layout comparison and display results,
+	// Perform the layout comparison and display results,
 	// passing all relevant parameters including the showDeltas flag.
 	return layout.DoLayoutList(corpus, layoutDir, weights, c.String("style"), layoutsToCompare, orderOption, c.Bool("show-deltas"))
 }

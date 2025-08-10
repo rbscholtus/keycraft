@@ -23,41 +23,52 @@ type Weights struct {
 	weights map[string]float64
 }
 
+// NewWeights creates a Weights struct with positive metrics from PositiveMetrics set to 1.0.
+func NewWeights() *Weights {
+	weights := make(map[string]float64)
+	for metr, pos := range PositiveMetrics {
+		if pos {
+			weights[metr] = 1.0
+		}
+	}
+	return &Weights{weights}
+}
+
 // NewWeightsFromString parses a string of metric-weight pairs into a Weights struct.
 // Input format: "metric1=value1,metric2=value2,...", case-insensitive.
 // Returns an error if the format is invalid or weights cannot be parsed.
 func NewWeightsFromString(weightsStr string) (*Weights, error) {
-	// populate reverse metrics by default
-	weights := make(map[string]float64)
-	for metr, pos := range PositiveMetrics {
-		if pos {
-			weights[metr] = 1
-		}
-	}
+	w := NewWeights()
+	err := w.AddWeightsFromString(weightsStr)
+	return w, err
+}
 
+// AddWeightsFromString adds or overrides weights from a string of metric-weight pairs.
+// If weightsStr is empty, returns the existing Weights unchanged.
+func (w *Weights) AddWeightsFromString(weightsStr string) error {
 	if weightsStr == "" {
-		return &Weights{weights}, nil
+		return nil
 	}
-	weightsStr = strings.ToUpper(strings.TrimSpace(weightsStr))
 
+	weightsStr = strings.ToUpper(strings.TrimSpace(weightsStr))
 	for pair := range strings.SplitSeq(weightsStr, ",") {
 		parts := strings.Split(pair, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid weights format: %s", pair)
+			return fmt.Errorf("invalid weights format: %s", pair)
 		}
 		metric := strings.TrimSpace(parts[0])
 		weight, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
 		if err != nil {
-			return nil, fmt.Errorf("invalid weight value for metric %s", metric)
+			return fmt.Errorf("invalid weight value for metric %s", metric)
 		}
-		weights[metric] = weight
+		w.weights[metric] = weight
 	}
 
-	return &Weights{weights}, nil
+	return nil
 }
 
 // Get returns the weight assigned to a given metric.
-// Returns 1.0 if the metric is not found in the weights map.
+// Returns -1.0 if the metric is not found in the weights map.
 func (w *Weights) Get(metric string) float64 {
 	if val, ok := w.weights[metric]; ok {
 		return val

@@ -31,9 +31,11 @@ To do
   - add detailed tables
   - add metrics based on Dist vs %
   - add Pinky-off stat
+  - add pins param
   - add Effort stat
   - add Hard words
   - load corpus from cache files
+  - add Norvig corpus
   - testing and documentation of all analysis
   - Put Optimise in its own struct
   - add more than 1 layer
@@ -41,6 +43,7 @@ To do
 
 Done
 ----
+  - add weights file DONE
   - split redirects vs bad redirects DONE
   - split Alt into alt vs alt-sfs DONE
   - comparison of several layouts DONE

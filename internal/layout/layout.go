@@ -163,6 +163,7 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 		"_":  rune(' '),
 		"~~": rune('~'),
 		"__": rune('_'),
+		"##": rune('#'),
 	}
 
 	file, err := os.Open(filename)
@@ -239,6 +240,7 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 		' ':     "_",
 		'~':     "~~",
 		'_':     "__",
+		'#':     "##",
 	}
 
 	file, err := os.Create(filename)
