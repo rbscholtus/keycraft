@@ -3,6 +3,7 @@ package layout
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -107,23 +108,26 @@ func (an *Analyser) HandUsageString() string {
 	// Append row with ColumnUsage data
 	columnUsageRow := make(table.Row, 12)
 	for i := range columnUsageRow {
-		columnUsageRow[i] = fmt.Sprintf("%.2f%%", an.HandUsage.ColumnUsage[i])
+		key := "C" + strconv.Itoa(i)
+		columnUsageRow[i] = fmt.Sprintf("%.2f%%", an.Metrics[key])
 	}
 	tw.AppendRow(columnUsageRow)
 
 	// Append row with FingerUsage data and merged cells
 	fingerUsageRow := make(table.Row, 12)
 	fi := [12]int{0, 0, 1, 2, 3, 3, 6, 6, 7, 8, 9, 9}
-	for i := range fingerUsageRow {
-		fingerUsageRow[i] = fmt.Sprintf("%.2f%%", an.HandUsage.FingerUsage[fi[i]])
+	for i, v := range fi {
+		key := "F" + strconv.Itoa(v)
+		fingerUsageRow[i] = fmt.Sprintf("%.2f%%", an.Metrics[key])
 	}
 	tw.AppendRow(fingerUsageRow, table.RowConfig{AutoMerge: true})
 
 	// Append row with HandUsage data in merged cells
 	handUsageRow := make(table.Row, 12)
 	hi := [12]int{0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1}
-	for i := range handUsageRow {
-		handUsageRow[i] = fmt.Sprintf("%.2f%%", an.HandUsage.HandUsage[hi[i]])
+	for i, v := range hi {
+		key := "H" + strconv.Itoa(v)
+		handUsageRow[i] = fmt.Sprintf("%.2f%%", an.Metrics[key])
 	}
 	tw.AppendRow(handUsageRow, table.RowConfig{AutoMerge: true})
 
@@ -137,9 +141,9 @@ func (an *Analyser) RowUsageString() string {
 	tw.Style().Title.Align = text.AlignCenter
 	tw.SetTitle("Row Usage")
 
-	tw.AppendRow(table.Row{"Top", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[0])})
-	tw.AppendRow(table.Row{"Home", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[1])})
-	tw.AppendRow(table.Row{"Bottom", fmt.Sprintf("%.2f%%", an.HandUsage.RowUsage[2])})
+	tw.AppendRow(table.Row{"Top", fmt.Sprintf("%.2f%%", an.Metrics["R0"])})
+	tw.AppendRow(table.Row{"Home", fmt.Sprintf("%.2f%%", an.Metrics["R1"])})
+	tw.AppendRow(table.Row{"Bottom", fmt.Sprintf("%.2f%%", an.Metrics["R2"])})
 
 	return tw.Render()
 }

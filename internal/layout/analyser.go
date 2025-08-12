@@ -1,6 +1,10 @@
 // Package layout provides functionality for analyzing keyboard layouts.
 package layout
 
+import (
+	"strconv"
+)
+
 // HandUsageAnalysis holds statistics about hand, finger, column, and row usage.
 type HandUsageAnalysis struct {
 	// HandUsage stores the percentage of usage for each hand.
@@ -19,9 +23,7 @@ type Analyser struct {
 	Layout *SplitLayout
 	// Reference to the Corpus used to analyse the layout.
 	Corpus *Corpus
-	// HandUsage holds statistics about hand usage.
-	HandUsage HandUsageAnalysis
-	// Metrics holds basic metrics about the layout.
+	// Metrics holds all metrics about the layout.
 	Metrics map[string]float64
 }
 
@@ -74,16 +76,16 @@ func (an *Analyser) quickHandAnalysis() {
 	// Calculate the percentages.
 	factor := 100 / float64(totalUnigramCount)
 	for i, c := range handCount {
-		an.HandUsage.HandUsage[i] = float64(c) * factor
+		an.Metrics["H"+strconv.Itoa(i)] = float64(c) * factor
 	}
 	for i, c := range fingerCount {
-		an.HandUsage.FingerUsage[i] = float64(c) * factor
+		an.Metrics["F"+strconv.Itoa(i)] = float64(c) * factor
 	}
 	for i, c := range columnCount {
-		an.HandUsage.ColumnUsage[i] = float64(c) * factor
+		an.Metrics["C"+strconv.Itoa(i)] = float64(c) * factor
 	}
 	for i, c := range rowCount {
-		an.HandUsage.RowUsage[i] = float64(c) * factor
+		an.Metrics["R"+strconv.Itoa(i)] = float64(c) * factor
 	}
 }
 
