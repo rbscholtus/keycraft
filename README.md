@@ -35,10 +35,11 @@ To do
   - add detailed tables
   - add metrics based on Dist vs %
   - add Pinky-off stat
+  - always load defaults weight and default corpus
+  - load corpus from cache files
   - add pins param
   - add Effort stat
   - add Hard words
-  - load corpus from cache files
   - add Norvig corpus
   - testing and documentation of all analysis
   - Put Optimise in its own struct
