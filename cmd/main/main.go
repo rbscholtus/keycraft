@@ -34,7 +34,7 @@ func main() {
 			},
 		},
 		Commands: []*cli.Command{
-			listCommand,
+			rankCommand,
 			viewCommand,
 			analyseCommand,
 			optimiseCommand,

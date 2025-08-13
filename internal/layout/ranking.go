@@ -9,6 +9,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,20 +18,29 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 )
 
-var MetricNames = []string{
-	"SFB", "LSB", "FSB", "HSB",
-	"SFS", "LSS", "FSS", "HSS",
-	"ALT", "2RL", "3RL", "IN:OUT", "RED",
-}
-
-var MetricNamesExtended = []string{
-	"SFB", "LSB", "FSB", "HSB",
-	"SFS", "LSS", "FSS", "HSS",
-	"ALT", "ALT-SFS", "ALT-OTH",
-	"2RL", "2RL-IN", "2RL-OUT", "2RL-SF",
-	"3RL", "3RL-IN", "3RL-OUT", "3RL-SF",
-	"IN:OUT",
-	"RED", "RED-BAD", "RED-SFS", "RED-OTH",
+var MetricsMap = map[string][]string{
+	"metrics": {
+		"SFB", "LSB", "FSB", "HSB",
+		"SFS", "LSS", "FSS", "HSS",
+		"ALT", "2RL", "3RL", "IN:OUT", "RED",
+	},
+	"ext-metrics": {
+		"SFB", "LSB", "FSB", "HSB",
+		"SFS", "LSS", "FSS", "HSS",
+		"ALT", "ALT-SFS", "ALT-OTH",
+		"2RL", "2RL-IN", "2RL-OUT", "2RL-SF",
+		"3RL", "3RL-IN", "3RL-OUT", "3RL-SF",
+		"IN:OUT",
+		"RED", "RED-BAD", "RED-SFS", "RED-OTH",
+	},
+	"columns": {
+		"C0", "C1", "C2", "C3", "C4", "C5",
+		"C6", "C7", "C8", "C9", "C10", "C11",
+	},
+	"fingers": {
+		"H0", "F0", "F1", "F2", "F3", "F4",
+		"F5", "F6", "F7", "F8", "F9", "H1",
+	},
 }
 
 // Weights holds metric weights used for scoring layouts.
@@ -196,9 +206,13 @@ func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weigh
 // renderTable prints the ranked layout scores as a formatted table.
 // Includes layout names, scores, individual metric values,
 // and optionally, delta rows showing changes compared to the previous layout.
-func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, metrics []string) {
+func renderTable(scores []LayoutScore, metrics []string, weights *Weights, deltas string, base *LayoutScore) {
 	tw := table.NewWriter()
-	tw.SetTitle("Layout List")
+	if base == nil {
+		tw.SetTitle("Layout Ranking")
+	} else {
+		tw.SetTitle(fmt.Sprintf("Layout Ranking (Compare to %s)", base.Name))
+	}
 	tw.Style().Title.Align = text.AlignCenter
 
 	// Configure columns: index, name, score, then each metric
@@ -208,7 +222,11 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, metric
 		{Name: "Score", Align: text.AlignRight},
 	}
 	for _, metric := range metrics {
-		colConfigs = append(colConfigs, table.ColumnConfig{Name: metric, Align: text.AlignRight})
+		colConfigs = append(colConfigs, table.ColumnConfig{
+			Name:        metric,
+			Align:       text.AlignRight,
+			AlignHeader: text.AlignRight,
+		})
 	}
 	tw.SetColumnConfigs(colConfigs)
 
@@ -227,44 +245,60 @@ func renderTable(scores []LayoutScore, weights *Weights, showDeltas bool, metric
 	}
 	tw.AppendHeader(weightRow)
 
-	var prevMetrics []float64
-	index := 1
+	rowIdx := 1
+	if base != nil {
+		rowIdx -= 1 + slices.IndexFunc(scores, func(ls LayoutScore) bool { return ls.Name == base.Name })
+	}
+	var prevMetrics, refMetrics []float64
+	if base != nil {
+		refMetrics = make([]float64, 0, len(metrics))
+		for _, metric := range metrics {
+			val := WithDefault(base.Analyser.Metrics, metric, 0.0)
+			refMetrics = append(refMetrics, val)
+		}
+	}
 
 	for i, score := range scores {
-		// Main row for each layout
-		row := table.Row{index, score.Name, fmt.Sprintf("%+.2f", score.Score)}
-
+		// one dataRow for each layout
+		dataRow := table.Row{rowIdx, score.Name, fmt.Sprintf("%+.2f", score.Score)}
 		currMetrics := make([]float64, 0, len(metrics))
 		for _, metric := range metrics {
-			val, ok := score.Analyser.Metrics[metric]
-			if !ok {
-				val = 0.0
-			}
-			if metric == "IN:OUT" {
-				row = append(row, fmt.Sprintf("%.2f", val))
-			} else {
-				row = append(row, fmt.Sprintf("%.2f%%", val))
-			}
+			val := WithDefault(score.Analyser.Metrics, metric, 0.0)
+			dataRow = append(dataRow, formatMetricValue(metric, val))
 			currMetrics = append(currMetrics, val)
 		}
 
-		// Append delta row if enabled and not the first layout
-		if showDeltas && i > 0 {
+		// delta row if enabled and not the first layout
+		if i > 0 && deltas != "none" {
 			deltaRow := table.Row{"", "", ""}
-			for idx, currVal := range currMetrics {
-				metric := metrics[idx]
-				delta := currVal - prevMetrics[idx]
-				deltaRow = append(deltaRow, formatDelta(metric, delta, weights))
+			for idx, currMetric := range currMetrics {
+				var delta float64
+				if base == nil {
+					delta = currMetric - prevMetrics[idx]
+				} else if rowIdx <= 0 {
+					delta = prevMetrics[idx] - refMetrics[idx]
+				} else {
+					delta = currMetric - refMetrics[idx]
+				}
+				deltaRow = append(deltaRow, formatDelta(metrics[idx], delta, weights))
 			}
 			tw.AppendRow(deltaRow)
 		}
+		tw.AppendRow(dataRow)
 
-		tw.AppendRow(row)
 		prevMetrics = currMetrics
-		index++
+		rowIdx++
 	}
 
 	fmt.Println(tw.Render())
+}
+
+// Helper
+func formatMetricValue(metric string, val float64) string {
+	if metric == "IN:OUT" {
+		return fmt.Sprintf("%.2f", val)
+	}
+	return fmt.Sprintf("%.2f%%", val)
 }
 
 // formatDelta returns a color-coded string for the delta value of a metric.
@@ -284,30 +318,32 @@ func formatDelta(metric string, delta float64, weights *Weights) string {
 	return c.Sprintf("%+.2f%%", delta)
 }
 
-// DoLayoutList evaluates and ranks keyboard layouts based on the given parameters.
+// DoLayoutRankings evaluates and ranks keyboard layouts based on the given parameters.
 // It loads all layouts from the specified directory, computes normalization stats,
 // filters layouts if a subset is specified, computes weighted scores,
 // optionally sorts by rank, and renders the results including delta rows if requested.
 // Parameters:
 // - corpus: text corpus used for layout analysis.
 // - layoutsDir: directory containing keyboard layout files (.klf).
-// - weights: metric weights to apply during scoring.
-// - style: analysis style parameter.
 // - layouts: list of layout names to include; if empty, no filtering is applied.
-// - orderOption: if "rank", results are sorted by score descending.
-// - showDeltas: whether to show delta rows between layouts in the output.
-// - showExtended: whether to use the extended metric set for display.
-func DoLayoutList(corpus *Corpus, layoutsDir string, weights *Weights, style string, layouts []string, orderOption string, showDeltas bool, showExtended bool) error {
+// - weights: metric weights to apply during scoring.
+// - metricsMode: string indicating which metric set to use ("metrics", "ext-metrics", "columns", or "fingers").
+// - deltas: whether to show delta rows between layouts in the output.
+func DoLayoutRankings(corpus *Corpus, layoutsDir string, layouts []string, weights *Weights, metricsSet string, deltas string) error {
+	// Choose metric list based on metricsMode flag
+	metrics, ok := MetricsMap[metricsSet]
+	if !ok {
+		opts := slices.Collect(maps.Keys(MetricsMap))
+		return fmt.Errorf("invalid metrics mode %q; must be one of %v", metricsSet, opts)
+	}
+
 	// Load all analysers for layouts in the directory
-	analysers, err := loadAnalysers(layoutsDir, corpus, style)
+	analysers, err := loadAnalysers(layoutsDir, corpus, "layoutsdoc")
 	if err != nil {
 		return err
 	}
 
-	// Compute median and IQR for each metric for normalization
-	medians, iqrs := computeMediansAndIQR(analysers)
-
-	// Map analysers by layout name for quick lookup
+	// Map analysers by layout name for fast lookup
 	analyserMap := make(map[string]*Analyser, len(analysers))
 	for _, analyser := range analysers {
 		analyserMap[analyser.Layout.Name] = analyser
@@ -321,21 +357,36 @@ func DoLayoutList(corpus *Corpus, layoutsDir string, weights *Weights, style str
 		}
 	}
 
+	// Compute median and IQR for each metric for normalization
+	medians, iqrs := computeMediansAndIQR(analysers)
+
 	// Compute weighted scores for filtered layouts
 	layoutScores := computeScores(filteredAnalysers, medians, iqrs, weights)
 
-	// Sort layouts by if requested
-	if orderOption == "rank" {
-		sort.Slice(layoutScores, func(i, j int) bool {
-			return layoutScores[i].Score > layoutScores[j].Score
-		})
+	// Add a Median row if needed
+	var base *LayoutScore
+	if deltas == "median" {
+		lss := computeScores([]*Analyser{{Layout: &SplitLayout{Name: "median"}, Metrics: medians}}, medians, iqrs, weights)
+		layoutScores = append(layoutScores, lss[0])
 	}
 
-	// Choose metric list based on showExtended flag
-	metrics := IfThen(showExtended, MetricNamesExtended, MetricNames)
+	// Sort layouts by rank
+	sort.Slice(layoutScores, func(i, j int) bool {
+		return layoutScores[i].Score > layoutScores[j].Score
+	})
+
+	// get a ptr to the layout we compare to if relevant
+	if deltas != "none" && deltas != "rows" {
+		if i := slices.IndexFunc(layoutScores, func(ls LayoutScore) bool { return ls.Name == deltas }); i < 0 {
+			panic(fmt.Sprintf("can't find %s", deltas))
+		} else {
+			base = &layoutScores[i]
+		}
+	}
 
 	// Render results in a formatted table
-	renderTable(layoutScores, weights, showDeltas, metrics)
+	// godump.Dump(base.Name)
+	renderTable(layoutScores, metrics, weights, deltas, base)
 
 	return nil
 }
