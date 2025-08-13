@@ -177,7 +177,7 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 	// Read layout type
 	layoutTypeStr, err := readLine(scanner)
 	if err != nil {
-		return nil, fmt.Errorf("invalid file format: missing layout type")
+		return nil, fmt.Errorf("invalid file format in %s: missing layout type", filename)
 	}
 
 	var layoutType LayoutType
@@ -191,7 +191,7 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 		layoutType = COLSTAG
 	default:
 		types := []LayoutType{ROWSTAG, ORTHO, COLSTAG}
-		return nil, fmt.Errorf("invalid layout type: %s. Must start with one of: %v", layoutTypeStr, types)
+		return nil, fmt.Errorf("invalid layout type in %s: %s. Must start with one of: %v", filename, layoutTypeStr, types)
 	}
 
 	var runeArray [42]rune
@@ -202,18 +202,18 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 	for row, expectedKeyCount := range expectedKeys {
 		line, err := readLine(scanner)
 		if err != nil {
-			return nil, fmt.Errorf("invalid file format: not enough rows")
+			return nil, fmt.Errorf("invalid file format in %s: not enough rows", filename)
 		}
 		keys := strings.Fields(line)
 		if len(keys) != expectedKeyCount {
-			return nil, fmt.Errorf("invalid file format: row %d has %d keys, expected %d", row+1, len(keys), expectedKeyCount)
+			return nil, fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", filename, row+1, len(keys), expectedKeyCount)
 		}
 
 		for col, key := range keys {
 			r, ok := keyMap[strings.ToLower(key)]
 			if !ok {
 				if len(key) != 1 {
-					return nil, fmt.Errorf("invalid file format: key '%s' in row %d must have 1 character or be '__' (for _) or '~~' (for ~)", key, row+1)
+					return nil, fmt.Errorf("invalid file format in %s: key '%s' in row %d must have 1 character or be '__' (for _) or '~~' (for ~) or '##' (for #)", filename, key, row+1)
 				}
 				r = rune(key[0])
 			}
@@ -308,15 +308,15 @@ func (sl *SplitLayout) LoadPins(filename string) error {
 	// Read the pins from the file.
 	for row, expectedKeyCount := range expectedKeys {
 		if !scanner.Scan() {
-			return fmt.Errorf("invalid file format: not enough rows")
+			return fmt.Errorf("invalid file format in %s: not enough rows", filename)
 		}
 		keys := strings.Fields(scanner.Text())
 		if len(keys) != expectedKeyCount {
-			return fmt.Errorf("invalid file format: row %d has %d keys, expected %d", row+1, len(keys), expectedKeyCount)
+			return fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", filename, row+1, len(keys), expectedKeyCount)
 		}
 		for col, key := range keys {
 			if len(key) != 1 {
-				return fmt.Errorf("invalid file format: key '%s' in row %d must have 1 character only", key, row+1)
+				return fmt.Errorf("invalid file format in %s: key '%s' in row %d must have 1 character only", filename, key, row+1)
 			}
 			switch rune(key[0]) {
 			case '.', '_', '-':
@@ -326,7 +326,7 @@ func (sl *SplitLayout) LoadPins(filename string) error {
 				// Pinned keys.
 				sl.Pinned[index] = true
 			default:
-				return fmt.Errorf("invalid character '%c' at position %d in row %d", key[0], col+1, row+1)
+				return fmt.Errorf("invalid character in %s '%c' at position %d in row %d", filename, key[0], col+1, row+1)
 			}
 			index++
 		}
