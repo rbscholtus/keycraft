@@ -53,22 +53,7 @@ type Weights struct {
 // DefaultMetrics defines metrics where a higher value is considered better,
 // and thus their color coding for deltas is reversed.
 var DefaultMetrics = map[string]float64{
-	"ALT":     1.0,
-	"ALT-OTH": 0.0,
-	"ALT-SFS": 0.0,
-	"IN:OUT":  0.0,
-	"2RL":     1.0,
-	"2RL-IN":  0.0,
-	"2RL-OUT": 0.0,
-	"2RL-SF":  0.0,
-	"3RL":     1.0,
-	"3RL-IN":  0.0,
-	"3RL-OUT": 0.0,
-	"3RL-SF":  0.0,
-	"RED":     -1.0,
-	"RED-BAD": 0.0,
-	"RED-OTH": 0.0,
-	"RED-SFS": 0.0,
+	"SFB": -1.0,
 }
 
 // NewWeights creates a Weights struct with positive metrics from PositiveMetrics set to 1.0.
@@ -117,7 +102,7 @@ func (w *Weights) Get(metric string) float64 {
 	if val, ok := w.weights[metric]; ok {
 		return val
 	}
-	return -1.0
+	return 0.0
 }
 
 // LayoutScore represents a keyboard layout's name, its total score,
