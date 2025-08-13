@@ -127,6 +127,20 @@ func IfThen[T any](condition bool, a, b T) T {
 	return b
 }
 
+func WithDefault[K comparable, V any](m map[K]V, key K, defVal V) V {
+	if val, exists := m[key]; exists {
+		return val
+	}
+	return defVal
+}
+
+func Must[T any](val T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
 // Pair is a generic key-value pair struct.
 type Pair[K comparable, V any] struct {
 	// Key is the key of the pair.
