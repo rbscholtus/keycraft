@@ -1,0 +1,17 @@
+# just some reasonable default weights
+SFB = -6.0
+LSB = -4.0
+FSB = -4.0
+HSB = -2.0
+SFS = -1.5
+LSS = -1.0
+FSS = -1.0
+HSS = -0.5
+ALT = 4.0
+# 2RL = 1.0
+2RL-IN = 2.0
+2RL-OUT = 2.0
+# 3RL = -1.0
+3RL-IN = 0.5
+3RL-OUT = 0.5
+RED = -4.0
