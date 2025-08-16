@@ -16,7 +16,7 @@ var experimentCommand = &cli.Command{
 func experimentAction(c *cli.Context) error {
 	fmt.Println("Running experiment...")
 
-	corp, err := loadCorpus(c)
+	corp, err := loadCorpus(c.String("corpus"))
 	if err != nil {
 		return err
 	}

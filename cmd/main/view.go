@@ -19,7 +19,7 @@ func viewAction(c *cli.Context) error {
 		return fmt.Errorf("expected exactly 1 layout file, got %d", c.Args().Len())
 	}
 
-	corp, err := loadCorpus(c)
+	corp, err := loadCorpus(c.String("corpus"))
 	if err != nil {
 		return err
 	}

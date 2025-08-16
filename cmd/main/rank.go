@@ -62,7 +62,7 @@ var rankCommand = &cli.Command{
 // and executes the layout ranking display.
 func rankAction(c *cli.Context) error {
 	// Load the corpus used for analyzing layouts.
-	corpus, err := loadCorpus(c)
+	corpus, err := loadCorpus(c.String("corpus"))
 	if err != nil {
 		return err
 	}

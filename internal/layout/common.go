@@ -9,26 +9,10 @@ import (
 	"sort"
 )
 
-// Unigram represents a 1-character sequence
-type Unigram rune
-
-// String returns a string representation of the unigram
-func (u Unigram) String() string {
-	return string(u)
-}
-
 // UnigramCount represents a unigram and its count
 type UnigramCount struct {
 	Unigram Unigram
 	Count   uint64
-}
-
-// Bigram represents a 2-character sequence
-type Bigram [2]rune
-
-// String returns a string representation of the bigram
-func (b Bigram) String() string {
-	return string(b[:])
 }
 
 // BigramCount represents a bigram and its count
@@ -37,26 +21,10 @@ type BigramCount struct {
 	Count  uint64
 }
 
-// Trigram represents a 3-character sequence
-type Trigram [3]rune
-
-// String returns a string representation of the trigram
-func (t Trigram) String() string {
-	return string([]rune{t[0], t[1], t[2]})
-}
-
 // TrigramCount represents a trigram and its count
 type TrigramCount struct {
 	Trigram Trigram
 	Count   uint64
-}
-
-// Skipgram represents the first and last character of a 3-character sequence
-type Skipgram [2]rune
-
-// String returns a string representation of the skipgram
-func (b Skipgram) String() string {
-	return string(b[:])
 }
 
 // SkipgramCount represents a skipgram and its count
@@ -147,6 +115,15 @@ func Must[T any](val T, err error) T {
 		panic(err)
 	}
 	return val
+}
+
+// Must0 panics if the provided error is non-nil.
+// This is useful for simplifying code where only an error is returned
+// and failures should be considered fatal.
+func Must0(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Pair is a generic key-value pair struct.

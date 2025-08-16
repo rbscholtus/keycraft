@@ -17,7 +17,7 @@ var analyseCommand = &cli.Command{
 }
 
 func analyseAction(c *cli.Context) error {
-	corp, err := loadCorpus(c)
+	corp, err := loadCorpus(c.String("corpus"))
 	if err != nil {
 		return err
 	}

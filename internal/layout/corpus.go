@@ -1,29 +1,149 @@
-// Package layout provides structs and algorithms for representing a text corpus.
+// Package layout provides data structures and algorithms for representing and analyzing text corpora,
+// including n-grams such as unigrams, bigrams, trigrams, and skipgrams. It supports loading text data from files,
+// counting occurrences of n-grams, and serializing/deserializing corpora to and from JSON files.
 package layout
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 )
 
-// Corpus represents a corpus of text
-type Corpus struct {
-	Name                string
-	Unigrams            map[Unigram]uint64  // map of unigrams to their counts
-	TotalUnigramsCount  uint64              // total count of unigrams
-	Bigrams             map[Bigram]uint64   // map of bigrams to their counts
-	TotalBigramsCount   uint64              // total count of bigrams
-	Trigrams            map[Trigram]uint64  // map of trigrams to their counts
-	TotalTrigramsCount  uint64              // total count of trigrams
-	Skipgrams           map[Skipgram]uint64 // map of skipgrams to their counts
-	TotalSkipgramsCount uint64              // total count of skipgrams
+// Unigram represents a single character (1-gram) in a text corpus.
+type Unigram rune
+
+// String returns the string representation of the unigram.
+func (u Unigram) String() string {
+	return string(u)
 }
 
-// NewCorpus creates a new corpus with the given name
+// MarshalText implements the encoding.TextMarshaler interface for Unigram.
+func (u Unigram) MarshalText() ([]byte, error) {
+	return []byte(string(u)), nil
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface for Unigram.
+func (u *Unigram) UnmarshalText(text []byte) error {
+	runes := []rune(string(text))
+	if len(runes) != 1 {
+		return fmt.Errorf("invalid Unigram length: %d", len(runes))
+	}
+	*u = Unigram(runes[0])
+	return nil
+}
+
+// Bigram represents a sequence of two characters (2-gram) in a text corpus.
+type Bigram [2]rune
+
+// String returns the string representation of the bigram.
+func (b Bigram) String() string {
+	return string(b[:])
+}
+
+// MarshalText implements the encoding.TextMarshaler interface for Bigram.
+func (b Bigram) MarshalText() ([]byte, error) {
+	return []byte(string(b[:])), nil
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface for Bigram.
+func (b *Bigram) UnmarshalText(text []byte) error {
+	runes := []rune(string(text))
+	if len(runes) != 2 {
+		return fmt.Errorf("invalid Bigram length: %d", len(runes))
+	}
+	b[0], b[1] = runes[0], runes[1]
+	return nil
+}
+
+// Trigram represents a sequence of three characters (3-gram) in a text corpus.
+type Trigram [3]rune
+
+// String returns the string representation of the trigram.
+func (t Trigram) String() string {
+	return string([]rune{t[0], t[1], t[2]})
+}
+
+// MarshalText implements the encoding.TextMarshaler interface for Trigram.
+func (t Trigram) MarshalText() ([]byte, error) {
+	return []byte(string([]rune{t[0], t[1], t[2]})), nil
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface for Trigram.
+func (t *Trigram) UnmarshalText(text []byte) error {
+	runes := []rune(string(text))
+	if len(runes) != 3 {
+		return fmt.Errorf("invalid Trigram length: %d", len(runes))
+	}
+	t[0], t[1], t[2] = runes[0], runes[1], runes[2]
+	return nil
+}
+
+// Skipgram represents a skipgram, consisting of the first and last characters of a 3-character sequence.
+type Skipgram [2]rune
+
+// String returns the string representation of the skipgram.
+func (b Skipgram) String() string {
+	return string(b[:])
+}
+
+// MarshalText implements the encoding.TextMarshaler interface for Skipgram.
+func (s Skipgram) MarshalText() ([]byte, error) {
+	return []byte(string(s[:])), nil
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface for Skipgram.
+func (s *Skipgram) UnmarshalText(text []byte) error {
+	runes := []rune(string(text))
+	if len(runes) != 2 {
+		return fmt.Errorf("invalid Skipgram length: %d", len(runes))
+	}
+	s[0], s[1] = runes[0], runes[1]
+	return nil
+}
+
+// Corpus represents a text corpus used for analyzing character-level statistics.
+// It tracks frequency counts and totals for different types of n-grams:
+//
+//   - Unigrams: single characters
+//   - Bigrams: consecutive two-character sequences
+//   - Trigrams: consecutive three-character sequences
+//   - Skipgrams: two-character sequences formed from the first and last character of a three-character window
+//
+// Each map stores the frequency of the corresponding n-gram, while the associated
+// Total*Count fields store the aggregate counts across the entire corpus.
+// The Name field identifies the corpus and is used in filenames when saving to or loading from JSON.
+type Corpus struct {
+	// Name identifies the corpus and is also used when generating filenames for JSON serialization.
+	Name string
+
+	// Unigrams maps each individual character (unigram) to the number of times it occurs in the corpus.
+	Unigrams map[Unigram]uint64
+	// TotalUnigramsCount is the total number of unigram instances observed across the entire corpus.
+	TotalUnigramsCount uint64
+
+	// Bigrams maps each pair of consecutive characters (bigram) to the number of times it occurs in the corpus.
+	Bigrams map[Bigram]uint64
+	// TotalBigramsCount is the total number of bigram instances observed across the entire corpus.
+	TotalBigramsCount uint64
+
+	// Trigrams maps each sequence of three consecutive characters (trigram) to the number of times it occurs in the corpus.
+	Trigrams map[Trigram]uint64
+	// TotalTrigramsCount is the total number of trigram instances observed across the entire corpus.
+	TotalTrigramsCount uint64
+
+	// Skipgrams maps each skipgram (two characters formed by skipping the middle character in a three-character window)
+	// to the number of times it occurs in the corpus.
+	Skipgrams map[Skipgram]uint64
+	// TotalSkipgramsCount is the total number of skipgram instances observed across the entire corpus.
+	TotalSkipgramsCount uint64
+}
+
+// NewCorpus creates and returns a new empty Corpus with the given name.
 func NewCorpus(name string) *Corpus {
 	return &Corpus{
 		Name:      name,
@@ -34,7 +154,9 @@ func NewCorpus(name string) *Corpus {
 	}
 }
 
-// StringSorted returns a string representation of the corpus sorted by n-gram count
+// StringSorted returns a string representation of the corpus, listing n-grams sorted by their counts.
+// The limit parameter controls how many top n-grams to include for each n-gram type.
+// If limit is zero or negative, all n-grams are included.
 func (c *Corpus) StringSorted(limit int) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Corpus: %s\n", c.Name))
@@ -46,10 +168,6 @@ func (c *Corpus) StringSorted(limit int) string {
 	// Print unigrams
 	sb.WriteString("Unigrams:\n")
 	uc := SortedMap(c.Unigrams)
-	if limit > len(uc) {
-		limit = len(uc)
-	}
-
 	for i := 0; i < limit && i < len(uc); i++ {
 		sb.WriteString(fmt.Sprintf("%s: %d\n", uc[i].Key, uc[i].Count))
 	}
@@ -57,10 +175,6 @@ func (c *Corpus) StringSorted(limit int) string {
 	// Print bigrams
 	sb.WriteString("Bigrams:\n")
 	bc := SortedMap(c.Bigrams)
-	if limit > len(bc) {
-		limit = len(bc)
-	}
-
 	for i := 0; i < limit && i < len(bc); i++ {
 		sb.WriteString(fmt.Sprintf("%s: %d\n", bc[i].Key, bc[i].Count))
 	}
@@ -68,58 +182,83 @@ func (c *Corpus) StringSorted(limit int) string {
 	// Print trigrams
 	sb.WriteString("Trigrams:\n")
 	tc := SortedMap(c.Trigrams)
-	if limit > len(tc) {
-		limit = len(tc)
-	}
-
 	for i := 0; i < limit && i < len(tc); i++ {
 		sb.WriteString(fmt.Sprintf("%s: %d\n", tc[i].Key, tc[i].Count))
+	}
+
+	// Print skipgrams
+	sb.WriteString("Skipgrams:\n")
+	sc := SortedMap(c.Skipgrams)
+	for i := 0; i < limit && i < len(sc); i++ {
+		sb.WriteString(fmt.Sprintf("%s: %d\n", sc[i].Key, sc[i].Count))
 	}
 
 	return sb.String()
 }
 
-// String returns a string representation of the top 30 bigrams in the corpus
+// String returns a string representation of the corpus showing the top 10 bigrams by default.
 func (c *Corpus) String() string {
 	return c.StringSorted(10)
 }
 
-// NewCorpusFromFile creates a new corpus loaded from a file
+// NewCorpusFromFile creates a new Corpus with the given name by loading data from the specified text file.
+// It attempts to load from a cached JSON file if it exists and is newer than the source text file.
+// If no valid cache is found, it loads from the text file and saves a JSON cache for future use.
 func NewCorpusFromFile(name, filename string) (*Corpus, error) {
+	// Compute the JSON filename in the same directory as filename
+	jsonFilename := filepath.Join(filename + ".json")
+
+	// Check if JSON file exists and is newer than source file
+	jsonInfo, jsonErr := os.Stat(jsonFilename)
+	srcInfo, srcErr := os.Stat(filename)
+	if jsonErr == nil && srcErr == nil && jsonInfo.ModTime().After(srcInfo.ModTime()) {
+		// JSON file exists and is newer than the source file
+		return LoadJSON(jsonFilename)
+	}
+
+	// Otherwise, load from the text file and save JSON cache
 	c := NewCorpus(name)
-	err := c.loadFromFile(filename)
-	if err != nil {
+	if err := c.loadFromFile(filename); err != nil {
 		return nil, err
 	}
+	if err := c.SaveJSON(jsonFilename); err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
-// AddUnigram adds a unigram to the corpus and increments its count
-func (c *Corpus) AddUnigram(u Unigram) {
+// addUnigram increments the count of the given unigram in the corpus.
+func (c *Corpus) addUnigram(r rune) {
+	u := Unigram(r)
 	c.Unigrams[u]++
 	c.TotalUnigramsCount++
 }
 
-// AddBigram adds a bigram to the corpus and increments its count
-func (c *Corpus) AddBigram(bigram Bigram) {
+// addBigram increments the count of the given bigram in the corpus.
+func (c *Corpus) addBigram(r1, r2 rune) {
+	bigram := Bigram{r1, r2}
 	c.Bigrams[bigram]++
 	c.TotalBigramsCount++
 }
 
-// AddTrigram adds a trigram to the corpus and increments its count
-func (c *Corpus) AddTrigram(trigram Trigram) {
+// addTrigram increments the count of the given trigram in the corpus.
+func (c *Corpus) addTrigram(r1, r2, r3 rune) {
+	trigram := Trigram{r1, r2, r3}
 	c.Trigrams[trigram]++
 	c.TotalTrigramsCount++
 }
 
-// AddTrigram adds a trigram to the corpus and increments its count
-func (c *Corpus) AddSkipgram(skipgram Skipgram) {
+// addSkipgram increments the count of the given skipgram in the corpus.
+func (c *Corpus) addSkipgram(r1, r2 rune) {
+	skipgram := Skipgram{r1, r2}
 	c.Skipgrams[skipgram]++
 	c.TotalSkipgramsCount++
 }
 
-// AddText adds Unigrams, Bigrams, and Trigrams in the text to the corpus, skipping n-grams with a space
-func (c *Corpus) AddText(text string) {
+// addText processes the input text string, converting it to lowercase and adding all unigrams,
+// bigrams, trigrams, and skipgrams to the corpus. N-grams that contain whitespace are skipped.
+func (c *Corpus) addText(text string) {
 	text = strings.ToLower(text)
 	var prev1, prev2 rune
 	for _, r := range text {
@@ -129,24 +268,26 @@ func (c *Corpus) AddText(text string) {
 			continue
 		}
 
-		c.AddUnigram(Unigram(r))
-		if prev1 != 0 {
-			bigram := Bigram{prev1, r}
-			c.AddBigram(bigram)
+		c.addUnigram(r)
 
+		// Add bigram if previous rune exists
+		if prev1 != 0 {
+			c.addBigram(prev1, r)
+
+			// Add trigram and skipgram if two previous runes exist
 			if prev2 != 0 {
-				trigram := Trigram{prev2, prev1, r}
-				c.AddTrigram(trigram)
-				skipgram := Skipgram{prev2, r}
-				c.AddSkipgram(skipgram)
+				c.addTrigram(prev2, prev1, r)
+				c.addSkipgram(prev2, r)
 			}
 		}
+
 		prev2 = prev1
 		prev1 = r
 	}
 }
 
-// loadFromFile loads text from a file into the corpus
+// loadFromFile reads the given text file line by line and adds the text content to the corpus.
+// Empty or whitespace-only lines are skipped.
 func (c *Corpus) loadFromFile(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -160,12 +301,45 @@ func (c *Corpus) loadFromFile(filename string) error {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		c.AddText(line)
+		c.addText(line)
 	}
 
 	if err := scanner.Err(); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+// LoadJSON loads a Corpus from the specified JSON file.
+func LoadJSON(jsonFilename string) (*Corpus, error) {
+	jsonFile, err := os.Open(jsonFilename)
+	if err != nil {
+		return nil, err
+	}
+	defer CloseFile(jsonFile)
+
+	var c Corpus
+	decoder := json.NewDecoder(jsonFile)
+	if err := decoder.Decode(&c); err != nil {
+		return nil, err
+	}
+
+	return &c, nil
+}
+
+// SaveJSON saves the corpus data as a JSON file in the specified directory using the corpus name as filename.
+func (c *Corpus) SaveJSON(jsonFilename string) error {
+	file, err := os.Create(jsonFilename)
+	if err != nil {
+		return err
+	}
+	defer CloseFile(file)
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(c); err != nil {
+		return err
+	}
 	return nil
 }
