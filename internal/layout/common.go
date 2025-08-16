@@ -119,7 +119,9 @@ func Thousands(val any) string {
 	return fmt.Sprintf("%v", val)
 }
 
-// IfThen returns a value based on the given condition.
+// IfThen returns `a` if the condition is true, otherwise returns `b`.
+// Both `a` and `b` are always evaluated before the function is called,
+// so avoid using it with expensive operations or values that may be invalid.
 func IfThen[T any](condition bool, a, b T) T {
 	if condition {
 		return a
@@ -127,6 +129,9 @@ func IfThen[T any](condition bool, a, b T) T {
 	return b
 }
 
+// WithDefault returns the value for the given key in the map `m` if it exists,
+// otherwise returns the provided default value `defVal`.
+// Useful for safe map access with a fallback.
 func WithDefault[K comparable, V any](m map[K]V, key K, defVal V) V {
 	if val, exists := m[key]; exists {
 		return val
@@ -134,6 +139,9 @@ func WithDefault[K comparable, V any](m map[K]V, key K, defVal V) V {
 	return defVal
 }
 
+// Must unwraps the value `val` if `err` is nil.
+// If `err` is non-nil, it panics. This is useful for simplifying code where
+// errors are unexpected or should be fatal (e.g., parsing constants or test setup).
 func Must[T any](val T, err error) T {
 	if err != nil {
 		panic(err)
