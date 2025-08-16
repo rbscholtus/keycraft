@@ -63,11 +63,7 @@ func (an *Analyser) quickHandAnalysis() {
 		}
 
 		totalUnigramCount += uniCnt
-		if key.Hand == LEFT {
-			handCount[0] += uniCnt
-		} else {
-			handCount[1] += uniCnt
-		}
+		handCount[key.Hand] += uniCnt
 		fingerCount[key.Finger] += uniCnt
 		columnCount[key.Column] += uniCnt
 		rowCount[key.Row] += uniCnt
