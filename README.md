@@ -31,7 +31,6 @@ GUI ??
 
 To do
 -----
-  - add hand balance analysis
   - add detailed tables
   - add metrics based on Dist vs %
   - add Pinky-off stat
@@ -48,6 +47,7 @@ To do
 
 Done
 ----
+  - add hand balance analysis as a basic metric 
   - add weights file DONE
   - split redirects vs bad redirects DONE
   - split Alt into alt vs alt-sfs DONE

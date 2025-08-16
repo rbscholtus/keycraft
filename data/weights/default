@@ -1,4 +1,5 @@
 # just some reasonable default weights
+
 SFB = -6.0
 LSB = -4.0
 FSB = -4.0
@@ -15,3 +16,14 @@ ALT = 4.0
 3RL-IN = 0.5
 3RL-OUT = 0.5
 RED = -4.0
+
+F0 = -0.5
+F1 = -0.5
+F2 = -0.5
+F3 = -0.5
+F4 = 0
+F5 = 0
+F6 = -0.5
+F7 = -0.5
+F8 = -0.5
+F9 = -0.5

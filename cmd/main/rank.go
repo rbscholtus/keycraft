@@ -49,10 +49,10 @@ var rankCommand = &cli.Command{
 			Value:   "none",
 		},
 		&cli.StringFlag{
-			Name:    "metrics-set",
+			Name:    "metrics",
 			Aliases: []string{"m"},
-			Usage:   "choose metrics set: metrics, ext-metrics, columns, or fingers",
-			Value:   "metrics",
+			Usage:   "choose metrics set: basic, extended, or fingers",
+			Value:   "basic",
 		},
 	},
 }
@@ -110,7 +110,7 @@ func rankAction(c *cli.Context) error {
 	}
 
 	// Perform the layout comparison and display results,
-	return layout.DoLayoutRankings(corpus, layoutDir, layoutsToCmp, weights, c.String("metrics-set"), deltas)
+	return layout.DoLayoutRankings(corpus, layoutDir, layoutsToCmp, weights, c.String("metrics"), deltas)
 }
 
 // filesExist checks that all specified layout files exist in the layoutDir.
