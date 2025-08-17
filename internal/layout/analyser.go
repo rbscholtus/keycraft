@@ -2,8 +2,24 @@
 package layout
 
 import (
+	"math"
 	"strconv"
 )
+
+var idealFingerLoad = map[string]float64{
+	"F0": 8.5,
+	"F1": 10.5,
+	"F2": 15.5,
+	"F3": 15.5,
+	"F4": 0.0,
+	"F5": 0.0,
+	"F6": 15.5,
+	"F7": 15.5,
+	"F8": 10.5,
+	"F9": 8.5,
+	// "H0": 50.0,
+	// "H1": 50.0,
+}
 
 // HandUsageAnalysis holds statistics about hand, finger, column, and row usage.
 type HandUsageAnalysis struct {
@@ -69,13 +85,15 @@ func (an *Analyser) quickHandAnalysis() {
 		rowCount[key.Row] += uniCnt
 	}
 
-	// Calculate the percentages.
+	// Calculate the percentages as well as cumulative finger usage deviation off the ideal
 	factor := 100 / float64(totalUnigramCount)
 	for i, c := range handCount {
 		an.Metrics["H"+strconv.Itoa(i)] = float64(c) * factor
 	}
 	for i, c := range fingerCount {
-		an.Metrics["F"+strconv.Itoa(i)] = float64(c) * factor
+		fi := "F" + strconv.Itoa(i)
+		an.Metrics[fi] = float64(c) * factor
+		an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - idealFingerLoad[fi])
 	}
 	for i, c := range columnCount {
 		an.Metrics["C"+strconv.Itoa(i)] = float64(c) * factor

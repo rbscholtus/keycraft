@@ -7,7 +7,6 @@ package layout
 import (
 	"fmt"
 	"maps"
-	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -49,8 +48,7 @@ type Weights struct {
 	weights map[string]float64
 }
 
-// DefaultMetrics defines metrics where a higher value is considered better,
-// and thus their color coding for deltas is reversed.
+// DefaultMetrics
 var DefaultMetrics = map[string]float64{
 	"SFB": -1.0,
 }
@@ -58,17 +56,54 @@ var DefaultMetrics = map[string]float64{
 // NewWeights creates a Weights struct with positive metrics from PositiveMetrics set to 1.0.
 func NewWeights() *Weights {
 	weights := make(map[string]float64)
-	maps.Copy(weights, DefaultMetrics)
+	// maps.Copy(weights, DefaultMetrics)
 	return &Weights{weights}
+}
+
+func NewWeightsFromParams(weightsFile, weightsStr string) (*Weights, error) {
+	weights := NewWeights()
+
+	// Load weights from a file if specified.
+	if weightsFile != "" {
+		if err := AddWeightsFromFile(weightsFile, weights); err != nil {
+			return nil, err
+		}
+	}
+
+	// Override or add weights from the --weights string flag.
+	if err := weights.AddWeightsFromString(weightsStr); err != nil {
+		return nil, fmt.Errorf("failed to parse weights: %v", err)
+	}
+
+	return weights, nil
+}
+
+// AddWeightsFromFile reads a weights file line-by-line and applies the weights,
+// ignoring lines that are empty or start with '#' (comments).
+func AddWeightsFromFile(weightsFile string, weights *Weights) error {
+	data, err := os.ReadFile(weightsFile)
+	if err != nil {
+		return fmt.Errorf("failed to read weights file %q: %v", weightsFile, err)
+	}
+
+	for line := range strings.SplitSeq(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "#") && line != "" {
+			if err := weights.AddWeightsFromString(line); err != nil {
+				return fmt.Errorf("failed to parse weights from file %q: %v", weightsFile, err)
+			}
+		}
+	}
+	return nil
 }
 
 // NewWeightsFromString parses a string of metric-weight pairs into a Weights struct.
 // Input format: "metric1=value1,metric2=value2,...", case-insensitive.
 // Returns an error if the format is invalid or weights cannot be parsed.
 func NewWeightsFromString(weightsStr string) (*Weights, error) {
-	w := NewWeights()
+	w := Weights{}
 	err := w.AddWeightsFromString(weightsStr)
-	return w, err
+	return &w, err
 }
 
 // AddWeightsFromString adds or overrides weights from a string of metric-weight pairs.
@@ -109,14 +144,13 @@ func (w *Weights) Get(metric string) float64 {
 type LayoutScore struct {
 	Name     string    // Layout identifier or filename.
 	Score    float64   // Weighted score for ranking.
-	FScore   float64   // Weighted score for finger-related metrics.
 	Analyser *Analyser // Analyser with detailed metric values.
 }
 
-// loadAnalysers reads layout files from the given directory, creates analysers
+// LoadAnalysers reads layout files from the given directory, creates analysers
 // by evaluating each layout against the specified corpus and style, and returns them.
 // Only files ending with ".klf" are considered.
-func loadAnalysers(layoutsDir string, corpus *Corpus, style string) ([]*Analyser, error) {
+func LoadAnalysers(layoutsDir string, corpus *Corpus, style string) ([]*Analyser, error) {
 	var analysers []*Analyser
 
 	layoutFiles, err := os.ReadDir(layoutsDir)
@@ -172,49 +206,25 @@ func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weigh
 
 	for _, analyser := range analysers {
 		score := 0.0
-		fScore := 0.0
 		for metric, value := range analyser.Metrics {
+			if iqr[metric] == 0 {
+				continue
+			}
 			weight := weights.Get(metric)
 			if weight == 0 {
 				continue
 			}
-			if iqr[metric] == 0 {
-				continue
-			}
-			var scaledValue float64
-			if len(metric) == 2 && strings.HasPrefix(metric, "F") {
-				// finger related metric, score depends on the distance to the ideal, not the average
-				scaledValue = math.Abs((value - prefFingerLoad[metric]) / iqr[metric])
-				fScore = weight * scaledValue
-			} else {
-				scaledValue = (value - medians[metric]) / iqr[metric]
-			}
+			scaledValue := (value - medians[metric]) / iqr[metric]
 			score += weight * scaledValue
 		}
 		layoutScores = append(layoutScores, LayoutScore{
 			Name:     analyser.Layout.Name,
 			Score:    score,
-			FScore:   fScore,
 			Analyser: analyser,
 		})
 	}
 
 	return layoutScores
-}
-
-var prefFingerLoad = map[string]float64{
-	"F0": 8.5,
-	"F1": 10.5,
-	"F2": 15.5,
-	"F3": 15.5,
-	"F4": 0.0,
-	"F5": 0.0,
-	"F6": 15.5,
-	"F7": 15.5,
-	"F8": 10.5,
-	"F9": 8.5,
-	"H0": 50.0,
-	"H1": 50.0,
 }
 
 // renderTable prints the ranked layout scores as a formatted table.
@@ -255,12 +265,6 @@ func renderTable(scores []LayoutScore, metrics []string, weights *Weights, delta
 	weightRow := table.Row{"", "Weight", ""}
 	for _, metric := range metrics {
 		weight := weights.Get(metric)
-		if metric == "FBL" {
-			weight = 0.0
-			for i := 0; i <= 9; i++ {
-				weight += weights.Get("F" + strconv.Itoa(i))
-			}
-		}
 		weightRow = append(weightRow, fmt.Sprintf("%.2f", weight))
 	}
 	tw.AppendHeader(weightRow)
@@ -283,12 +287,7 @@ func renderTable(scores []LayoutScore, metrics []string, weights *Weights, delta
 		dataRow := table.Row{rowIdx, score.Name, fmt.Sprintf("%+.2f", score.Score)}
 		currMetrics := make([]float64, 0, len(metrics))
 		for _, metric := range metrics {
-			var val float64
-			if metric == "FBL" {
-				val = score.FScore
-			} else {
-				val = WithDefault(score.Analyser.Metrics, metric, 0.0)
-			}
+			val := WithDefault(score.Analyser.Metrics, metric, 0.0)
 			dataRow = append(dataRow, formatMetricValue(metric, val))
 			currMetrics = append(currMetrics, val)
 		}
@@ -320,7 +319,7 @@ func renderTable(scores []LayoutScore, metrics []string, weights *Weights, delta
 
 // Helper
 func formatMetricValue(metric string, val float64) string {
-	if metric == "IN:OUT" || metric == "FBL" {
+	if metric == "IN:OUT" {
 		return fmt.Sprintf("%.2f", val)
 	}
 	return fmt.Sprintf("%.2f%%", val)
@@ -341,7 +340,7 @@ func formatDelta(metric string, delta float64, weights *Weights) string {
 		c = text.Reset
 	}
 
-	if metric == "IN:OUT" || metric == "FBL" {
+	if metric == "IN:OUT" {
 		return c.Sprintf("%.2f", delta)
 	}
 	return c.Sprintf("%+.2f%%", delta)
@@ -367,7 +366,7 @@ func DoLayoutRankings(corpus *Corpus, layoutsDir string, layouts []string, weigh
 	}
 
 	// Load all analysers for layouts in the directory
-	analysers, err := loadAnalysers(layoutsDir, corpus, "layoutsdoc")
+	analysers, err := LoadAnalysers(layoutsDir, corpus, "layoutsdoc")
 	if err != nil {
 		return err
 	}
@@ -388,7 +387,7 @@ func DoLayoutRankings(corpus *Corpus, layoutsDir string, layouts []string, weigh
 
 	// Compute median and IQR for each metric for normalization
 	medians, iqrs := computeMediansAndIQR(analysers)
-	maps.Copy(medians, prefFingerLoad)
+	// maps.Copy(medians, idealFingerLoad)
 
 	// Compute weighted scores for filtered layouts
 	layoutScores := computeScores(filteredAnalysers, medians, iqrs, weights)

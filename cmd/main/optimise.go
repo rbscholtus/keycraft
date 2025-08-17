@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/rbscholtus/kb/internal/layout"
+	l "github.com/rbscholtus/kb/internal/layout"
 	"github.com/urfave/cli/v2"
 )
 
@@ -17,98 +17,82 @@ var optimiseCommand = &cli.Command{
 	ArgsUsage: "<layout file>",
 	Action:    optimiseAction,
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "corpus",
-			Aliases:  []string{"c"},
-			Usage:    "specify the corpus file",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:     "pins",
-			Aliases:  []string{"p"},
-			Usage:    "specify the pins file",
-			Required: false,
-		},
-		&cli.StringFlag{
-			Name:     "weights",
-			Aliases:  []string{"w"},
-			Usage:    "specify the weights configuration",
-			Required: false,
-		},
-		&cli.UintFlag{
-			Name:     "generations",
-			Aliases:  []string{"g"},
-			Usage:    "specify the number of generations",
-			Required: false,
-			Value:    99,
-		},
-		&cli.StringFlag{
-			Name:     "accept",
-			Aliases:  []string{"a"},
-			Usage:    "specify the accept function",
-			Required: false,
-			Value:    "drop-slow",
-		},
+		corpusFlag,
+		weightsFlag,
+		weightsFileFlag,
+		pinsFlag,
+		pinsFileFlag,
+		gensFlag,
+		acceptFlag,
 	},
 }
 
 func optimiseAction(c *cli.Context) error {
-	layoutFile := c.Args().First()
-	corpusFile := c.String("corpus")
-	pinsFile := c.String("pins")
-	weightsConfig := c.String("weights")
-	numGenerations := c.Uint("generations")
+	// Load the corpus used for analyzing layouts.
+	corpus, err := loadCorpus(c.String("corpus"))
+	if err != nil {
+		return err
+	}
+
+	weights, err := l.NewWeightsFromParams(c.String("weights-file"), c.String("weights"))
+	if err != nil {
+		return err
+	}
+
 	acceptFunction := c.String("accept")
-
-	if layoutFile == "" {
-		return fmt.Errorf("layout file is required")
-	}
-
-	if corpusFile == "" {
-		return fmt.Errorf("corpus file is required")
-	}
-
 	if !slices.Contains(validAcceptFunctions, acceptFunction) {
 		return fmt.Errorf("invalid accept function: %s. Must be one of: %v", acceptFunction, validAcceptFunctions)
 	}
 
+	numGenerations := c.Uint("generations")
 	if numGenerations <= 0 {
 		return fmt.Errorf("number of generations must be above 0. Got: %d", numGenerations)
 	}
 
-	layoutPath := filepath.Join(layoutDir, layoutFile)
-	lay, err := layout.NewLayoutFromFile(layoutFile, layoutPath)
+	layoutFile := c.Args().First()
+	if layoutFile == "" {
+		return fmt.Errorf("layout file is required")
+	}
+
+	layout, err := loadLayout(layoutFile)
 	if err != nil {
-		return fmt.Errorf("failed to load layout from %s: %v", layoutPath, err)
+		return err
 	}
 
-	corpusPath := filepath.Join(corpusDir, corpusFile)
-	corp, err := layout.NewCorpusFromFile(corpusFile, corpusPath)
-	if err != nil {
-		return fmt.Errorf("failed to load corpus from %s: %v", corpusPath, err)
+	pinsPath := c.String("pins-file")
+	if pinsPath != "" {
+		pinsPath = filepath.Join(pinsDir, pinsPath)
+	}
+	if err := layout.LoadPinsFromParams(pinsPath, c.String("pins")); err != nil {
+		return err
 	}
 
-	doOptimisation(lay, corp, pinsFile, weightsConfig, numGenerations, acceptFunction)
-	return nil
-}
+	// fmt.Printf("Optimising layout: %s with corpus: %s, pins: %s, weights: %s, generations: %d, accept function: %s\n",
+	// 	lay.Name, corpus.Name, pinsFile, weightsConfig, numGenerations, acceptFunction)
+	// fmt.Println(layout.Pinned)
+	best := layout.Optimise(corpus, weights, numGenerations, acceptFunction)
 
-func doOptimisation(lay *layout.SplitLayout, corp *layout.Corpus, pinsFile string, weightsConfig string, numGenerations uint, acceptFunction string) {
-	fmt.Printf("Optimising layout: %s with corpus: %s, pins: %s, weights: %s, generations: %d, accept function: %s\n",
-		lay.Name, corp.Name, pinsFile, weightsConfig, numGenerations, acceptFunction)
-
-	if pinsFile != "" {
-		err := lay.LoadPins("data/pins/" + pinsFile)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+	// Save best layout to file
+	bestFilename := fmt.Sprintf("best_%s.klf", layout.Name)
+	bestPath := filepath.Join(layoutDir, bestFilename)
+	if err := best.SaveToFile(bestPath); err != nil {
+		return fmt.Errorf("failed to save best layout to %s: %v", bestPath, err)
 	}
-	best := lay.Optimise(corp, numGenerations, acceptFunction)
+
+	// Prepare layouts for ranking
+	layoutsToRank := []string{layoutFile, bestFilename}
+
+	// Call DoLayoutRankings with the layouts
+	if err := l.DoLayoutRankings(corpus, layoutDir, layoutsToRank, weights, "basic", "rows"); err != nil {
+		return fmt.Errorf("failed to perform layout rankings: %v", err)
+	}
+
+	fmt.Println(layout)
+	// an := layout.NewAnalyser(lay, corpus, "layoutsdoc")
+	// fmt.Println(an.MetricsString())
 	fmt.Println(best)
-	doSfbs(best, corp)
-}
+	// anBest := layout.NewAnalyser(best, corpus, "layoutsdoc")
+	// fmt.Println(anBest.MetricsString())
 
-func doSfbs(lay *layout.SplitLayout, corp *layout.Corpus) {
-	sfbInfo := lay.AnalyzeSfbs(corp)
-	fmt.Println(sfbInfo)
+	return nil
 }

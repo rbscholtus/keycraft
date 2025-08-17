@@ -37,8 +37,11 @@ func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 
 }
 
 // Optimise optimizes a keyboard layout using simulated annealing.
-func (sl *SplitLayout) Optimise(corp *Corpus, generations uint, acceptWorse string) *SplitLayout {
+func (sl *SplitLayout) Optimise(corp *Corpus, weights *Weights, generations uint, acceptWorse string) *SplitLayout {
 	sl.optCorpus = corp
+	sl.optWeights = weights
+	analysers := Must(LoadAnalysers("data/layouts/", corp, "layoutsdoc"))
+	sl.optMedians, sl.optIqrs = computeMediansAndIQR(analysers)
 
 	// Configure the simulated annealing algorithm.
 	cfg := eaopt.NewDefaultGAConfig()
@@ -58,21 +61,17 @@ func (sl *SplitLayout) Optimise(corp *Corpus, generations uint, acceptWorse stri
 			return
 		}
 		// best := hof0.Genome.(*SplitLayout)
-		fmt.Printf("Best fitness at generation %d: %.3f%%\n", ga.Generations, 100*fit)
+		fmt.Printf("Best fitness at generation %d: %.3f\n", ga.Generations, fit)
 		minFit = fit
 	}
 
 	// Run the simulated-annealing algorithm.
-	ga, err := cfg.NewGA()
-	if err != nil {
-		panic(err)
-	}
-	err = ga.Minimize(func(_ *rand.Rand) eaopt.Genome {
+	ga := Must(cfg.NewGA())
+
+	newGenome := func(rng *rand.Rand) eaopt.Genome {
 		return sl
-	})
-	if err != nil {
-		panic(err)
 	}
+	Must0(ga.Minimize(newGenome))
 
 	// Return the best encountered solution.
 	hof0 := ga.HallOfFame[0]
@@ -83,8 +82,25 @@ func (sl *SplitLayout) Optimise(corp *Corpus, generations uint, acceptWorse stri
 
 // Evaluate evaluates the fitness of the current layout.
 func (sl *SplitLayout) Evaluate() (float64, error) {
+	analyser := NewAnalyser(sl, sl.optCorpus, "")
 	// return 5*sl.SimpleSfbs(sl.optCorpus) + sl.SimpleLsbs(sl.optCorpus), nil
-	return sl.SimpleScissors(sl.optCorpus), nil
+
+	score := 0.0
+	for metric, value := range analyser.Metrics {
+		if sl.optIqrs[metric] == 0 {
+			continue
+		}
+		weight := sl.optWeights.Get(metric)
+		if weight == 0 {
+			continue
+		}
+		scaledValue := (value - sl.optMedians[metric]) / sl.optIqrs[metric]
+		score += weight * scaledValue
+	}
+	return -score, nil
+
+	//return analyser.Metrics["FBL"], nil
+	// return sl.SimpleSfbs(sl.optCorpus), nil
 }
 
 // Mutate randomly swaps two keys in the layout.
@@ -132,6 +148,9 @@ func (sl *SplitLayout) Clone() eaopt.Genome {
 		Scissors:         sl.Scissors,
 		Pinned:           sl.Pinned,
 		optCorpus:        sl.optCorpus,
+		optWeights:       sl.optWeights,
+		optMedians:       sl.optMedians,
+		optIqrs:          sl.optIqrs,
 	}
 
 	maps.Copy(cc.RuneInfo, sl.RuneInfo)
