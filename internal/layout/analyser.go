@@ -9,29 +9,27 @@ import (
 var idealFingerLoad = map[string]float64{
 	"F0": 8.5,
 	"F1": 10.5,
-	"F2": 15.5,
-	"F3": 15.5,
+	"F2": 16.0,
+	"F3": 15.0,
 	"F4": 0.0,
 	"F5": 0.0,
-	"F6": 15.5,
-	"F7": 15.5,
+	"F6": 15.0,
+	"F7": 16.0,
 	"F8": 10.5,
 	"F9": 8.5,
-	// "H0": 50.0,
-	// "H1": 50.0,
 }
 
-// HandUsageAnalysis holds statistics about hand, finger, column, and row usage.
-type HandUsageAnalysis struct {
-	// HandUsage stores the percentage of usage for each hand.
-	HandUsage [2]float64
-	// FingerUsage stores the percentage of usage for each finger.
-	FingerUsage [10]float64
-	// ColumnUsage stores the percentage of usage for each column.
-	ColumnUsage [12]float64
-	// RowUsage stores the percentage of usage for each row.
-	RowUsage [4]float64
-}
+// // HandUsageAnalysis holds statistics about hand, finger, column, and row usage.
+// type HandUsageAnalysis struct {
+// 	// HandUsage stores the percentage of usage for each hand.
+// 	HandUsage [2]float64
+// 	// FingerUsage stores the percentage of usage for each finger.
+// 	FingerUsage [10]float64
+// 	// ColumnUsage stores the percentage of usage for each column.
+// 	ColumnUsage [12]float64
+// 	// RowUsage stores the percentage of usage for each row.
+// 	RowUsage [4]float64
+// }
 
 // Analyser holds references to a keyboard layout and a corpus, and provides methods for analysis.
 type Analyser struct {
@@ -51,12 +49,7 @@ func NewAnalyser(layout *SplitLayout, corpus *Corpus, style string) *Analyser {
 		Metrics: make(map[string]float64),
 	}
 	a.quickHandAnalysis()
-	switch style {
-	case "keysolve":
-		a.keysolvewebMetricAnalysis()
-	default:
-		a.quickMetricAnalysis()
-	}
+	a.quickMetricAnalysis()
 	return a
 }
 
@@ -316,163 +309,132 @@ func (an *Analyser) quickMetricAnalysis() {
 	}
 }
 
-// quickMetricAnalysis calculates basic metrics about the layout, based on Keysolve-web.
-func (an *Analyser) keysolvewebMetricAnalysis() {
-	// Initialize counters and factor for percentage calculation.
-	var factor float64
-	var count1, count2, count3, count4 uint64
+type MetricAnalysis struct {
+	Corpus      *Corpus
+	Metric      string
+	Unsupported map[string]uint64
+	NGramCount  map[string]uint64
+	NGramDist   map[string]float64 // todo: change to a map for any ngram info
+	TotalNGrams uint64
+	TotalDist   float64 // todo: do we need it?
+}
 
-	// Calculate basic bigram statistics.
+// AllMetricsDetails runs detailed analyses for multiple metrics (SFB, LSB, etc.)
+// and returns a slice of MetricAnalysis results.
+//
+// Each analysis includes counts of relevant n-grams, unsupported n-grams,
+// and weighted distances between key pairs.
+func (an *Analyser) AllMetricsDetails() []*MetricAnalysis {
+	all := make([]*MetricAnalysis, 0, 30)
+
+	all = append(all, an.SFBDetails())
+	all = append(all, an.LSBDetails())
+	ma, ma2 := an.ScissorDetails()
+	all = append(all, ma, ma2)
+
+	return all
+}
+
+// SFBDetails performs a detailed Same Finger Bigram (SFB) analysis.
+// It scans all bigrams in the corpus and identifies those typed with the same finger.
+// Unsupported bigrams (not present in the layout) are also tracked.
+func (an *Analyser) SFBDetails() *MetricAnalysis {
+	ma := &MetricAnalysis{
+		Corpus:      an.Corpus,
+		Metric:      "SFB",
+		Unsupported: make(map[string]uint64),
+		NGramCount:  make(map[string]uint64),
+		NGramDist:   make(map[string]float64),
+	}
+
 	for bi, biCnt := range an.Corpus.Bigrams {
+		biStr := bi.String()
 		key1, ok1 := an.Layout.RuneInfo[bi[0]]
 		key2, ok2 := an.Layout.RuneInfo[bi[1]]
+
 		if !ok1 || !ok2 {
-			// Skip bigrams that are not present in the layout.
+			ma.Unsupported[biStr] += biCnt
 			continue
 		}
 
-		// All bigram stats are on 1 hand.
-		if key1.Hand != key2.Hand {
-			continue
-		}
-
-		// Calculate SFB (Same Finger Bigram) count.
 		if key1.Finger == key2.Finger && key1 != key2 {
-			count1 += biCnt
-			continue
-		}
-
-		// Calculate LSB (Lateral Stretch Bigram) count.
-		if (key1.Column == 5 || key1.Column == 6 || key2.Column == 5 || key2.Column == 6) &&
-			(key1.Column == 3 || key1.Column == 8 || key2.Column == 3 || key2.Column == 8) {
-			count2 += biCnt
-		}
-
-		// Function to check if a finger is on the bottom row.
-		bRow := func(fgr uint8) bool {
-			return fgr == 1 || fgr == 2 || fgr == 7 || fgr == 8
-		}
-
-		// Calculate FSB (Forward Stretch Bigram) count.
-		if (key2.Row-key1.Row == 2 && bRow(key2.Finger)) ||
-			(key1.Row-key2.Row == 2 && bRow(key1.Finger)) {
-			count3 += biCnt
-
-		}
-
-		// Calculate HSB (Home row Stretch Bigram) count.
-		if (key2.Row-key1.Row == 1 && bRow(key2.Finger)) ||
-			(key1.Row-key2.Row == 1 && bRow(key1.Finger)) {
-			count4 += biCnt
+			ma.NGramCount[biStr] = biCnt
+			ma.TotalNGrams += biCnt
+			kp := KeyPair{key1.Index, key2.Index}
+			dist := an.Layout.KeyPairDistances[kp].Distance
+			ma.NGramDist[biStr] = dist
+			ma.TotalDist += dist * float64(biCnt)
 		}
 	}
 
-	// Calculate percentages for bigram statistics.
-	factor = 100 / float64(an.Corpus.TotalBigramsCount)
-	an.Metrics["SFB"] = float64(count1) * factor
-	an.Metrics["LSB"] = float64(count2) * factor
-	an.Metrics["FSB"] = float64(count3) * factor
-	an.Metrics["HSB"] = float64(count4) * factor
+	return ma
+}
 
-	// Calculate skipgram statistics (SFS, LSS, FSS, HSS).
-	count1, count2, count3, count4 = 0, 0, 0, 0
+// LSBDetails performs a detailed Lateral Stretch Bigram (LSB) analysis.
+// It evaluates bigrams defined as lateral stretches in the layout and computes
+// their frequency and column distance distribution.
+func (an *Analyser) LSBDetails() *MetricAnalysis {
+	ma := &MetricAnalysis{
+		Corpus:      an.Corpus,
+		Metric:      "LSB",
+		Unsupported: make(map[string]uint64),
+		NGramCount:  make(map[string]uint64),
+		NGramDist:   make(map[string]float64),
+	}
 
-	for skp, skpCnt := range an.Corpus.Skipgrams {
-		key1, ok1 := an.Layout.RuneInfo[skp[0]]
-		key2, ok2 := an.Layout.RuneInfo[skp[1]]
-		if !ok1 || !ok2 {
-			// Skip skipgrams that are not present in the layout.
-			continue
-		}
+	for _, lsb := range an.Layout.LSBs {
+		bi := Bigram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
+			biStr := bi.String()
 
-		// First and third character are on 1 hand.
-		if key1.Hand != key2.Hand {
-			continue
-		}
-
-		// Calculate SFS count.
-		if key1.Finger == key2.Finger && key1 != key2 {
-			count1 += skpCnt
-			continue
-		}
-
-		// Calculate LSS count.
-		if (key1.Column == 5 || key1.Column == 6 || key2.Column == 5 || key2.Column == 6) &&
-			(key1.Column == 3 || key1.Column == 8 || key2.Column == 3 || key2.Column == 8) {
-			count2 += skpCnt
-		}
-
-		// Function to check if a finger is on the bottom row.
-		bRow := func(fgr uint8) bool {
-			return fgr == 1 || fgr == 2 || fgr == 7 || fgr == 8
-		}
-
-		// Calculate FSS count.
-		if (key2.Row-key1.Row == 2 && bRow(key2.Finger)) ||
-			(key1.Row-key2.Row == 2 && bRow(key1.Finger)) {
-			count3 += skpCnt
-		}
-
-		// Calculate HSS count.
-		if (key2.Row-key1.Row == 1 && bRow(key2.Finger)) ||
-			(key1.Row-key2.Row == 1 && bRow(key1.Finger)) {
-			count4 += skpCnt
+			ma.NGramCount[biStr] = biCnt
+			ma.TotalNGrams += biCnt
+			kp := KeyPair{uint8(lsb.keyIdx1), uint8(lsb.keyIdx2)}
+			dist := an.Layout.KeyPairDistances[kp].ColDist
+			ma.NGramDist[biStr] = dist
+			ma.TotalDist += dist * float64(biCnt)
 		}
 	}
 
-	// Calculate percentages for skipgram statistics.
-	factor = 100 / float64(an.Corpus.TotalSkipgramsCount)
-	an.Metrics["SFS"] = float64(count1) * factor
-	an.Metrics["LSS"] = float64(count2) * factor
-	an.Metrics["FSS"] = float64(count3) * factor
-	an.Metrics["HSS"] = float64(count4) * factor
+	return ma
+}
 
-	// Calculate trigram statistics (ALT, ROL, ONE, RED).
-	count1, count2, count3, count4 = 0, 0, 0, 0
+func (an *Analyser) ScissorDetails() (*MetricAnalysis, *MetricAnalysis) {
+	ma := &MetricAnalysis{
+		Corpus:      an.Corpus,
+		Metric:      "FSB",
+		Unsupported: make(map[string]uint64),
+		NGramCount:  make(map[string]uint64),
+		NGramDist:   make(map[string]float64),
+	}
+	ma2 := &MetricAnalysis{
+		Corpus:      an.Corpus,
+		Metric:      "HSB",
+		Unsupported: make(map[string]uint64),
+		NGramCount:  make(map[string]uint64),
+		NGramDist:   make(map[string]float64),
+	}
 
-	for tri, triCnt := range an.Corpus.Trigrams {
-		key1, ok1 := an.Layout.RuneInfo[tri[0]]
-		key2, ok2 := an.Layout.RuneInfo[tri[1]]
-		key3, ok3 := an.Layout.RuneInfo[tri[2]]
-		if !ok1 || !ok2 || !ok3 {
-			// Skip trigrams that are not present in the layout.
-			continue
-		}
+	for _, sci := range an.Layout.Scissors {
+		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
+			biStr := bi.String()
 
-		// Calculate ALT (Alternation) count.
-		if key1.Hand == key3.Hand && key1.Hand != key2.Hand {
-			count1 += triCnt
-		}
-
-		// Calculate ROL (Roll) count.
-		if key1.Hand != key3.Hand &&
-			key1.Finger != key2.Finger && key2.Finger != key3.Finger {
-			count2 += triCnt
-		}
-
-		// Check if all fingers are on the same hand and in order.
-		allSameHand := key1.Hand == key2.Hand && key1.Hand == key3.Hand
-		inOrder := (key1.Finger < key2.Finger && key2.Finger < key3.Finger) ||
-			(key1.Finger > key2.Finger && key2.Finger > key3.Finger)
-		allDiffFingers := key1.Finger != key2.Finger &&
-			key1.Finger != key3.Finger &&
-			key2.Finger != key3.Finger
-
-		// Calculate ONE (One hand, fingers in order) count.
-		if allSameHand && inOrder {
-			count3 += triCnt
-		}
-
-		// Calculate RED (Redirection) count.
-		if allSameHand && allDiffFingers && !inOrder {
-			count4 += triCnt
+			kp := KeyPair{uint8(sci.keyIdx1), uint8(sci.keyIdx2)}
+			dist := an.Layout.KeyPairDistances[kp].RowDist
+			if dist > 1.5 {
+				ma.NGramCount[biStr] = biCnt
+				ma.TotalNGrams += biCnt
+				ma.NGramDist[biStr] = dist
+				ma.TotalDist += dist * float64(biCnt)
+			} else {
+				ma2.NGramCount[biStr] = biCnt
+				ma2.TotalNGrams += biCnt
+				ma2.NGramDist[biStr] = dist
+				ma2.TotalDist += dist * float64(biCnt)
+			}
 		}
 	}
 
-	// Calculate percentages for trigram statistics.
-	factor = 100 / float64(an.Corpus.TotalTrigramsCount)
-	an.Metrics["ALT"] = float64(count1) * factor
-	an.Metrics["ROL"] = float64(count2) * factor
-	an.Metrics["ONE"] = float64(count3) * factor
-	an.Metrics["RED"] = float64(count4) * factor
+	return ma, ma2
 }

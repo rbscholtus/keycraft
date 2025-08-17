@@ -212,6 +212,23 @@ func (an *Analyser) MetricsString() string {
 	return tw.Render()
 }
 
+func createSimpleTable() table.Writer {
+	tw := table.NewWriter()
+	tw.SetAutoIndex(true)
+	tw.Style().Title.Align = text.AlignCenter
+	tw.SetColumnConfigs([]table.ColumnConfig{
+		{Name: "orderby", Hidden: true},
+		{Name: "Distance", Transformer: Fraction, TransformerFooter: Fraction},
+		{Name: "Dist", Transformer: Fraction, TransformerFooter: Fraction},
+		{Name: "Row", Transformer: Fraction},
+		{Name: "Angle", Transformer: Fraction},
+		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
+		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
+	})
+	tw.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
+	return tw
+}
+
 func createTable(title string, style table.Style) table.Writer {
 	tw := table.NewWriter()
 	tw.SetAutoIndex(true)
@@ -275,4 +292,16 @@ func (la *ScissorAnalysis) String() string {
 	}
 	t.AppendFooter(table.Row{"", "", "", "", "", la.TotalScissorCount, la.TotalScissorPerc})
 	return t.Pager(table.PageSize(la.NumRowsInOutput)).Render()
+}
+
+func (ma *MetricAnalysis) String() string {
+	t := createSimpleTable()
+	t.AppendHeader(table.Row{"orderby", ma.Metric, "Dist", "Count", "%"})
+
+	for ngram := range ma.NGramCount {
+		t.AppendRow([]any{ma.NGramCount[ngram], ngram, ma.NGramDist[ngram], ma.NGramCount[ngram],
+			float64(ma.NGramCount[ngram]) / float64(ma.Corpus.TotalBigramsCount)})
+	}
+	t.AppendFooter(table.Row{"", "", "", ma.TotalNGrams, float64(ma.TotalNGrams) / float64(ma.Corpus.TotalBigramsCount)})
+	return t.Pager(table.PageSize(15)).Render()
 }
