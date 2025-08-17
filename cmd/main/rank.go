@@ -42,7 +42,11 @@ func rankAction(c *cli.Context) error {
 		return err
 	}
 
-	weights, err := layout.NewWeightsFromParams(c.String("weights-file"), c.String("weights"))
+	weightsPath := c.String("weights-file")
+	if weightsPath != "" {
+		weightsPath = filepath.Join(weightsDir, weightsPath)
+	}
+	weights, err := layout.NewWeightsFromParams(weightsPath, c.String("weights"))
 	if err != nil {
 		return err
 	}

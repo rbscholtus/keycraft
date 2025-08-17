@@ -14,9 +14,9 @@ var validAcceptFunctions = []string{"always", "drop-slow", "linear", "drop-fast"
 
 var optimiseCommand = &cli.Command{
 	Name:      "optimise",
-	Usage:     "Optimise a layout file with a corpus, pins, weights, generations, and accept function",
+	Usage:     "Optimise a layout file with a corpus, pins, weights, generations, and accept-worse function",
 	ArgsUsage: "<layout file>",
-	Flags:     flagsSlice("corpus", "weights-file", "weights", "pins-file", "pins", "generations", "accept-func"),
+	Flags:     flagsSlice("corpus", "weights-file", "weights", "pins-file", "pins", "generations", "accept-worse"),
 	Action:    optimiseAction,
 }
 
@@ -36,7 +36,7 @@ func optimiseAction(c *cli.Context) error {
 		return err
 	}
 
-	acceptFunction := c.String("accept-func")
+	acceptFunction := c.String("accept-worse")
 	if !slices.Contains(validAcceptFunctions, acceptFunction) {
 		return fmt.Errorf("invalid accept function: %s. Must be one of: %v", acceptFunction, validAcceptFunctions)
 	}
@@ -46,11 +46,10 @@ func optimiseAction(c *cli.Context) error {
 		return fmt.Errorf("number of generations must be above 0. Got: %d", numGenerations)
 	}
 
-	layoutFile := c.Args().First()
-	if layoutFile == "" {
-		return fmt.Errorf("layout file is required")
+	if c.Args().Len() != 1 {
+		return fmt.Errorf("expected exactly 1 layout file, got %d", c.Args().Len())
 	}
-
+	layoutFile := c.Args().First()
 	layout, err := loadLayout(layoutFile)
 	if err != nil {
 		return err
