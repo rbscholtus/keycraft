@@ -52,12 +52,12 @@ var appFlagsMap = map[string]cli.Flag{
 	"pins-file": &cli.StringFlag{
 		Name:    "pins-file",
 		Aliases: []string{"pf"},
-		Usage:   "load pins from a text file; pins flag overrides these values",
+		Usage:   "load pins from file; if no file specified, ~ and _ keys are pinned",
 	},
 	"pins": &cli.StringFlag{
 		Name:    "pins",
 		Aliases: []string{"p"},
-		Usage:   "specify pins; ~ and _ keys are also pinned if no pins-file is specified",
+		Usage:   "specify additional pins",
 	},
 	"generations": &cli.UintFlag{
 		Name:    "generations",
@@ -65,10 +65,10 @@ var appFlagsMap = map[string]cli.Flag{
 		Usage:   "specify the number of generations",
 		Value:   250,
 	},
-	"accept-func": &cli.StringFlag{
-		Name:    "accept-func",
+	"accept-worse": &cli.StringFlag{
+		Name:    "accept-worse",
 		Aliases: []string{"af"},
-		Usage:   "specify the accept function",
+		Usage:   "specify the accept-worse function",
 		Value:   "drop-slow",
 	},
 }
