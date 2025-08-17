@@ -30,30 +30,11 @@ var rankCommand = &cli.Command{
 	Usage:  "Rank keyboard layouts with optional delta rows",
 	Action: rankAction,
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:    "weights",
-			Aliases: []string{"w"},
-			Usage:   "specify weights for metrics, e.g. sfb=-3.0,lsb=-2.0",
-			Value:   "",
-		},
-		&cli.StringFlag{
-			Name:    "weights-file",
-			Aliases: []string{"wf"},
-			Usage:   "load weights from a text file; weights flag overrides these values",
-			Value:   "",
-		},
-		&cli.StringFlag{
-			Name:    "deltas",
-			Aliases: []string{"d"},
-			Usage:   "show delta rows: none, rows, median, or <layout.klf>",
-			Value:   "none",
-		},
-		&cli.StringFlag{
-			Name:    "metrics",
-			Aliases: []string{"m"},
-			Usage:   "choose metrics set: basic, extended, or fingers",
-			Value:   "basic",
-		},
+		corpusFlag,
+		weightsFlag,
+		weightsFileFlag,
+		deltasFlag,
+		metricsFlag,
 	},
 }
 
@@ -67,18 +48,9 @@ func rankAction(c *cli.Context) error {
 		return err
 	}
 
-	weights := layout.NewWeights()
-
-	// Load weights from a file if specified.
-	if wf := c.String("weights-file"); wf != "" {
-		if err := loadWeights(wf, weights); err != nil {
-			return err
-		}
-	}
-
-	// Override or add weights from the --weights string flag.
-	if err := weights.AddWeightsFromString(c.String("weights")); err != nil {
-		return fmt.Errorf("failed to parse weights: %v", err)
+	weights, err := layout.NewWeightsFromParams(c.String("weights-file"), c.String("weights"))
+	if err != nil {
+		return err
 	}
 
 	// Validate the --deltas flag; must be 'none', 'rows', 'median', or a KLF filename.
@@ -156,23 +128,4 @@ func allLayoutsAnd(baseFile string) ([]string, error) {
 	}
 
 	return layoutsToCmp, nil
-}
-
-// loadWeights reads a weights file line-by-line and applies the weights,
-// ignoring lines that are empty or start with '#' (comments).
-func loadWeights(weightsFile string, weights *layout.Weights) error {
-	data, err := os.ReadFile(weightsFile)
-	if err != nil {
-		return fmt.Errorf("failed to read weights file %q: %v", weightsFile, err)
-	}
-
-	for line := range strings.SplitSeq(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "#") && line != "" {
-			if err := weights.AddWeightsFromString(line); err != nil {
-				return fmt.Errorf("failed to parse weights from file %q: %v", weightsFile, err)
-			}
-		}
-	}
-	return nil
 }

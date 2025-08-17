@@ -12,18 +12,20 @@ var viewCommand = &cli.Command{
 	Usage:     "View a layout file with a corpus file",
 	ArgsUsage: "<layout file>",
 	Action:    viewAction,
+	Flags: []cli.Flag{
+		corpusFlag,
+	},
 }
 
 func viewAction(c *cli.Context) error {
-	if c.Args().Len() != 1 {
-		return fmt.Errorf("expected exactly 1 layout file, got %d", c.Args().Len())
-	}
-
 	corp, err := loadCorpus(c.String("corpus"))
 	if err != nil {
 		return err
 	}
 
+	if c.Args().Len() != 1 {
+		return fmt.Errorf("expected exactly 1 layout file, got %d", c.Args().Len())
+	}
 	lay, err := loadLayout(c.Args().First())
 	if err != nil {
 		return err

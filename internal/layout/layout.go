@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -116,6 +117,9 @@ type SplitLayout struct {
 	Scissors         []ScissorInfo
 	Pinned           [42]bool
 	optCorpus        *Corpus
+	optWeights       *Weights
+	optMedians       map[string]float64
+	optIqrs          map[string]float64
 }
 
 // NewSplitLayout creates a new split layout
@@ -293,9 +297,13 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 }
 
 // LoadPins loads a pins file and populates the Pinned array.
-func (sl *SplitLayout) LoadPins(filename string) error {
+func (sl *SplitLayout) LoadPins(pinsPath string) error {
+	if _, err := os.Stat(pinsPath); os.IsNotExist(err) {
+		return fmt.Errorf("pins file %s does not exist", pinsPath)
+	}
+
 	// Open the file for reading.
-	file, err := os.Open(filename)
+	file, err := os.Open(pinsPath)
 	if err != nil {
 		return err
 	}
@@ -308,15 +316,15 @@ func (sl *SplitLayout) LoadPins(filename string) error {
 	// Read the pins from the file.
 	for row, expectedKeyCount := range expectedKeys {
 		if !scanner.Scan() {
-			return fmt.Errorf("invalid file format in %s: not enough rows", filename)
+			return fmt.Errorf("invalid file format in %s: not enough rows", pinsPath)
 		}
 		keys := strings.Fields(scanner.Text())
 		if len(keys) != expectedKeyCount {
-			return fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", filename, row+1, len(keys), expectedKeyCount)
+			return fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", pinsPath, row+1, len(keys), expectedKeyCount)
 		}
 		for col, key := range keys {
 			if len(key) != 1 {
-				return fmt.Errorf("invalid file format in %s: key '%s' in row %d must have 1 character only", filename, key, row+1)
+				return fmt.Errorf("invalid file format in %s: key '%s' in row %d must have 1 character only", pinsPath, key, row+1)
 			}
 			switch rune(key[0]) {
 			case '.', '_', '-':
@@ -326,7 +334,7 @@ func (sl *SplitLayout) LoadPins(filename string) error {
 				// Pinned keys.
 				sl.Pinned[index] = true
 			default:
-				return fmt.Errorf("invalid character in %s '%c' at position %d in row %d", filename, key[0], col+1, row+1)
+				return fmt.Errorf("invalid character in %s '%c' at position %d in row %d", pinsPath, key[0], col+1, row+1)
 			}
 			index++
 		}
@@ -335,6 +343,34 @@ func (sl *SplitLayout) LoadPins(filename string) error {
 	// Check for any scanner errors.
 	if err := scanner.Err(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// LoadPins loads a pins file and populates the Pinned array.
+func (sl *SplitLayout) LoadPinsFromParams(filename, pins string) error {
+	// Pin keys as specified in the pinfile
+	if filename != "" {
+		if err := sl.LoadPins(filename); err != nil {
+			return err
+		}
+	} else {
+		// Pin keys that are not used for an actual rune (e.g. ESC, Space)
+		for i, r := range sl.Runes {
+			if r == 0 || unicode.IsSpace(r) {
+				sl.Pinned[i] = true
+			}
+		}
+	}
+
+	// Pin keys in the pins parameter
+	for _, r := range pins {
+		key, ok := sl.RuneInfo[r]
+		if !ok {
+			return fmt.Errorf("cannot pin unavailable character: %c", r)
+		}
+		sl.Pinned[key.Index] = true
 	}
 
 	return nil

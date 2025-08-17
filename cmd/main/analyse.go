@@ -13,7 +13,9 @@ var analyseCommand = &cli.Command{
 	Usage:     "Analyse a layout file with a corpus file and style",
 	ArgsUsage: "<layout file>",
 	Action:    analyseAction,
-	Flags:     []cli.Flag{},
+	Flags: []cli.Flag{
+		corpusFlag,
+	},
 }
 
 func analyseAction(c *cli.Context) error {
