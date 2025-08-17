@@ -158,10 +158,12 @@ func (sl *SplitLayout) StringRunes() string {
 // The file format is:
 // - 3 lines of 12 keys each (6 left, 6 right)
 // - 1 line of 6 thumb keys (3 left, 3 right)
-// - _ means no key
-// - spc means the Space character
+// - ~ means no character, ~~ means ~
+// - _ means the Space character, __ means _
+// - ## means #
+// - empty lines and lines that start with # are ignored
 // - characters cannot be repeated
-func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
+func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	keyMap := map[string]rune{
 		"~":  rune(0),
 		"_":  rune(' '),
@@ -170,7 +172,7 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 		"##": rune('#'),
 	}
 
-	file, err := os.Open(filename)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +183,7 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 	// Read layout type
 	layoutTypeStr, err := readLine(scanner)
 	if err != nil {
-		return nil, fmt.Errorf("invalid file format in %s: missing layout type", filename)
+		return nil, fmt.Errorf("invalid file format in %s: missing layout type", path)
 	}
 
 	var layoutType LayoutType
@@ -195,7 +197,7 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 		layoutType = COLSTAG
 	default:
 		types := []LayoutType{ROWSTAG, ORTHO, COLSTAG}
-		return nil, fmt.Errorf("invalid layout type in %s: %s. Must start with one of: %v", filename, layoutTypeStr, types)
+		return nil, fmt.Errorf("invalid layout type in %s: %s. Must start with one of: %v", path, layoutTypeStr, types)
 	}
 
 	var runeArray [42]rune
@@ -206,18 +208,18 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 	for row, expectedKeyCount := range expectedKeys {
 		line, err := readLine(scanner)
 		if err != nil {
-			return nil, fmt.Errorf("invalid file format in %s: not enough rows", filename)
+			return nil, fmt.Errorf("invalid file format in %s: not enough rows", path)
 		}
 		keys := strings.Fields(line)
 		if len(keys) != expectedKeyCount {
-			return nil, fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", filename, row+1, len(keys), expectedKeyCount)
+			return nil, fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", path, row+1, len(keys), expectedKeyCount)
 		}
 
 		for col, key := range keys {
 			r, ok := keyMap[strings.ToLower(key)]
 			if !ok {
 				if len(key) != 1 {
-					return nil, fmt.Errorf("invalid file format in %s: key '%s' in row %d must have 1 character or be '__' (for _) or '~~' (for ~) or '##' (for #)", filename, key, row+1)
+					return nil, fmt.Errorf("invalid file format in %s: key '%s' in row %d must have 1 character or be '__' (for _) or '~~' (for ~) or '##' (for #)", path, key, row+1)
 				}
 				r = rune(key[0])
 			}
@@ -238,7 +240,7 @@ func NewLayoutFromFile(name, filename string) (*SplitLayout, error) {
 }
 
 // SaveToFile saves a layout layout to a text file
-func (sl *SplitLayout) SaveToFile(filename string) error {
+func (sl *SplitLayout) SaveToFile(path string) error {
 	inverseKeyMap := map[rune]string{
 		rune(0): "~",
 		' ':     "_",
@@ -247,7 +249,7 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 		'#':     "##",
 	}
 
-	file, err := os.Create(filename)
+	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
@@ -297,13 +299,13 @@ func (sl *SplitLayout) SaveToFile(filename string) error {
 }
 
 // LoadPins loads a pins file and populates the Pinned array.
-func (sl *SplitLayout) LoadPins(pinsPath string) error {
-	if _, err := os.Stat(pinsPath); os.IsNotExist(err) {
-		return fmt.Errorf("pins file %s does not exist", pinsPath)
+func (sl *SplitLayout) LoadPins(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return fmt.Errorf("pins file %s does not exist", path)
 	}
 
 	// Open the file for reading.
-	file, err := os.Open(pinsPath)
+	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
@@ -316,15 +318,15 @@ func (sl *SplitLayout) LoadPins(pinsPath string) error {
 	// Read the pins from the file.
 	for row, expectedKeyCount := range expectedKeys {
 		if !scanner.Scan() {
-			return fmt.Errorf("invalid file format in %s: not enough rows", pinsPath)
+			return fmt.Errorf("invalid file format in %s: not enough rows", path)
 		}
 		keys := strings.Fields(scanner.Text())
 		if len(keys) != expectedKeyCount {
-			return fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", pinsPath, row+1, len(keys), expectedKeyCount)
+			return fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", path, row+1, len(keys), expectedKeyCount)
 		}
 		for col, key := range keys {
 			if len(key) != 1 {
-				return fmt.Errorf("invalid file format in %s: key '%s' in row %d must have 1 character only", pinsPath, key, row+1)
+				return fmt.Errorf("invalid file format in %s: key '%s' in row %d must have 1 character only", path, key, row+1)
 			}
 			switch rune(key[0]) {
 			case '.', '_', '-':
@@ -334,7 +336,7 @@ func (sl *SplitLayout) LoadPins(pinsPath string) error {
 				// Pinned keys.
 				sl.Pinned[index] = true
 			default:
-				return fmt.Errorf("invalid character in %s '%c' at position %d in row %d", pinsPath, key[0], col+1, row+1)
+				return fmt.Errorf("invalid character in %s '%c' at position %d in row %d", path, key[0], col+1, row+1)
 			}
 			index++
 		}
@@ -348,15 +350,27 @@ func (sl *SplitLayout) LoadPins(pinsPath string) error {
 	return nil
 }
 
-// LoadPins loads a pins file and populates the Pinned array.
-func (sl *SplitLayout) LoadPinsFromParams(filename, pins string) error {
+// LoadPinsFromParams loads pin information into the SplitLayout from a file and/or
+// a string of characters. If a filename is provided, it loads pinned keys from the file.
+// If no filename is provided, keys that are not used for an actual rune (e.g., ESC) and
+// Space are automatically pinned. Additionally, any characters specified in the `pins`
+// string are pinned if they exist in the layout.
+//
+// Parameters:
+//   - filename: path to a pins file (optional). If empty, no file-based pins are loaded.
+//   - pins: a string of characters to pin individually in the layout.
+//
+// Returns:
+//   - error: returns an error if the file cannot be read or a character in `pins`
+//     cannot be pinned because it is not present in the layout.
+func (sl *SplitLayout) LoadPinsFromParams(path, pins string) error {
 	// Pin keys as specified in the pinfile
-	if filename != "" {
-		if err := sl.LoadPins(filename); err != nil {
+	if path != "" {
+		if err := sl.LoadPins(path); err != nil {
 			return err
 		}
 	} else {
-		// Pin keys that are not used for an actual rune (e.g. ESC, Space)
+		// Otherwise, pin keys that are not used for an actual rune and Space
 		for i, r := range sl.Runes {
 			if r == 0 || unicode.IsSpace(r) {
 				sl.Pinned[i] = true
@@ -364,7 +378,7 @@ func (sl *SplitLayout) LoadPinsFromParams(filename, pins string) error {
 		}
 	}
 
-	// Pin keys in the pins parameter
+	// Additionally, pin keys in the pins parameter
 	for _, r := range pins {
 		key, ok := sl.RuneInfo[r]
 		if !ok {

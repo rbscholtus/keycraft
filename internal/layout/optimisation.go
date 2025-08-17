@@ -21,7 +21,7 @@ func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 
 			t := 1.0 - float64(g)/float64(ng)
 			return (math.Cos(t*math.Pi) + 1.0) / 2.0
 		}
-	case "gradual":
+	case "linear":
 		return func(g, ng uint, e0, e1 float64) float64 {
 			t := 1.0 - float64(g)/float64(ng)
 			return t

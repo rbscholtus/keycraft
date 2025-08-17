@@ -5,87 +5,89 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rbscholtus/kb/internal/layout"
 	"github.com/urfave/cli/v2"
 )
 
 const (
-	layoutDir = "data/layouts/"
-	corpusDir = "data/corpus/"
-	pinsDir   = "data/pins/"
+	layoutDir  = "data/layouts/"
+	corpusDir  = "data/corpus/"
+	weightsDir = "data/weights/"
+	pinsDir    = "data/pins/"
 )
 
-var corpusFlag = &cli.StringFlag{
-	Name:    "corpus",
-	Aliases: []string{"c"},
-	Usage:   "specify the corpus file",
-	Value:   "default.txt",
+// Centralized flag map
+var appFlagsMap = map[string]cli.Flag{
+	"corpus": &cli.StringFlag{
+		Name:    "corpus",
+		Aliases: []string{"c"},
+		Usage:   "specify the corpus file to calculate keyboard metrics",
+		Value:   "default.txt",
+	},
+	"weights-file": &cli.StringFlag{
+		Name:    "weights-file",
+		Aliases: []string{"wf"},
+		Usage:   "load weights from a text file; weights flag overrides these values",
+		Value:   "default.txt",
+	},
+	"weights": &cli.StringFlag{
+		Name:    "weights",
+		Aliases: []string{"w"},
+		Usage:   "specify weights for metrics, e.g. sfb=-3.0,lsb=-2.0",
+	},
+	"metrics": &cli.StringFlag{
+		Name:    "metrics",
+		Aliases: []string{"m"},
+		Usage:   "show metrics (viewing only): basic, extended, or fingers",
+		Value:   "basic",
+	},
+	"deltas": &cli.StringFlag{
+		Name:    "deltas",
+		Aliases: []string{"d"},
+		Usage:   "show delta rows: none, rows, median, or <some-layout.klf>",
+		Value:   "none",
+	},
+	"pins-file": &cli.StringFlag{
+		Name:    "pins-file",
+		Aliases: []string{"pf"},
+		Usage:   "load pins from a text file; pins flag overrides these values",
+	},
+	"pins": &cli.StringFlag{
+		Name:    "pins",
+		Aliases: []string{"p"},
+		Usage:   "specify pins; ~ and _ keys are also pinned if no pins-file is specified",
+	},
+	"generations": &cli.UintFlag{
+		Name:    "generations",
+		Aliases: []string{"g"},
+		Usage:   "specify the number of generations",
+		Value:   250,
+	},
+	"accept-func": &cli.StringFlag{
+		Name:    "accept-func",
+		Aliases: []string{"af"},
+		Usage:   "specify the accept function",
+		Value:   "drop-slow",
+	},
 }
 
-//	&cli.StringFlag{
-//		Name:    "style",
-//		Aliases: []string{"s"},
-//		Usage:   "Specify the style (layoutsdoc or keysolve)",
-//		Value:   "layoutsdoc",
-//	},
-var weightsFlag = &cli.StringFlag{
-	Name:    "weights",
-	Aliases: []string{"w"},
-	Usage:   "specify weights for metrics, e.g. sfb=-3.0,lsb=-2.0",
-	Value:   "",
-}
-var weightsFileFlag = &cli.StringFlag{
-	Name:    "weights-file",
-	Aliases: []string{"wf"},
-	Usage:   "load weights from a text file; weights flag overrides these values",
-	Value:   "",
-}
-var deltasFlag = &cli.StringFlag{
-	Name:    "deltas",
-	Aliases: []string{"d"},
-	Usage:   "show delta rows: none, rows, median, or <some-layout.klf>",
-	Value:   "none",
-}
-var metricsFlag = &cli.StringFlag{
-	Name:    "metrics",
-	Aliases: []string{"m"},
-	Usage:   "choose metrics set: basic, extended, or fingers",
-	Value:   "basic",
-}
-
-var pinsFileFlag = &cli.StringFlag{
-	Name:     "pins-file",
-	Aliases:  []string{"pf"},
-	Usage:    "specify the pins file",
-	Required: false,
-}
-var pinsFlag = &cli.StringFlag{
-	Name:     "pins",
-	Aliases:  []string{"p"},
-	Usage:    "specify pins",
-	Required: false,
-}
-var gensFlag = &cli.UintFlag{
-	Name:     "generations",
-	Aliases:  []string{"g"},
-	Usage:    "specify the number of generations",
-	Required: false,
-	Value:    250,
-}
-var acceptFlag = &cli.StringFlag{
-	Name:     "accept",
-	Aliases:  []string{"a"},
-	Usage:    "specify the accept function",
-	Required: false,
-	Value:    "drop-slow",
+// Helper: convert selected flag keys to a slice
+func flagsSlice(keys ...string) []cli.Flag {
+	flags := make([]cli.Flag, 0, len(keys))
+	for _, k := range keys {
+		if f, ok := appFlagsMap[k]; ok {
+			flags = append(flags, f)
+		}
+	}
+	return flags
 }
 
 func main() {
 	app := &cli.App{
 		Name:  "layout-cli",
 		Usage: "A CLI tool for various layout operations",
-		Flags: []cli.Flag{},
 		Commands: []*cli.Command{
 			viewCommand,
 			rankCommand,
@@ -112,24 +114,26 @@ func validateFlags(c *cli.Context) error {
 	return nil
 }
 
-func loadCorpus(corpusFile string) (*layout.Corpus, error) {
-	if corpusFile == "" {
+func loadCorpus(filename string) (*layout.Corpus, error) {
+	if filename == "" {
 		return nil, fmt.Errorf("corpus file is required")
 	}
-	corpusPath := filepath.Join(corpusDir, corpusFile)
-	if _, err := os.Stat(corpusPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("corpus file %s does not exist", corpusPath)
+	path := filepath.Join(corpusDir, filename)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, fmt.Errorf("corpus file %s does not exist", path)
 	}
-	return layout.NewCorpusFromFile(corpusFile, corpusPath)
+	corpusName := strings.TrimSuffix(filename, filepath.Ext(filename))
+	return layout.NewCorpusFromFile(corpusName, path)
 }
 
-func loadLayout(layoutFile string) (*layout.SplitLayout, error) {
-	if layoutFile == "" {
+func loadLayout(filename string) (*layout.SplitLayout, error) {
+	if filename == "" {
 		return nil, fmt.Errorf("layout file is required")
 	}
-	layoutPath := filepath.Join(layoutDir, layoutFile)
-	if _, err := os.Stat(layoutPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("layout file %s does not exist", layoutPath)
+	path := filepath.Join(layoutDir, filename)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, fmt.Errorf("layout file %s does not exist", path)
 	}
-	return layout.NewLayoutFromFile(layoutFile, layoutPath)
+	layoutName := strings.TrimSuffix(filename, filepath.Ext(filename))
+	return layout.NewLayoutFromFile(layoutName, path)
 }

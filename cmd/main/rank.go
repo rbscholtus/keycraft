@@ -28,14 +28,8 @@ import (
 var rankCommand = &cli.Command{
 	Name:   "rank",
 	Usage:  "Rank keyboard layouts with optional delta rows",
+	Flags:  flagsSlice("corpus", "weights", "weights-file", "metrics", "deltas"),
 	Action: rankAction,
-	Flags: []cli.Flag{
-		corpusFlag,
-		weightsFlag,
-		weightsFileFlag,
-		deltasFlag,
-		metricsFlag,
-	},
 }
 
 // rankAction is the CLI action handler for the "rank" command.

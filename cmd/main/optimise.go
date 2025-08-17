@@ -4,27 +4,20 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	l "github.com/rbscholtus/kb/internal/layout"
 	"github.com/urfave/cli/v2"
 )
 
-var validAcceptFunctions = []string{"always", "drop-slow", "gradual", "drop-fast", "never"}
+var validAcceptFunctions = []string{"always", "drop-slow", "linear", "drop-fast", "never"}
 
 var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Usage:     "Optimise a layout file with a corpus, pins, weights, generations, and accept function",
 	ArgsUsage: "<layout file>",
+	Flags:     flagsSlice("corpus", "weights-file", "weights", "pins-file", "pins", "generations", "accept-func"),
 	Action:    optimiseAction,
-	Flags: []cli.Flag{
-		corpusFlag,
-		weightsFlag,
-		weightsFileFlag,
-		pinsFlag,
-		pinsFileFlag,
-		gensFlag,
-		acceptFlag,
-	},
 }
 
 func optimiseAction(c *cli.Context) error {
@@ -34,12 +27,16 @@ func optimiseAction(c *cli.Context) error {
 		return err
 	}
 
-	weights, err := l.NewWeightsFromParams(c.String("weights-file"), c.String("weights"))
+	weightsPath := c.String("weights-file")
+	if weightsPath != "" {
+		weightsPath = filepath.Join(weightsDir, weightsPath)
+	}
+	weights, err := l.NewWeightsFromParams(weightsPath, c.String("weights"))
 	if err != nil {
 		return err
 	}
 
-	acceptFunction := c.String("accept")
+	acceptFunction := c.String("accept-func")
 	if !slices.Contains(validAcceptFunctions, acceptFunction) {
 		return fmt.Errorf("invalid accept function: %s. Must be one of: %v", acceptFunction, validAcceptFunctions)
 	}
@@ -73,7 +70,12 @@ func optimiseAction(c *cli.Context) error {
 	best := layout.Optimise(corpus, weights, numGenerations, acceptFunction)
 
 	// Save best layout to file
-	bestFilename := fmt.Sprintf("best_%s.klf", layout.Name)
+	name := filepath.Base(layout.Name)
+	ext := strings.ToLower(filepath.Ext(name))
+	if ext == ".klf" {
+		name = name[:len(name)-len(ext)]
+	}
+	bestFilename := fmt.Sprintf("%s-opt.klf", name)
 	bestPath := filepath.Join(layoutDir, bestFilename)
 	if err := best.SaveToFile(bestPath); err != nil {
 		return fmt.Errorf("failed to save best layout to %s: %v", bestPath, err)

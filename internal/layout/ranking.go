@@ -60,12 +60,12 @@ func NewWeights() *Weights {
 	return &Weights{weights}
 }
 
-func NewWeightsFromParams(weightsFile, weightsStr string) (*Weights, error) {
+func NewWeightsFromParams(path, weightsStr string) (*Weights, error) {
 	weights := NewWeights()
 
 	// Load weights from a file if specified.
-	if weightsFile != "" {
-		if err := AddWeightsFromFile(weightsFile, weights); err != nil {
+	if path != "" {
+		if err := AddWeightsFromFile(path, weights); err != nil {
 			return nil, err
 		}
 	}
@@ -80,17 +80,17 @@ func NewWeightsFromParams(weightsFile, weightsStr string) (*Weights, error) {
 
 // AddWeightsFromFile reads a weights file line-by-line and applies the weights,
 // ignoring lines that are empty or start with '#' (comments).
-func AddWeightsFromFile(weightsFile string, weights *Weights) error {
-	data, err := os.ReadFile(weightsFile)
+func AddWeightsFromFile(path string, weights *Weights) error {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("failed to read weights file %q: %v", weightsFile, err)
+		return fmt.Errorf("failed to read weights file %q: %v", path, err)
 	}
 
 	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "#") && line != "" {
 			if err := weights.AddWeightsFromString(line); err != nil {
-				return fmt.Errorf("failed to parse weights from file %q: %v", weightsFile, err)
+				return fmt.Errorf("failed to parse weights from file %q: %v", path, err)
 			}
 		}
 	}

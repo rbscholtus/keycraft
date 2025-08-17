@@ -204,24 +204,24 @@ func (c *Corpus) String() string {
 // NewCorpusFromFile creates a new Corpus with the given name by loading data from the specified text file.
 // It attempts to load from a cached JSON file if it exists and is newer than the source text file.
 // If no valid cache is found, it loads from the text file and saves a JSON cache for future use.
-func NewCorpusFromFile(name, filename string) (*Corpus, error) {
+func NewCorpusFromFile(name, path string) (*Corpus, error) {
 	// Compute the JSON filename in the same directory as filename
-	jsonFilename := filepath.Join(filename + ".json")
+	jsonPath := filepath.Join(path + ".json")
 
 	// Check if JSON file exists and is newer than source file
-	jsonInfo, jsonErr := os.Stat(jsonFilename)
-	srcInfo, srcErr := os.Stat(filename)
+	jsonInfo, jsonErr := os.Stat(jsonPath)
+	srcInfo, srcErr := os.Stat(path)
 	if jsonErr == nil && srcErr == nil && jsonInfo.ModTime().After(srcInfo.ModTime()) {
 		// JSON file exists and is newer than the source file
-		return LoadJSON(jsonFilename)
+		return LoadJSON(jsonPath)
 	}
 
 	// Otherwise, load from the text file and save JSON cache
 	c := NewCorpus(name)
-	if err := c.loadFromFile(filename); err != nil {
+	if err := c.loadFromFile(path); err != nil {
 		return nil, err
 	}
-	if err := c.SaveJSON(jsonFilename); err != nil {
+	if err := c.SaveJSON(jsonPath); err != nil {
 		return nil, err
 	}
 
@@ -288,8 +288,8 @@ func (c *Corpus) addText(text string) {
 
 // loadFromFile reads the given text file line by line and adds the text content to the corpus.
 // Empty or whitespace-only lines are skipped.
-func (c *Corpus) loadFromFile(filename string) error {
-	file, err := os.Open(filename)
+func (c *Corpus) loadFromFile(path string) error {
+	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
@@ -312,8 +312,8 @@ func (c *Corpus) loadFromFile(filename string) error {
 }
 
 // LoadJSON loads a Corpus from the specified JSON file.
-func LoadJSON(jsonFilename string) (*Corpus, error) {
-	jsonFile, err := os.Open(jsonFilename)
+func LoadJSON(jsonPath string) (*Corpus, error) {
+	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
 		return nil, err
 	}
@@ -329,8 +329,8 @@ func LoadJSON(jsonFilename string) (*Corpus, error) {
 }
 
 // SaveJSON saves the corpus data as a JSON file in the specified directory using the corpus name as filename.
-func (c *Corpus) SaveJSON(jsonFilename string) error {
-	file, err := os.Create(jsonFilename)
+func (c *Corpus) SaveJSON(jsonPath string) error {
+	file, err := os.Create(jsonPath)
 	if err != nil {
 		return err
 	}

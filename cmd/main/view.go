@@ -12,9 +12,7 @@ var viewCommand = &cli.Command{
 	Usage:     "View a layout file with a corpus file",
 	ArgsUsage: "<layout file>",
 	Action:    viewAction,
-	Flags: []cli.Flag{
-		corpusFlag,
-	},
+	Flags:     flagsSlice("corpus"),
 }
 
 func viewAction(c *cli.Context) error {

@@ -10,10 +10,8 @@ import (
 var experimentCommand = &cli.Command{
 	Name:   "experiment",
 	Usage:  "Run experiments",
+	Flags:  flagsSlice("corpus"),
 	Action: experimentAction,
-	Flags: []cli.Flag{
-		corpusFlag,
-	},
 }
 
 func experimentAction(c *cli.Context) error {
