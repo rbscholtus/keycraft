@@ -34,9 +34,6 @@ To do
   - add detailed tables
   - add metrics based on Dist vs %
   - add Pinky-off stat
-  - always load defaults weight and default corpus
-  - load corpus from cache files
-  - add pins param
   - add Effort stat
   - add Hard words
   - add Norvig corpus
@@ -47,6 +44,9 @@ To do
 
 Done
 ----
+  - load corpus from cache files
+  - add pins param
+  - always load defaults weight and default corpus
   - add hand balance analysis as a basic metric 
   - add weights file DONE
   - split redirects vs bad redirects DONE
