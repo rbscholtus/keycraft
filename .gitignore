@@ -31,3 +31,4 @@ vendor/
 /*.js
 /*.kb
 /data/layouts2
+/data/corpus/sources

@@ -208,11 +208,10 @@ func NewCorpusFromFile(name, path string) (*Corpus, error) {
 	// Compute the JSON filename in the same directory as filename
 	jsonPath := filepath.Join(path + ".json")
 
-	// Check if JSON file exists and is newer than source file
+	// Check if JSON file exists and is newer than source file, or if source file is missing
 	jsonInfo, jsonErr := os.Stat(jsonPath)
 	srcInfo, srcErr := os.Stat(path)
-	if jsonErr == nil && srcErr == nil && jsonInfo.ModTime().After(srcInfo.ModTime()) {
-		// JSON file exists and is newer than the source file
+	if jsonErr == nil && (os.IsNotExist(srcErr) || (srcErr == nil && jsonInfo.ModTime().After(srcInfo.ModTime()))) {
 		return LoadJSON(jsonPath)
 	}
 
