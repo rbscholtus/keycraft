@@ -31,9 +31,10 @@ GUI ??
 
 To do
 -----
-  - add detailed tables
+  - add detailed tables GOING WELL
+  - add alt fingering de-buff
+  - split SF in same index <> other index?
   - add metrics based on Dist vs %
-  - add Pinky-off stat
   - add Effort stat
   - add Hard words
   - add Norvig corpus
@@ -44,6 +45,10 @@ To do
 
 Done
 ----
+  - add Pinky-off stat DONE
+  - need layout pic and hand stats in the cmp DONE
+  - add Shai corpus
+  - add AKL corpus
   - load corpus from cache files
   - add pins param
   - always load defaults weight and default corpus
