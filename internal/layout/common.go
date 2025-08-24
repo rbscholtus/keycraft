@@ -10,28 +10,28 @@ import (
 )
 
 // UnigramCount represents a unigram and its count
-type UnigramCount struct {
-	Unigram Unigram
-	Count   uint64
-}
+// type UnigramCount struct {
+// 	Unigram Unigram
+// 	Count   uint64
+// }
 
-// BigramCount represents a bigram and its count
-type BigramCount struct {
-	Bigram Bigram
-	Count  uint64
-}
+// // BigramCount represents a bigram and its count
+// type BigramCount struct {
+// 	Bigram Bigram
+// 	Count  uint64
+// }
 
-// TrigramCount represents a trigram and its count
-type TrigramCount struct {
-	Trigram Trigram
-	Count   uint64
-}
+// // TrigramCount represents a trigram and its count
+// type TrigramCount struct {
+// 	Trigram Trigram
+// 	Count   uint64
+// }
 
-// SkipgramCount represents a skipgram and its count
-type SkipgramCount struct {
-	Skipgram Skipgram
-	Count    uint64
-}
+// // SkipgramCount represents a skipgram and its count
+// type SkipgramCount struct {
+// 	Skipgram Skipgram
+// 	Count    uint64
+// }
 
 // Comma returns a string representation of the given number with commas.
 func Comma(v uint64) string {

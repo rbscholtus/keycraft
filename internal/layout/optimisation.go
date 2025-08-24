@@ -62,6 +62,7 @@ func (sl *SplitLayout) Optimise(corp *Corpus, weights *Weights, generations uint
 		}
 		// best := hof0.Genome.(*SplitLayout)
 		fmt.Printf("Best fitness at generation %d: %.3f\n", ga.Generations, fit)
+		fmt.Println(ga.HallOfFame[0])
 		minFit = fit
 	}
 

@@ -2,38 +2,165 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
+	"slices"
+	"strings"
 
 	ly "github.com/rbscholtus/kb/internal/layout"
 	"github.com/urfave/cli/v2"
 )
 
 var experimentCommand = &cli.Command{
-	Name:   "experiment",
-	Usage:  "Run experiments",
-	Flags:  flagsSlice("corpus"),
-	Action: experimentAction,
+	Name:      "experiment",
+	Aliases:   []string{"x"},
+	Usage:     "Run experiments",
+	ArgsUsage: "<layout file>",
+	Flags:     flagsSlice("corpus", "weights-file", "weights", "free", "generations", "accept-worse"),
+	Action:    experimentAction,
 }
 
 func experimentAction(c *cli.Context) error {
 	fmt.Println("Running experiment...")
 
-	corp, err := loadCorpus(c.String("corpus"))
+	// Load the corpus used for analyzing layouts.
+	corpus, err := loadCorpus(c.String("corpus"))
 	if err != nil {
 		return err
 	}
 
-	lay, err := loadLayout(c.Args().First())
+	weightsPath := c.String("weights-file")
+	if weightsPath != "" {
+		weightsPath = filepath.Join(weightsDir, weightsPath)
+	}
+	weights, err := ly.NewWeightsFromParams(weightsPath, c.String("weights"))
 	if err != nil {
 		return err
 	}
 
-	// style := c.String("style")
+	acceptFunction := c.String("accept-worse")
+	if !slices.Contains(validAcceptFunctions, acceptFunction) {
+		return fmt.Errorf("invalid accept function: %s. Must be one of: %v", acceptFunction, validAcceptFunctions)
+	}
 
-	doExperiment2(corp, lay)
+	numGenerations := c.Uint("generations")
+	if numGenerations <= 0 {
+		return fmt.Errorf("number of generations must be above 0. Got: %d", numGenerations)
+	}
+
+	if c.Args().Len() != 1 {
+		if err := compareAllQwertyLayouts(); err != nil {
+			return err
+		}
+
+		return fmt.Errorf("expected exactly 1 layout file, got %d", c.Args().Len())
+	}
+	layoutFile := c.Args().First()
+	layout, err := loadLayout(layoutFile)
+	if err != nil {
+		return err
+	}
+
+	fixed := "etfjio"
+	variable := "dknl;uyrs"
+	variations := generateVariations(variable, 5)
+	for _, v := range variations {
+		v = fixed + v
+		fmt.Println(v)
+		if err := layout.LoadPinsFromParams("", "", v); err != nil {
+			return err
+		}
+
+		best := layout.Optimise(corpus, weights, numGenerations, acceptFunction)
+
+		// Save best layout to file
+		name := filepath.Base(layout.Name)
+		ext := strings.ToLower(filepath.Ext(name))
+		if ext == ".klf" {
+			name = name[:len(name)-len(ext)]
+		}
+		bestFilename := fmt.Sprintf("%s-%s.klf", name, v)
+		bestPath := filepath.Join(layoutDir, bestFilename)
+		if err := best.SaveToFile(bestPath); err != nil {
+			return fmt.Errorf("failed to save best layout to %s: %v", bestPath, err)
+		}
+	}
+
 	return nil
 }
 
-func doExperiment2(corp *ly.Corpus, lay *ly.SplitLayout) {
+func generateVariations(s string, k int) []string {
+	var results []string
+	n := len(s)
+
+	var comb func(start, depth int, indices []int)
+	comb = func(start, depth int, indices []int) {
+		if depth == k {
+			// create a map for quick lookup of indices to remove
+			remove := make(map[int]bool)
+			for _, idx := range indices {
+				remove[idx] = true
+			}
+			var b []byte
+			for i := range n {
+				if !remove[i] {
+					b = append(b, s[i])
+				}
+			}
+			results = append(results, string(b))
+			return
+		}
+		for i := start; i < n; i++ {
+			comb(i+1, depth+1, append(indices, i))
+		}
+	}
+	comb(0, 0, []int{})
+	return results
+}
+
+// countRuneDifferences compares two layouts by their Runes slices
+// and returns the number of positions where the rune differs.
+func countRuneDifferences(base, other *ly.SplitLayout) int {
+	if len(base.Runes) != len(other.Runes) {
+		// not directly comparable
+		return -1
+	}
+	changed := 0
+	for i := range base.Runes {
+		if base.Runes[i] != other.Runes[i] {
+			changed++
+		}
+	}
+	return changed
+}
+
+func compareAllQwertyLayouts() error {
+	baseLayoutPath := filepath.Join(layoutDir, "qwerty.klf")
+	base, err := loadLayout("qwerty.klf")
+	if err != nil {
+		return fmt.Errorf("failed to load base layout %s: %v", baseLayoutPath, err)
+	}
+
+	pattern := filepath.Join(layoutDir, "qwerty*.klf")
+	files, err := filepath.Glob(pattern)
+	if err != nil {
+		return fmt.Errorf("failed to glob pattern %s: %v", pattern, err)
+	}
+
+	for _, file := range files {
+		if filepath.Base(file) == "qwerty.klf" {
+			continue
+		}
+		other, err := loadLayout(filepath.Base(file))
+		if err != nil {
+			return fmt.Errorf("failed to load layout %s: %v", filepath.Base(file), err)
+		}
+		diff := countRuneDifferences(base, other)
+		fmt.Printf("%s: %d differing runes\n", filepath.Base(file), diff)
+	}
+	return nil
+}
+
+func DoExperiment2(corp *ly.Corpus, lay *ly.SplitLayout) {
 	stats := make(map[string]uint64)
 
 	for tri, cnt := range corp.Trigrams {
@@ -108,7 +235,7 @@ func doExperiment2(corp *ly.Corpus, lay *ly.SplitLayout) {
 	fmt.Println(float64(tot) / float64(corp.TotalTrigramsCount) * 100)
 }
 
-func doExperiment1(corp *ly.Corpus) {
+func DoExperiment1(corp *ly.Corpus) {
 	// a := ly.SortedMap(corp.Unigrams)
 	// for _, v := range a[:10] {
 	// 	fmt.Println(v.Key.String(), " ", v.Count)

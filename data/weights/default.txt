@@ -1,23 +1,33 @@
 # just some reasonable default weights
 
-FBL = -4.0
-
 SFB = -6.0
 LSB = -4.0
-FSB = -4.0
-HSB = -2.0
+FSB = -3.0
+HSB = -3.0
 SFS = -1.5
 LSS = -1.0
-FSS = -1.0
-HSS = -0.5
-ALT = 4.0
-# 2RL = 1.0
-2RL-IN = 2.0
-2RL-OUT = 2.0
-# 3RL = -1.0
-3RL-IN = 0.5
-3RL-OUT = 0.5
-RED = -4.0
+FSS = -0.75
+HSS = -0.75
+
+ALT-SFS = -1.0
+#ALT-OTH
+#sum: ALT
+2RL-SF = -0.5
+#2RL-IN
+#2RL-OUT
+#in+out: 2RL
+3RL-SF = -0.5
+#3RL-IN
+#3RL-OUT
+#in+out: 3RL
+RED-BAD = -3
+#RED-SFS = -2
+#RED-OTH = -2
+RED = -3
+
+#IN:OUT
+FBL = -3.0
+POH = -4.0
 
 #F0 = -0.5
 #F1 = -0.5

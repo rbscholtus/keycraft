@@ -284,7 +284,7 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 	}
 
 	// Write thumbs
-	_, _ = fmt.Fprint(writer, "    ")
+	_, _ = fmt.Fprint(writer, "      ")
 	for col := range 6 {
 		if col == 3 {
 			_, _ = fmt.Fprint(writer, " ")
@@ -350,20 +350,39 @@ func (sl *SplitLayout) LoadPins(path string) error {
 	return nil
 }
 
-// LoadPinsFromParams loads pin information into the SplitLayout from a file and/or
-// a string of characters. If a filename is provided, it loads pinned keys from the file.
-// If no filename is provided, keys that are not used for an actual rune (e.g., ESC) and
-// Space are automatically pinned. Additionally, any characters specified in the `pins`
-// string are pinned if they exist in the layout.
+// LoadPinsFromParams loads pin information into the SplitLayout from a file, pins string,
+// or a free string (specifying which runes are free, all others pinned).
 //
 // Parameters:
-//   - filename: path to a pins file (optional). If empty, no file-based pins are loaded.
+//   - path: path to a pins file (optional). If empty, no file-based pins are loaded.
 //   - pins: a string of characters to pin individually in the layout.
+//   - free: a string of characters that are free to move (all others are pinned).
 //
-// Returns:
-//   - error: returns an error if the file cannot be read or a character in `pins`
-//     cannot be pinned because it is not present in the layout.
-func (sl *SplitLayout) LoadPinsFromParams(path, pins string) error {
+// If path or pins are provided, free must be empty.
+// If free is provided, all runes except those in free are pinned.
+func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
+	// If pins-file or pins are specified, free must be empty.
+	if (path != "" || pins != "") && free != "" {
+		return fmt.Errorf("cannot use both --free and --pins/--pins-file options together")
+	}
+
+	if free != "" {
+		// Pin all runes except those in free string
+		// First, mark all as pinned
+		for i := range sl.Pinned {
+			sl.Pinned[i] = true
+		}
+		// Unpin the runes in free, if they exist in layout
+		for _, r := range free {
+			key, ok := sl.RuneInfo[r]
+			if !ok {
+				return fmt.Errorf("cannot free unavailable character: %c", r)
+			}
+			sl.Pinned[key.Index] = false
+		}
+		return nil
+	}
+
 	// Pin keys as specified in the pinfile
 	if path != "" {
 		if err := sl.LoadPins(path); err != nil {

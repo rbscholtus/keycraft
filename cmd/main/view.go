@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/rbscholtus/kb/internal/layout"
 	"github.com/urfave/cli/v2"
 )
 
 var viewCommand = &cli.Command{
 	Name:      "view",
+	Aliases:   []string{"v"},
 	Usage:     "View a layout file with a corpus file",
 	ArgsUsage: "<layout file>",
 	Action:    viewAction,
@@ -21,23 +21,13 @@ func viewAction(c *cli.Context) error {
 		return err
 	}
 
-	if c.Args().Len() != 1 {
-		return fmt.Errorf("expected exactly 1 layout file, got %d", c.Args().Len())
+	if c.NArg() < 1 {
+		return fmt.Errorf("need at least 1 layout")
 	}
-	lay, err := loadLayout(c.Args().First())
-	if err != nil {
+
+	if err := DoAnalysis(corp, c.Args().Slice(), false); err != nil {
 		return err
 	}
 
-	style := c.String("style")
-	doViewLayout(lay, corp, style)
 	return nil
-}
-
-func doViewLayout(lay *layout.SplitLayout, corp *layout.Corpus, style string) {
-	fmt.Println(lay)
-	an := layout.NewAnalyser(lay, corp, style)
-	fmt.Println(an.HandUsageString())
-	fmt.Println(an.RowUsageString())
-	fmt.Println(an.MetricsString())
 }

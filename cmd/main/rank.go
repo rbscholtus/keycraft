@@ -26,10 +26,11 @@ import (
 // By default, layouts are shown in CLI-specified order unless `--show-deltas` is enabled,
 // in which case the default order switches to 'rank'.
 var rankCommand = &cli.Command{
-	Name:   "rank",
-	Usage:  "Rank keyboard layouts with optional delta rows",
-	Flags:  flagsSlice("corpus", "weights", "weights-file", "metrics", "deltas"),
-	Action: rankAction,
+	Name:    "rank",
+	Aliases: []string{"r"},
+	Usage:   "Rank keyboard layouts with optional delta rows",
+	Flags:   flagsSlice("corpus", "weights-file", "weights", "metrics", "deltas"),
+	Action:  rankAction,
 }
 
 // rankAction is the CLI action handler for the "rank" command.

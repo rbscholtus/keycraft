@@ -14,9 +14,10 @@ var validAcceptFunctions = []string{"always", "drop-slow", "linear", "drop-fast"
 
 var optimiseCommand = &cli.Command{
 	Name:      "optimise",
+	Aliases:   []string{"o"},
 	Usage:     "Optimise a layout file with a corpus, pins, weights, generations, and accept-worse function",
 	ArgsUsage: "<layout file>",
-	Flags:     flagsSlice("corpus", "weights-file", "weights", "pins-file", "pins", "generations", "accept-worse"),
+	Flags:     flagsSlice("corpus", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse"),
 	Action:    optimiseAction,
 }
 
@@ -59,13 +60,10 @@ func optimiseAction(c *cli.Context) error {
 	if pinsPath != "" {
 		pinsPath = filepath.Join(pinsDir, pinsPath)
 	}
-	if err := layout.LoadPinsFromParams(pinsPath, c.String("pins")); err != nil {
+	if err := layout.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free")); err != nil {
 		return err
 	}
 
-	// fmt.Printf("Optimising layout: %s with corpus: %s, pins: %s, weights: %s, generations: %d, accept function: %s\n",
-	// 	lay.Name, corpus.Name, pinsFile, weightsConfig, numGenerations, acceptFunction)
-	// fmt.Println(layout.Pinned)
 	best := layout.Optimise(corpus, weights, numGenerations, acceptFunction)
 
 	// Save best layout to file
@@ -81,19 +79,17 @@ func optimiseAction(c *cli.Context) error {
 	}
 
 	// Prepare layouts for ranking
-	layoutsToRank := []string{layoutFile, bestFilename}
+	layoutsToCompare := []string{layoutFile, bestFilename}
 
-	// Call DoLayoutRankings with the layouts
-	if err := l.DoLayoutRankings(corpus, layoutDir, layoutsToRank, weights, "basic", "rows"); err != nil {
-		return fmt.Errorf("failed to perform layout rankings: %v", err)
+	// Call DoAnalysis with the layouts
+	if err := DoAnalysis(corpus, layoutsToCompare, false); err != nil {
+		return fmt.Errorf("failed to perform layout analysis: %v", err)
 	}
 
-	fmt.Println(layout)
-	// an := layout.NewAnalyser(lay, corpus, "layoutsdoc")
-	// fmt.Println(an.MetricsString())
-	fmt.Println(best)
-	// anBest := layout.NewAnalyser(best, corpus, "layoutsdoc")
-	// fmt.Println(anBest.MetricsString())
+	// Call DoLayoutRankings with the layouts
+	if err := l.DoLayoutRankings(corpus, layoutDir, layoutsToCompare, weights, "basic", "rows"); err != nil {
+		return fmt.Errorf("failed to perform layout rankings: %v", err)
+	}
 
 	return nil
 }

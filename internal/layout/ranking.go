@@ -20,20 +20,19 @@ import (
 
 var MetricsMap = map[string][]string{
 	"basic": {
-		"FBL",
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS", "LSS", "FSS", "HSS",
-		"ALT", "2RL", "3RL", "IN:OUT", "RED",
+		"ALT", "2RL", "3RL", "RED", "RED-BAD",
+		"IN:OUT", "FBL", "POH",
 	},
 	"extended": {
-		"FBL",
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS", "LSS", "FSS", "HSS",
 		"ALT", "ALT-SFS", "ALT-OTH",
 		"2RL", "2RL-IN", "2RL-OUT", "2RL-SF",
 		"3RL", "3RL-IN", "3RL-OUT", "3RL-SF",
-		"IN:OUT",
 		"RED", "RED-BAD", "RED-SFS", "RED-OTH",
+		"IN:OUT", "FBL", "POH",
 	},
 	"fingers": {
 		"H0", "F0", "F1", "F2", "F3", "F4",

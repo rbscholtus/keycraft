@@ -59,15 +59,20 @@ var appFlagsMap = map[string]cli.Flag{
 		Aliases: []string{"p"},
 		Usage:   "specify additional pins",
 	},
+	"free": &cli.StringFlag{
+		Name:    "free",
+		Aliases: []string{"f"},
+		Usage:   "specify characters that are free to move (all others pinned)",
+	},
 	"generations": &cli.UintFlag{
 		Name:    "generations",
-		Aliases: []string{"g"},
+		Aliases: []string{"gens", "g"},
 		Usage:   "specify the number of generations",
 		Value:   250,
 	},
 	"accept-worse": &cli.StringFlag{
 		Name:    "accept-worse",
-		Aliases: []string{"af"},
+		Aliases: []string{"aw"},
 		Usage:   "specify the accept-worse function",
 		Value:   "drop-slow",
 	},
@@ -90,8 +95,8 @@ func main() {
 		Usage: "A CLI tool for various layout operations",
 		Commands: []*cli.Command{
 			viewCommand,
-			rankCommand,
 			analyseCommand,
+			rankCommand,
 			optimiseCommand,
 			experimentCommand,
 		},
@@ -106,11 +111,7 @@ func main() {
 	}
 }
 
-func validateFlags(c *cli.Context) error {
-	// style := c.String("style")
-	// if style != "" && style != "layoutsdoc" && style != "keysolve" {
-	// 	return cli.Exit("Invalid style. Supported styles are 'layoutsdoc' and 'keysolve'.", 1)
-	// }
+func validateFlags(_ *cli.Context) error {
 	return nil
 }
 
@@ -118,11 +119,8 @@ func loadCorpus(filename string) (*layout.Corpus, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("corpus file is required")
 	}
-	path := filepath.Join(corpusDir, filename)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, fmt.Errorf("corpus file %s does not exist", path)
-	}
 	corpusName := strings.TrimSuffix(filename, filepath.Ext(filename))
+	path := filepath.Join(corpusDir, filename)
 	return layout.NewCorpusFromFile(corpusName, path)
 }
 
@@ -130,10 +128,10 @@ func loadLayout(filename string) (*layout.SplitLayout, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("layout file is required")
 	}
+	layoutName := strings.TrimSuffix(filename, filepath.Ext(filename))
 	path := filepath.Join(layoutDir, filename)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, fmt.Errorf("layout file %s does not exist", path)
 	}
-	layoutName := strings.TrimSuffix(filename, filepath.Ext(filename))
 	return layout.NewLayoutFromFile(layoutName, path)
 }
