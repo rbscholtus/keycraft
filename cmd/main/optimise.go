@@ -19,8 +19,8 @@ var validAcceptFuncs = []string{"always", "drop-slow", "linear", "drop-fast", "n
 var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Aliases:   []string{"o"},
-	Usage:     "Optimise a layout file with a corpus, pins, weights, generations, and accept-worse function",
-	ArgsUsage: "<layout file>",
+	Usage:     "Optimise a keyboard layout",
+	ArgsUsage: "<layout.klf>",
 	Flags:     flagsSlice("corpus", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse"),
 	Action:    optimiseAction,
 }

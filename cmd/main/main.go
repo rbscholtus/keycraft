@@ -44,13 +44,13 @@ var appFlagsMap = map[string]cli.Flag{
 	"metrics": &cli.StringFlag{
 		Name:    "metrics",
 		Aliases: []string{"m"},
-		Usage:   "metrics to show in the ranking table: basic, extended, or fingers",
+		Usage:   "metrics to show: basic, extended, or fingers",
 		Value:   "basic",
 	},
 	"deltas": &cli.StringFlag{
 		Name:    "deltas",
 		Aliases: []string{"d"},
-		Usage:   "delta rows to show in the ranking table: none, rows, median, or <some-layout.klf>",
+		Usage:   "deltas to show: none, rows, median, or <layout.klf>",
 		Value:   "none",
 	},
 	"pins-file": &cli.StringFlag{
@@ -61,12 +61,12 @@ var appFlagsMap = map[string]cli.Flag{
 	"pins": &cli.StringFlag{
 		Name:    "pins",
 		Aliases: []string{"p"},
-		Usage:   "additional pins, eg: aeiouy",
+		Usage:   "additional characters to pin, eg: aeiouy",
 	},
 	"free": &cli.StringFlag{
 		Name:    "free",
 		Aliases: []string{"f"},
-		Usage:   "characters free to be moved (all others pinned), eg zqjx",
+		Usage:   "characters free to be moved (all others pinned), eg: zqjx",
 	},
 	"generations": &cli.UintFlag{
 		Name:    "generations",
@@ -99,7 +99,7 @@ func flagsSlice(keys ...string) []cli.Flag {
 func main() {
 	app := &cli.App{
 		Name:  "keycraft",
-		Usage: "A CLI tool for various keyboard layout operations",
+		Usage: "A CLI tool for crafting better keyboard layouts",
 		Commands: []*cli.Command{
 			viewCommand,
 			analyseCommand,
@@ -132,9 +132,6 @@ func loadCorpus(filename string) (*kc.Corpus, error) {
 	}
 	corpusName := strings.TrimSuffix(filename, filepath.Ext(filename))
 	path := filepath.Join(corpusDir, filename)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, fmt.Errorf("corpus file %s does not exist", path)
-	}
 	return kc.NewCorpusFromFile(corpusName, path)
 }
 

@@ -13,7 +13,7 @@ import (
 var viewCommand = &cli.Command{
 	Name:      "view",
 	Aliases:   []string{"v"},
-	Usage:     "Analyze and display one or more keyboard layout files using the specified corpus",
+	Usage:     "Analyze and display one or more keyboard layouts",
 	ArgsUsage: "<layout1.klf> <layout2.klf> ...",
 	Action:    viewAction,
 	Flags:     flagsSlice("corpus"),

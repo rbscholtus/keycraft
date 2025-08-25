@@ -13,8 +13,8 @@ import (
 var experimentCommand = &cli.Command{
 	Name:      "experiment",
 	Aliases:   []string{"x"},
-	Usage:     "Run experiments",
-	ArgsUsage: "<layout file>",
+	Usage:     "Run experiments (for the developer)",
+	ArgsUsage: "<layout.klf>",
 	Flags:     flagsSlice("corpus", "weights-file", "weights", "free", "generations", "accept-worse"),
 	Action:    experimentAction,
 }

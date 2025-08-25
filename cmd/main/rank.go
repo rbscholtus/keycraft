@@ -28,7 +28,7 @@ import (
 var rankCommand = &cli.Command{
 	Name:    "rank",
 	Aliases: []string{"r"},
-	Usage:   "Rank keyboard layouts with optional delta rows",
+	Usage:   "Rank keyboard layouts and optionally view deltas",
 	Flags:   flagsSlice("corpus", "weights-file", "weights", "metrics", "deltas"),
 	Action:  rankAction,
 }
