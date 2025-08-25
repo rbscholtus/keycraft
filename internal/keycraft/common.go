@@ -1,5 +1,5 @@
 // Package layout provides common structs and utility functions.
-package layout
+package keycraft
 
 import (
 	"bufio"

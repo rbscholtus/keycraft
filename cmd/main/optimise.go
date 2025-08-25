@@ -1,3 +1,5 @@
+// optimise.go implements the optimise command which runs simulated
+// optimisation on a layout using corpus, pins and weight configuration.
 package main
 
 import (
@@ -6,11 +8,13 @@ import (
 	"slices"
 	"strings"
 
-	l "github.com/rbscholtus/kb/internal/layout"
+	kc "github.com/rbscholtus/kb/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
 
-var validAcceptFunctions = []string{"always", "drop-slow", "linear", "drop-fast", "never"}
+// validAcceptFuncs lists supported strategies for the accept-worse decision
+// used during optimisation passes.
+var validAcceptFuncs = []string{"always", "drop-slow", "linear", "drop-fast", "never"}
 
 var optimiseCommand = &cli.Command{
 	Name:      "optimise",
@@ -21,6 +25,11 @@ var optimiseCommand = &cli.Command{
 	Action:    optimiseAction,
 }
 
+// optimiseAction performs optimisation for a single layout file:
+//   - loads corpus, weights and pins
+//   - validates accept-function and generation count
+//   - runs optimisation and persists the best layout
+//   - runs analysis and ranking on original vs optimized layouts
 func optimiseAction(c *cli.Context) error {
 	// Load the corpus used for analyzing layouts.
 	corpus, err := loadCorpus(c.String("corpus"))
@@ -32,14 +41,14 @@ func optimiseAction(c *cli.Context) error {
 	if weightsPath != "" {
 		weightsPath = filepath.Join(weightsDir, weightsPath)
 	}
-	weights, err := l.NewWeightsFromParams(weightsPath, c.String("weights"))
+	weights, err := kc.NewWeightsFromParams(weightsPath, c.String("weights"))
 	if err != nil {
 		return err
 	}
 
 	acceptFunction := c.String("accept-worse")
-	if !slices.Contains(validAcceptFunctions, acceptFunction) {
-		return fmt.Errorf("invalid accept function: %s. Must be one of: %v", acceptFunction, validAcceptFunctions)
+	if !slices.Contains(validAcceptFuncs, acceptFunction) {
+		return fmt.Errorf("invalid accept function: %s. Must be one of: %v", acceptFunction, validAcceptFuncs)
 	}
 
 	numGenerations := c.Uint("generations")
@@ -87,7 +96,7 @@ func optimiseAction(c *cli.Context) error {
 	}
 
 	// Call DoLayoutRankings with the layouts
-	if err := l.DoLayoutRankings(corpus, layoutDir, layoutsToCompare, weights, "basic", "rows"); err != nil {
+	if err := kc.DoLayoutRankings(corpus, layoutDir, layoutsToCompare, weights, "basic", "rows"); err != nil {
 		return fmt.Errorf("failed to perform layout rankings: %v", err)
 	}
 

@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/rbscholtus/kb/internal/layout"
+	kc "github.com/rbscholtus/kb/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
 
@@ -47,7 +47,7 @@ func rankAction(c *cli.Context) error {
 	if weightsPath != "" {
 		weightsPath = filepath.Join(weightsDir, weightsPath)
 	}
-	weights, err := layout.NewWeightsFromParams(weightsPath, c.String("weights"))
+	weights, err := kc.NewWeightsFromParams(weightsPath, c.String("weights"))
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,11 @@ func rankAction(c *cli.Context) error {
 	// Validate the --deltas flag; must be 'none', 'rows', 'median', or a KLF filename.
 	deltas := c.String("deltas")
 	deltasLow := strings.ToLower(deltas)
-	baseFile := layout.IfThen(strings.HasSuffix(deltasLow, ".klf"), deltas, "")
+	baseFile := ""
+	if strings.HasSuffix(deltasLow, ".klf") {
+		baseFile = deltas
+	}
+
 	valid := deltasLow == "none" || deltasLow == "rows" || deltasLow == "median" || baseFile != ""
 	if !valid {
 		return fmt.Errorf("invalid deltas %q; must be none, rows, median, or a .klf filename", deltas)
@@ -81,7 +85,7 @@ func rankAction(c *cli.Context) error {
 	}
 
 	// Perform the layout comparison and display results,
-	return layout.DoLayoutRankings(corpus, layoutDir, layoutsToCmp, weights, c.String("metrics"), deltas)
+	return kc.DoLayoutRankings(corpus, layoutDir, layoutsToCmp, weights, c.String("metrics"), deltas)
 }
 
 // filesExist checks that all specified layout files exist in the layoutDir.

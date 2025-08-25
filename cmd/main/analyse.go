@@ -1,3 +1,5 @@
+// analyse.go contains functions to analyse keyboard layouts and render
+// human-friendly tables summarising hand/row usage and other metrics.
 package main
 
 import (
@@ -6,10 +8,12 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
-	"github.com/rbscholtus/kb/internal/layout"
+	kc "github.com/rbscholtus/kb/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
 
+// analyseCommand defines the "analyse" CLI command which prints detailed
+// analysis for one or more layouts (including data tables when requested).
 var analyseCommand = &cli.Command{
 	Name:      "analyse",
 	Aliases:   []string{"a"},
@@ -19,6 +23,8 @@ var analyseCommand = &cli.Command{
 	Action:    analyseAction,
 }
 
+// analyseAction loads the requested corpus and layouts, then runs DoAnalysis.
+// Returns an error if corpus or layouts cannot be loaded.
 func analyseAction(c *cli.Context) error {
 	corp, err := loadCorpus(c.String("corpus"))
 	if err != nil {
@@ -35,15 +41,18 @@ func analyseAction(c *cli.Context) error {
 	return nil
 }
 
-func DoAnalysis(corpus *layout.Corpus, layoutFilenames []string, dataTables bool) error {
+// DoAnalysis loads analysers for the provided layouts, produces overview
+// rows (board, hand, row, stats) and optionally appends detailed metric
+// tables. The rendered table output is printed to stdout.
+func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool) error {
 	// load an analyser for each layout
-	analysers := make([]*layout.Analyser, 0, len(layoutFilenames))
+	analysers := make([]*kc.Analyser, 0, len(layoutFilenames))
 	for _, fn := range layoutFilenames {
 		lay, err := loadLayout(fn)
 		if err != nil {
 			return err
 		}
-		an := layout.NewAnalyser(lay, corpus, "")
+		an := kc.NewAnalyser(lay, corpus, "")
 		analysers = append(analysers, an)
 	}
 
@@ -99,7 +108,7 @@ func DoAnalysis(corpus *layout.Corpus, layoutFilenames []string, dataTables bool
 
 	// Add data rows
 	if dataTables {
-		details := make([][]*layout.MetricDetails, 0, len(layoutFilenames))
+		details := make([][]*kc.MetricDetails, 0, len(layoutFilenames))
 		for _, an := range analysers {
 			details = append(details, an.AllMetricsDetails())
 		}
@@ -119,7 +128,10 @@ func DoAnalysis(corpus *layout.Corpus, layoutFilenames []string, dataTables bool
 	return nil
 }
 
-func HandUsageString(an *layout.Analyser) string {
+// HandUsageString returns a rendered table showing per-column, per-finger and
+// per-hand usage for the provided analyser. The returned string is suitable
+// for printing in the outer comparison table.
+func HandUsageString(an *kc.Analyser) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
 	tw.Style().Options.SeparateRows = true
@@ -165,7 +177,10 @@ func HandUsageString(an *layout.Analyser) string {
 	return tw.Render()
 }
 
-func RowUsageString(an *layout.Analyser) string {
+// RowUsageString returns a rendered table with usage percentages per row
+// (Top, Home, Bottom, Thumb) for the analyser. The string is printed in the
+// outer comparison table.
+func RowUsageString(an *kc.Analyser) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
 	tw.Style().Options.SeparateRows = true
@@ -185,7 +200,10 @@ func RowUsageString(an *layout.Analyser) string {
 	return tw.Render()
 }
 
-func MetricsString(an *layout.Analyser) string {
+// MetricsString returns a compact rendered table summarizing key metrics
+// (SFB, LSB, FSB, HSB, etc.) for the analyser. The result is intended for the
+// overview "Stats" column in the comparison table.
+func MetricsString(an *kc.Analyser) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
 	tw.Style().Options.SeparateRows = true
@@ -229,6 +247,8 @@ func MetricsString(an *layout.Analyser) string {
 	return tw.Render()
 }
 
+// EmptyStyle returns a table.Style configured to render rows without visible
+// vertical separators (used to present multiple layout columns compactly).
 func EmptyStyle() table.Style {
 	s := table.StyleDefault
 	s.Box = table.StyleBoxRounded

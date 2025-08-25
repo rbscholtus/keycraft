@@ -1,5 +1,5 @@
 // Package layout provides functionality for optimizing keyboard layouts.
-package layout
+package keycraft
 
 import (
 	"fmt"

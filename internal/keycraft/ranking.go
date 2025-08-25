@@ -2,7 +2,7 @@
 // based on various ergonomic and usage metrics. It calculates scores
 // that help determine the relative quality of each layout.
 
-package layout
+package keycraft
 
 import (
 	"fmt"

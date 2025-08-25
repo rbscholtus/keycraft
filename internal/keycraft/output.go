@@ -1,5 +1,5 @@
 // Package layout provides common structs and utility functions.
-package layout
+package keycraft
 
 import (
 	"fmt"
@@ -40,7 +40,8 @@ const ( //\u00A0
                     ╰───╯  ╰───╯                    `
 )
 
-// String returns a string representation of the layout
+// String returns a pretty-printed representation of the SplitLayout suitable
+// for CLI display. Selection of template depends on the layout type.
 func (sl *SplitLayout) String() string {
 	switch sl.LayoutType {
 	case ORTHO:
@@ -62,6 +63,8 @@ func (sl *SplitLayout) String() string {
 	}
 }
 
+// genLayoutString formats the layout runes into the provided ASCII template.
+// If a mapper is provided it remaps indices before rendering.
 func (sl *SplitLayout) genLayoutString(template string, mapper []int) string {
 	// make array for filling in template
 	args := make([]any, len(sl.Runes))
@@ -86,6 +89,8 @@ func (sl *SplitLayout) genLayoutString(template string, mapper []int) string {
 	return fmt.Sprintf(strings.ReplaceAll(template, " ", "\u00A0"), args...)
 }
 
+// createSimpleTable returns a preconfigured table.Writer used for metric
+// detail rendering (column config, sorting, and default title alignment).
 func createSimpleTable() table.Writer {
 	tw := table.NewWriter()
 	tw.SetAutoIndex(true)
@@ -103,6 +108,9 @@ func createSimpleTable() table.Writer {
 	return tw
 }
 
+// String renders MetricDetails as a paginated pretty table and returns the
+// combined string output. It collects custom keys, builds header/rows/footer,
+// and formats values using available transformers.
 func (ma *MetricDetails) String() string {
 	t := createSimpleTable()
 	t.SetStyle(table.StyleRounded)

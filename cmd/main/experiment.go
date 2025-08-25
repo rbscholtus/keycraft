@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	ly "github.com/rbscholtus/kb/internal/layout"
+	kc "github.com/rbscholtus/kb/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
 
@@ -32,14 +32,14 @@ func experimentAction(c *cli.Context) error {
 	if weightsPath != "" {
 		weightsPath = filepath.Join(weightsDir, weightsPath)
 	}
-	weights, err := ly.NewWeightsFromParams(weightsPath, c.String("weights"))
+	weights, err := kc.NewWeightsFromParams(weightsPath, c.String("weights"))
 	if err != nil {
 		return err
 	}
 
 	acceptFunction := c.String("accept-worse")
-	if !slices.Contains(validAcceptFunctions, acceptFunction) {
-		return fmt.Errorf("invalid accept function: %s. Must be one of: %v", acceptFunction, validAcceptFunctions)
+	if !slices.Contains(validAcceptFuncs, acceptFunction) {
+		return fmt.Errorf("invalid accept function: %s. Must be one of: %v", acceptFunction, validAcceptFuncs)
 	}
 
 	numGenerations := c.Uint("generations")
@@ -119,7 +119,7 @@ func generateVariations(s string, k int) []string {
 
 // countRuneDifferences compares two layouts by their Runes slices
 // and returns the number of positions where the rune differs.
-func countRuneDifferences(base, other *ly.SplitLayout) int {
+func countRuneDifferences(base, other *kc.SplitLayout) int {
 	if len(base.Runes) != len(other.Runes) {
 		// not directly comparable
 		return -1
@@ -160,7 +160,7 @@ func compareAllQwertyLayouts() error {
 	return nil
 }
 
-func DoExperiment2(corp *ly.Corpus, lay *ly.SplitLayout) {
+func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 	stats := make(map[string]uint64)
 
 	for tri, cnt := range corp.Trigrams {
@@ -169,7 +169,7 @@ func DoExperiment2(corp *ly.Corpus, lay *ly.SplitLayout) {
 			switch {
 			case fA == fB:
 				stats["2RL-SF"] += cnt
-			case (fA < fB) == (h == ly.LEFT):
+			case (fA < fB) == (h == kc.LEFT):
 				stats["2RL-I"] += cnt
 			default:
 				stats["2RL-O"] += cnt
@@ -202,7 +202,7 @@ func DoExperiment2(corp *ly.Corpus, lay *ly.SplitLayout) {
 				case f0 == f1 || f1 == f2:
 					stats["3RL-SF"] += cnt
 				case (f0 < f1) == (f1 < f2):
-					if (f0 < f1) == (h0 == ly.LEFT) {
+					if (f0 < f1) == (h0 == kc.LEFT) {
 						stats["3RL-I"] += cnt
 					} else {
 						stats["3RL-O"] += cnt
@@ -235,7 +235,7 @@ func DoExperiment2(corp *ly.Corpus, lay *ly.SplitLayout) {
 	fmt.Println(float64(tot) / float64(corp.TotalTrigramsCount) * 100)
 }
 
-func DoExperiment1(corp *ly.Corpus) {
+func DoExperiment1(corp *kc.Corpus) {
 	// a := ly.SortedMap(corp.Unigrams)
 	// for _, v := range a[:10] {
 	// 	fmt.Println(v.Key.String(), " ", v.Count)

@@ -1,3 +1,5 @@
+// Package main provides the CLI entrypoint and helper functions for the
+// keycraft command-line tool.
 package main
 
 import (
@@ -7,10 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rbscholtus/kb/internal/layout"
+	kc "github.com/rbscholtus/kb/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
 
+// Data directories used by the CLI (relative to repository root).
 const (
 	layoutDir  = "data/layouts/"
 	corpusDir  = "data/corpus/"
@@ -18,67 +21,69 @@ const (
 	pinsDir    = "data/pins/"
 )
 
-// Centralized flag map
+// Centralized map of CLI flags used across commands.
+// Keeps flag definitions in one place so commands can select only the flags they need.
 var appFlagsMap = map[string]cli.Flag{
 	"corpus": &cli.StringFlag{
 		Name:    "corpus",
 		Aliases: []string{"c"},
-		Usage:   "specify the corpus file to calculate keyboard metrics",
+		Usage:   "corpus file to calculate keyboard metrics",
 		Value:   "default.txt",
 	},
 	"weights-file": &cli.StringFlag{
 		Name:    "weights-file",
 		Aliases: []string{"wf"},
-		Usage:   "load weights from a text file; weights flag overrides these values",
+		Usage:   "text file containing weights for scoring layouts; weights flag overrides these values",
 		Value:   "default.txt",
 	},
 	"weights": &cli.StringFlag{
 		Name:    "weights",
 		Aliases: []string{"w"},
-		Usage:   "specify weights for metrics, e.g. sfb=-3.0,lsb=-2.0",
+		Usage:   "weights for for scoring layouts, eg: sfb=-3.0,lsb=-2.0",
 	},
 	"metrics": &cli.StringFlag{
 		Name:    "metrics",
 		Aliases: []string{"m"},
-		Usage:   "show metrics (viewing only): basic, extended, or fingers",
+		Usage:   "metrics to show in the ranking table: basic, extended, or fingers",
 		Value:   "basic",
 	},
 	"deltas": &cli.StringFlag{
 		Name:    "deltas",
 		Aliases: []string{"d"},
-		Usage:   "show delta rows: none, rows, median, or <some-layout.klf>",
+		Usage:   "delta rows to show in the ranking table: none, rows, median, or <some-layout.klf>",
 		Value:   "none",
 	},
 	"pins-file": &cli.StringFlag{
 		Name:    "pins-file",
 		Aliases: []string{"pf"},
-		Usage:   "load pins from file; if no file specified, ~ and _ keys are pinned",
+		Usage:   "text file containing keys to pin to their current position; if no file is specified, ~ keys and _ are pinned",
 	},
 	"pins": &cli.StringFlag{
 		Name:    "pins",
 		Aliases: []string{"p"},
-		Usage:   "specify additional pins",
+		Usage:   "additional pins, eg: aeiouy",
 	},
 	"free": &cli.StringFlag{
 		Name:    "free",
 		Aliases: []string{"f"},
-		Usage:   "specify characters that are free to move (all others pinned)",
+		Usage:   "characters free to be moved (all others pinned), eg zqjx",
 	},
 	"generations": &cli.UintFlag{
 		Name:    "generations",
 		Aliases: []string{"gens", "g"},
-		Usage:   "specify the number of generations",
+		Usage:   "number of generations",
 		Value:   250,
 	},
 	"accept-worse": &cli.StringFlag{
 		Name:    "accept-worse",
 		Aliases: []string{"aw"},
-		Usage:   "specify the accept-worse function",
+		Usage:   fmt.Sprintf("accept-worse function (how likely is it a worse layout is accepted): %v", validAcceptFuncs),
 		Value:   "drop-slow",
 	},
 }
 
-// Helper: convert selected flag keys to a slice
+// Helper: convert selected flag keys to a slice.
+// Used by commands to pick a subset of flags from appFlagsMap.
 func flagsSlice(keys ...string) []cli.Flag {
 	flags := make([]cli.Flag, 0, len(keys))
 	for _, k := range keys {
@@ -89,10 +94,12 @@ func flagsSlice(keys ...string) []cli.Flag {
 	return flags
 }
 
+// main sets up the CLI application and registers commands.
+// Validation hooks run before command execution (validateFlags).
 func main() {
 	app := &cli.App{
-		Name:  "layout-cli",
-		Usage: "A CLI tool for various layout operations",
+		Name:  "keycraft",
+		Usage: "A CLI tool for various keyboard layout operations",
 		Commands: []*cli.Command{
 			viewCommand,
 			analyseCommand,
@@ -111,20 +118,29 @@ func main() {
 	}
 }
 
+// validateFlags is called by urfave/cli Before hook.
+// Keep it small: perform early validation of flags here (no-op for now).
 func validateFlags(_ *cli.Context) error {
 	return nil
 }
 
-func loadCorpus(filename string) (*layout.Corpus, error) {
+// loadCorpus loads a corpus by filename from the corpusDir and returns a Corpus.
+// It trims the extension to produce a corpus name and delegates loading to kc.NewCorpusFromFile.
+func loadCorpus(filename string) (*kc.Corpus, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("corpus file is required")
 	}
 	corpusName := strings.TrimSuffix(filename, filepath.Ext(filename))
 	path := filepath.Join(corpusDir, filename)
-	return layout.NewCorpusFromFile(corpusName, path)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, fmt.Errorf("corpus file %s does not exist", path)
+	}
+	return kc.NewCorpusFromFile(corpusName, path)
 }
 
-func loadLayout(filename string) (*layout.SplitLayout, error) {
+// loadLayout loads a layout by filename from layoutDir and returns a SplitLayout.
+// It validates presence of the file and uses kc.NewLayoutFromFile to create the layout.
+func loadLayout(filename string) (*kc.SplitLayout, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("layout file is required")
 	}
@@ -133,5 +149,5 @@ func loadLayout(filename string) (*layout.SplitLayout, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, fmt.Errorf("layout file %s does not exist", path)
 	}
-	return layout.NewLayoutFromFile(layoutName, path)
+	return kc.NewLayoutFromFile(layoutName, path)
 }

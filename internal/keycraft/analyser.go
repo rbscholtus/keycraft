@@ -17,7 +17,7 @@
 //	FBL  - Finger Balance Load (deviation from ideal finger load)
 //
 // Metrics are calculated from unigrams, bigrams, skipgrams, and trigrams in the corpus.
-package layout
+package keycraft
 
 import (
 	"math"

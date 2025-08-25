@@ -1,4 +1,4 @@
-package layout
+package keycraft
 
 import (
 	"bufio"
