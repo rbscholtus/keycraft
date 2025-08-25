@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -17,7 +16,7 @@ import (
 var analyseCommand = &cli.Command{
 	Name:      "analyse",
 	Aliases:   []string{"a"},
-	Usage:     "Analyse one or more layouts in detail",
+	Usage:     "Analyse one or more keyboard layouts in detail",
 	ArgsUsage: "<layout1.klf> <layout2.klf> ...",
 	Flags:     flagsSlice("corpus"),
 	Action:    analyseAction,
@@ -81,7 +80,8 @@ func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool) er
 	// Layout picture
 	h = table.Row{"Board"}
 	for _, an := range analysers {
-		h = append(h, an.Layout)
+		// use cmd-level formatter instead of relying on an.Layout.String()
+		h = append(h, SplitLayoutString(an.Layout))
 	}
 	twOuter.AppendRow(h)
 
@@ -117,7 +117,8 @@ func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool) er
 		for i, ma := range metrics {
 			data := table.Row{ma.Metric}
 			for _, mas := range details {
-				data = append(data, mas[i])
+				// render MetricDetails via the cmd formatter
+				data = append(data, MetricDetailsString(mas[i]))
 			}
 			twOuter.AppendRow(data)
 		}
@@ -126,147 +127,4 @@ func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool) er
 	// Print layout(s) in the table
 	fmt.Println(twOuter.Render())
 	return nil
-}
-
-// HandUsageString returns a rendered table showing per-column, per-finger and
-// per-hand usage for the provided analyser. The returned string is suitable
-// for printing in the outer comparison table.
-func HandUsageString(an *kc.Analyser) string {
-	tw := table.NewWriter()
-	tw.SetStyle(table.StyleRounded)
-	tw.Style().Options.SeparateRows = true
-	tw.Style().Box.PaddingLeft = ""
-	tw.Style().Box.PaddingRight = ""
-
-	// Define column headers
-	fingerAbbreviations := table.Row{"LP", "LP", "LR", "LM", "LI", "LI", "RI", "RI", "RM", "RR", "RP", "RP"}
-	colConfigs := make([]table.ColumnConfig, 0, len(fingerAbbreviations))
-	for i := range len(fingerAbbreviations) {
-		colConfigs = append(colConfigs, table.ColumnConfig{Number: i,
-			AlignHeader: text.AlignCenter, Align: text.AlignCenter})
-	}
-	tw.SetColumnConfigs(colConfigs)
-	tw.AppendHeader(fingerAbbreviations, table.RowConfig{AutoMerge: true})
-
-	// Append row with ColumnUsage data
-	columnUsageRow := make(table.Row, 12)
-	for i := range columnUsageRow {
-		key := "C" + strconv.Itoa(i)
-		columnUsageRow[i] = fmt.Sprintf("%.1f", an.Metrics[key])
-	}
-	tw.AppendRow(columnUsageRow)
-
-	// Append row with FingerUsage data and merged cells
-	fingerUsageRow := make(table.Row, 12)
-	fi := [12]int{0, 0, 1, 2, 3, 3, 6, 6, 7, 8, 9, 9}
-	for i, v := range fi {
-		key := "F" + strconv.Itoa(v)
-		fingerUsageRow[i] = fmt.Sprintf("%.1f", an.Metrics[key])
-	}
-	tw.AppendRow(fingerUsageRow, table.RowConfig{AutoMerge: true})
-
-	// Append row with HandUsage data in merged cells
-	handUsageRow := make(table.Row, 12)
-	hi := [12]int{0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1}
-	for i, v := range hi {
-		key := "H" + strconv.Itoa(v)
-		handUsageRow[i] = fmt.Sprintf("%.1f%%", an.Metrics[key])
-	}
-	tw.AppendRow(handUsageRow, table.RowConfig{AutoMerge: true})
-
-	return tw.Render()
-}
-
-// RowUsageString returns a rendered table with usage percentages per row
-// (Top, Home, Bottom, Thumb) for the analyser. The string is printed in the
-// outer comparison table.
-func RowUsageString(an *kc.Analyser) string {
-	tw := table.NewWriter()
-	tw.SetStyle(table.StyleRounded)
-	tw.Style().Options.SeparateRows = true
-	tw.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 1, AlignHeader: text.AlignCenter, Align: text.AlignCenter},
-		{Number: 2, AlignHeader: text.AlignCenter, Align: text.AlignCenter},
-		{Number: 3, AlignHeader: text.AlignCenter, Align: text.AlignCenter},
-		{Number: 4, AlignHeader: text.AlignCenter, Align: text.AlignCenter},
-	})
-
-	tw.AppendRow(table.Row{"Top", "Home", "Bottom", "Thumb"})
-	tw.AppendRow(table.Row{
-		fmt.Sprintf("%.1f%%", an.Metrics["R0"]), fmt.Sprintf("%.1f%%", an.Metrics["R1"]),
-		fmt.Sprintf("%.1f%%", an.Metrics["R2"]), fmt.Sprintf("%.1f%%", an.Metrics["R3"]),
-	})
-
-	return tw.Render()
-}
-
-// MetricsString returns a compact rendered table summarizing key metrics
-// (SFB, LSB, FSB, HSB, etc.) for the analyser. The result is intended for the
-// overview "Stats" column in the comparison table.
-func MetricsString(an *kc.Analyser) string {
-	tw := table.NewWriter()
-	tw.SetStyle(table.StyleRounded)
-	tw.Style().Options.SeparateRows = true
-	tw.Style().Box.PaddingLeft = ""
-	tw.Style().Box.PaddingRight = ""
-	tw.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 1, Align: text.AlignJustify},
-		{Number: 2, Align: text.AlignJustify},
-		{Number: 3, Align: text.AlignJustify},
-		{Number: 4, Align: text.AlignJustify},
-	})
-
-	data := []table.Row{
-		{
-			fmt.Sprintf("SFB: %.2f%%", an.Metrics["SFB"]),
-			fmt.Sprintf("LSB: %.2f%%", an.Metrics["LSB"]),
-			fmt.Sprintf("FSB: %.2f%%", an.Metrics["FSB"]),
-			fmt.Sprintf("HSB: %.2f%%", an.Metrics["HSB"]),
-		},
-		{
-			fmt.Sprintf("SFS: %.2f%%", an.Metrics["SFS"]),
-			fmt.Sprintf("LSS: %.2f%%", an.Metrics["LSS"]),
-			fmt.Sprintf("FSS: %.2f%%", an.Metrics["FSS"]),
-			fmt.Sprintf("HSS: %.2f%%", an.Metrics["HSS"]),
-		},
-		{
-			fmt.Sprintf("ALT: %.2f%%", an.Metrics["ALT"]),
-			fmt.Sprintf("2RL: %.2f%%", an.Metrics["2RL"]),
-			fmt.Sprintf("3RL: %.2f%%", an.Metrics["3RL"]),
-			fmt.Sprintf("RED: %.2f%%", an.Metrics["RED"]),
-		},
-		{
-			fmt.Sprintf("I:O: %.2f", an.Metrics["IN:OUT"]),
-			fmt.Sprintf("FBL: %.2f%%", an.Metrics["FBL"]),
-			fmt.Sprintf("POH: %.2f%%", an.Metrics["POH"]),
-			fmt.Sprintf("BAD: %.2f%%", an.Metrics["RED-BAD"]),
-		},
-	}
-	tw.AppendRows(data)
-
-	return tw.Render()
-}
-
-// EmptyStyle returns a table.Style configured to render rows without visible
-// vertical separators (used to present multiple layout columns compactly).
-func EmptyStyle() table.Style {
-	s := table.StyleDefault
-	s.Box = table.StyleBoxRounded
-	s.Box = table.BoxStyle{
-		BottomLeft:       s.Box.BottomLeft,
-		BottomRight:      s.Box.BottomRight,
-		BottomSeparator:  s.Box.BottomSeparator,
-		Left:             " ",
-		LeftSeparator:    s.Box.LeftSeparator,
-		MiddleHorizontal: " ",
-		MiddleSeparator:  s.Box.MiddleSeparator,
-		MiddleVertical:   " ",
-		Right:            " ",
-		RightSeparator:   s.Box.RightSeparator,
-		TopLeft:          s.Box.TopLeft,
-		TopRight:         s.Box.TopRight,
-		TopSeparator:     s.Box.TopSeparator,
-		UnfinishedRow:    " ",
-	}
-	return s
 }

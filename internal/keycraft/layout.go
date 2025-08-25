@@ -143,12 +143,39 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 	}
 }
 
-// StringRunes returns a string that represents	the characters on a layout.
-func (sl *SplitLayout) StringRunes() string {
+func (sl *SplitLayout) String() string {
 	var sb strings.Builder
-	for k, v := range sl.RuneInfo {
-		sb.WriteString(fmt.Sprintf("Key: %c, Hand: %d, Row: %d, Column: %d, Finger: %d\n",
-			k, v.Hand, v.Row, v.Column, v.Finger))
+
+	writeRune := func(r rune) {
+		switch r {
+		case 0:
+			sb.WriteRune(' ')
+		case ' ':
+			sb.WriteRune('_')
+		default:
+			sb.WriteRune(r)
+		}
+	}
+
+	sb.WriteRune('\n')
+	for row := range 3 {
+		for col := range 12 {
+			idx := row*12 + col
+			writeRune(sl.Runes[idx])
+			if col == 5 {
+				sb.WriteRune(' ')
+			}
+		}
+		sb.WriteRune('\n')
+	}
+
+	sb.WriteString("   ")
+	for col := range 6 {
+		idx := 36 + col
+		writeRune(sl.Runes[idx])
+		if col == 2 {
+			sb.WriteRune(' ')
+		}
 	}
 	return sb.String()
 }
