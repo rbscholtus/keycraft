@@ -99,9 +99,6 @@ func (sl *SplitLayout) Evaluate() (float64, error) {
 		score += weight * scaledValue
 	}
 	return -score, nil
-
-	//return analyser.Metrics["FBL"], nil
-	// return sl.SimpleSfbs(sl.optCorpus), nil
 }
 
 // Mutate randomly swaps two keys in the layout.
