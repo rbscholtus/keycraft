@@ -231,12 +231,13 @@ func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weigh
 // and optionally, delta rows showing changes compared to the previous layout.
 func renderTable(scores []LayoutScore, metrics []string, weights *Weights, deltas string, base *LayoutScore) {
 	tw := table.NewWriter()
+	tw.SetStyle(table.StyleRounded)
+	tw.Style().Title.Align = text.AlignCenter
 	if base == nil {
 		tw.SetTitle("Layout Ranking")
 	} else {
 		tw.SetTitle(fmt.Sprintf("Layout Ranking (Compare to %s)", base.Name))
 	}
-	tw.Style().Title.Align = text.AlignCenter
 
 	// Configure columns: index, name, score, then each metric
 	colConfigs := []table.ColumnConfig{
