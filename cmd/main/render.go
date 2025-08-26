@@ -7,9 +7,10 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
-	kc "github.com/rbscholtus/kb/internal/keycraft"
+	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 )
 
+// ASCII templates used to render keyboard layouts in the terminal.
 const ( //\u00A0
 	rowstagTempl = `╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮   
 │%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│   
@@ -64,6 +65,7 @@ func SplitLayoutString(sl *kc.SplitLayout) string {
 	}
 }
 
+// genLayoutStringFor maps runes (optionally via mapper) into the provided ASCII template and returns the formatted string.
 func genLayoutStringFor(sl *kc.SplitLayout, template string, mapper []int) string {
 	args := make([]any, len(sl.Runes))
 	for i, r := range sl.Runes {
@@ -144,12 +146,12 @@ func createSimpleTable() table.Writer {
 	tw.Style().Title.Align = text.AlignCenter
 	tw.SetColumnConfigs([]table.ColumnConfig{
 		{Name: "orderby", Hidden: true},
-		{Name: "Distance", Transformer: kc.Fraction, TransformerFooter: kc.Fraction},
-		{Name: "Dist", Transformer: kc.Fraction, TransformerFooter: kc.Fraction},
-		{Name: "Row", Transformer: kc.Fraction},
-		{Name: "Angle", Transformer: kc.Fraction},
-		{Name: "Count", Transformer: kc.Thousands, TransformerFooter: kc.Thousands},
-		{Name: "%", Transformer: kc.Percentage, TransformerFooter: kc.Percentage},
+		{Name: "Distance", Transformer: Fraction, TransformerFooter: Fraction},
+		{Name: "Dist", Transformer: Fraction, TransformerFooter: Fraction},
+		{Name: "Row", Transformer: Fraction},
+		{Name: "Angle", Transformer: Fraction},
+		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
+		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
 	})
 	tw.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
 	return tw
@@ -266,7 +268,7 @@ func MetricsString(an *kc.Analyser) string {
 			fmt.Sprintf("I:O: %.2f", an.Metrics["IN:OUT"]),
 			fmt.Sprintf("FBL: %.2f%%", an.Metrics["FBL"]),
 			fmt.Sprintf("POH: %.2f%%", an.Metrics["POH"]),
-			fmt.Sprintf("BAD: %.2f%%", an.Metrics["RED-BAD"]),
+			fmt.Sprintf("WEAK %.2f%%", an.Metrics["RED-WEAK"]),
 		},
 	}
 	tw.AppendRows(data)
@@ -296,4 +298,64 @@ func EmptyStyle() table.Style {
 		UnfinishedRow:    " ",
 	}
 	return s
+}
+
+// Comma returns a string with thousand separators for a uint64 value.
+func Comma(v uint64) string {
+	// Calculate the number of digits and commas needed.
+	var count byte
+	for n := v; n != 0; n = n / 10 {
+		count++
+	}
+	count += (count - 1) / 3
+
+	// Create an output slice to hold the formatted number.
+	output := make([]byte, count)
+	j := len(output) - 1
+
+	// Populate the output slice with digits and commas.
+	var counter byte
+	for v > 9 {
+		output[j] = byte(v%10) + '0'
+		v = v / 10
+		j--
+		if counter == 2 {
+			counter = 0
+			output[j] = ','
+			j--
+		} else {
+			counter++
+		}
+	}
+
+	output[j] = byte(v) + '0'
+
+	return string(output)
+}
+
+// Thousands formats a uint64 count using comma separators via Comma().
+// For non-uint64 values it falls back to the generic %v formatting.
+func Thousands(val any) string {
+	if number, ok := val.(uint64); ok {
+		return Comma(number)
+	}
+	return fmt.Sprintf("%v", val)
+}
+
+// Fraction formats a numeric value as a fixed two-decimal string.
+// If the value is a float64 it prints with two decimals, otherwise it falls back to %v.
+func Fraction(val any) string {
+	if number, ok := val.(float64); ok {
+		return fmt.Sprintf("%.2f", number)
+	}
+	return fmt.Sprintf("%v", val)
+}
+
+// Percentage formats a fractional value (0..1) as a percentage string with two decimals.
+// If the value is a float64 it multiplies by 100 and appends '%' otherwise it falls back to %v.
+func Percentage(val any) string {
+	if number, ok := val.(float64); ok {
+		return fmt.Sprintf("%.2f%%", 100*number)
+	}
+	return fmt.Sprintf("%v", val)
 }

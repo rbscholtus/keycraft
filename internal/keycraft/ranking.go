@@ -18,11 +18,12 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 )
 
+// MetricsMap groups named metric sets used for different ranking views.
 var MetricsMap = map[string][]string{
 	"basic": {
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS", "LSS", "FSS", "HSS",
-		"ALT", "2RL", "3RL", "RED", "RED-BAD",
+		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
 		"IN:OUT", "FBL", "POH",
 	},
 	"extended": {
@@ -31,7 +32,7 @@ var MetricsMap = map[string][]string{
 		"ALT", "ALT-SFS", "ALT-OTH",
 		"2RL", "2RL-IN", "2RL-OUT", "2RL-SF",
 		"3RL", "3RL-IN", "3RL-OUT", "3RL-SF",
-		"RED", "RED-BAD", "RED-SFS", "RED-OTH",
+		"RED", "RED-WEAK", "RED-SFS", "RED-OTH",
 		"IN:OUT", "FBL", "POH",
 	},
 	"fingers": {
@@ -47,24 +48,33 @@ type Weights struct {
 	weights map[string]float64
 }
 
-// DefaultMetrics
+// DefaultMetrics provides any built-in default metric weights.
 var DefaultMetrics = map[string]float64{
 	"SFB": -1.0,
 }
 
-// NewWeights creates a Weights struct with positive metrics from PositiveMetrics set to 1.0.
+// NewWeights creates an empty Weights structure ready to be populated.
 func NewWeights() *Weights {
 	weights := make(map[string]float64)
 	// maps.Copy(weights, DefaultMetrics)
 	return &Weights{weights}
 }
 
+// NewWeightsFromString parses a comma-separated `metric=weight` string into a Weights instance.
+// Returns an error if the format is invalid or weights cannot be parsed.
+func NewWeightsFromString(weightsStr string) (*Weights, error) {
+	w := Weights{}
+	err := w.AddWeightsFromString(weightsStr)
+	return &w, err
+}
+
+// NewWeightsFromParams constructs weights from an optional file and CLI string.
 func NewWeightsFromParams(path, weightsStr string) (*Weights, error) {
 	weights := NewWeights()
 
 	// Load weights from a file if specified.
 	if path != "" {
-		if err := AddWeightsFromFile(path, weights); err != nil {
+		if err := weights.AddWeightsFromFile(path); err != nil {
 			return nil, err
 		}
 	}
@@ -77,9 +87,8 @@ func NewWeightsFromParams(path, weightsStr string) (*Weights, error) {
 	return weights, nil
 }
 
-// AddWeightsFromFile reads a weights file line-by-line and applies the weights,
-// ignoring lines that are empty or start with '#' (comments).
-func AddWeightsFromFile(path string, weights *Weights) error {
+// AddWeightsFromFile reads weights from a file (ignoring comments/blanks) and applies them to the receiver.
+func (w *Weights) AddWeightsFromFile(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read weights file %q: %v", path, err)
@@ -88,7 +97,7 @@ func AddWeightsFromFile(path string, weights *Weights) error {
 	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "#") && line != "" {
-			if err := weights.AddWeightsFromString(line); err != nil {
+			if err := w.AddWeightsFromString(line); err != nil {
 				return fmt.Errorf("failed to parse weights from file %q: %v", path, err)
 			}
 		}
@@ -96,16 +105,7 @@ func AddWeightsFromFile(path string, weights *Weights) error {
 	return nil
 }
 
-// NewWeightsFromString parses a string of metric-weight pairs into a Weights struct.
-// Input format: "metric1=value1,metric2=value2,...", case-insensitive.
-// Returns an error if the format is invalid or weights cannot be parsed.
-func NewWeightsFromString(weightsStr string) (*Weights, error) {
-	w := Weights{}
-	err := w.AddWeightsFromString(weightsStr)
-	return &w, err
-}
-
-// AddWeightsFromString adds or overrides weights from a string of metric-weight pairs.
+// AddWeightsFromString parses and applies a comma-separated `metric=weight` string.
 // If weightsStr is empty, returns the existing Weights unchanged.
 func (w *Weights) AddWeightsFromString(weightsStr string) error {
 	if weightsStr == "" {
@@ -129,8 +129,7 @@ func (w *Weights) AddWeightsFromString(weightsStr string) error {
 	return nil
 }
 
-// Get returns the weight assigned to a given metric.
-// Returns 0.0 if the metric is not found in the weights map.
+// Get returns the weight for a metric or 0 if not present.
 func (w *Weights) Get(metric string) float64 {
 	if val, ok := w.weights[metric]; ok {
 		return val
@@ -138,18 +137,15 @@ func (w *Weights) Get(metric string) float64 {
 	return 0.0
 }
 
-// LayoutScore represents a keyboard layout's name, its total score,
-// and the analyser that computed its metrics.
+// LayoutScore represents a layout name, its computed score and the analyser providing metrics.
 type LayoutScore struct {
 	Name     string    // Layout identifier or filename.
 	Score    float64   // Weighted score for ranking.
 	Analyser *Analyser // Analyser with detailed metric values.
 }
 
-// LoadAnalysers reads layout files from the given directory, creates analysers
-// by evaluating each layout against the specified corpus and style, and returns them.
-// Only files ending with ".klf" are considered.
-func LoadAnalysers(layoutsDir string, corpus *Corpus, style string) ([]*Analyser, error) {
+// LoadAnalysers loads and analyses all .klf layout files from a directory.
+func LoadAnalysers(layoutsDir string, corpus *Corpus) ([]*Analyser, error) {
 	var analysers []*Analyser
 
 	layoutFiles, err := os.ReadDir(layoutsDir)
@@ -167,16 +163,14 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, style string) ([]*Analyser
 			fmt.Println(err)
 			continue
 		}
-		analyser := NewAnalyser(layout, corpus, style)
+		analyser := NewAnalyser(layout, corpus)
 		analysers = append(analysers, analyser)
 	}
 
 	return analysers, nil
 }
 
-// computeMediansAndIQR calculates the median and interquartile range (IQR)
-// for each metric across all analysers. These statistics are used to normalize
-// metric values during scoring.
+// computeMediansAndIQR computes median and IQR for each metric across analysers for normalization.
 func computeMediansAndIQR(analysers []*Analyser) (map[string]float64, map[string]float64) {
 	metrics := make(map[string][]float64)
 	for _, analyser := range analysers {
@@ -197,9 +191,7 @@ func computeMediansAndIQR(analysers []*Analyser) (map[string]float64, map[string
 	return medians, iqr
 }
 
-// computeScores calculates weighted scores for each layout.
-// Metrics are normalized by subtracting the median and dividing by the IQR.
-// The weighted sum of these normalized metrics produces the layout's score.
+// computeScores normalizes metrics by median/IQR and computes weighted layout scores.
 func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weights *Weights) []LayoutScore {
 	var layoutScores []LayoutScore
 
@@ -226,9 +218,7 @@ func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weigh
 	return layoutScores
 }
 
-// renderTable prints the ranked layout scores as a formatted table.
-// Includes layout names, scores, individual metric values,
-// and optionally, delta rows showing changes compared to the previous layout.
+// renderTable formats and prints the ranking table including optional delta rows.
 func renderTable(scores []LayoutScore, metrics []string, weights *Weights, deltas string, base *LayoutScore) {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
@@ -325,7 +315,7 @@ func formatMetricValue(metric string, val float64) string {
 	return fmt.Sprintf("%.2f%%", val)
 }
 
-// formatDelta returns a color-coded string for the delta value of a metric.
+// formatDelta formats the delta between metrics with color according to weight polarity.
 // For metrics flagged as reversed, the colors for positive and negative deltas are swapped.
 func formatDelta(metric string, delta float64, weights *Weights) string {
 	positive := weights.Get(metric) >= 0
@@ -366,7 +356,7 @@ func DoLayoutRankings(corpus *Corpus, layoutsDir string, layouts []string, weigh
 	}
 
 	// Load all analysers for layouts in the directory
-	analysers, err := LoadAnalysers(layoutsDir, corpus, "layoutsdoc")
+	analysers, err := LoadAnalysers(layoutsDir, corpus)
 	if err != nil {
 		return err
 	}

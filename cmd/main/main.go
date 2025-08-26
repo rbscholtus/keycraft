@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	kc "github.com/rbscholtus/kb/internal/keycraft"
+	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
 

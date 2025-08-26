@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	kc "github.com/rbscholtus/kb/internal/keycraft"
+	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
 
@@ -211,7 +211,7 @@ func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 					if f0 != 3 && f0 != 6 &&
 						f1 != 3 && f1 != 6 &&
 						f2 != 3 && f2 != 6 {
-						stats["RED-BAD"] += cnt
+						stats["RED-WEAK"] += cnt
 					} else if f0 == f2 && diffIdx02 {
 						stats["RED-SFS"] += cnt
 					} else {

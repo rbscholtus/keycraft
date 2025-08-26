@@ -1,4 +1,4 @@
-module github.com/rbscholtus/kb
+module github.com/rbscholtus/keycraft
 
 go 1.25.0
 

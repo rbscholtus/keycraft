@@ -49,7 +49,7 @@ type Analyser struct {
 }
 
 // NewAnalyser constructs an Analyser for the given layout and corpus, runs a quick analysis, and initializes core metrics.
-func NewAnalyser(layout *SplitLayout, corpus *Corpus, style string) *Analyser {
+func NewAnalyser(layout *SplitLayout, corpus *Corpus) *Analyser {
 	an := &Analyser{
 		Layout:  layout,
 		Corpus:  corpus,
@@ -188,11 +188,11 @@ func (an *Analyser) analyzeSkipgrams() {
 // analyzeTrigrams computes trigram-based metrics: ALT (alternations), 2RL (two-key rolls), 3RL (three-key rolls), and RED (redirections).
 // ALT captures alternation between hands (including ALT-SFS for same-finger alternations).
 // 2RL and 3RL distinguish inward and outward rolling motions between adjacent fingers, with 2RL-SF and 3RL-SF for same-finger cases.
-// RED includes redirections—direction changes on one hand—split into RED-OTH (general), RED-SFS (same-finger skipgram), and RED-BAD (redirections without pinky involvement).
+// RED includes redirections—direction changes on one hand—split into RED-OTH (general), RED-SFS (same-finger skipgram), and RED-WEAK (redirections without index involvement).
 // Derived totals (ALT, 2RL, 3RL, RED, IN:OUT) are computed as sums or ratios of the above for overall ergonomic summary.
 func (an *Analyser) analyzeTrigrams() {
 	var rl2SF, rl2In, rl2Out, altSFS uint64
-	var altOth, rl3SF, rl3In, rl3Out, redBad, redSFS, redOth uint64
+	var altOth, rl3SF, rl3In, rl3Out, redWeak, redSFS, redOth uint64
 
 	for tri, cnt := range an.Corpus.Trigrams {
 		r0, ok0 := an.Layout.RuneInfo[tri[0]]
@@ -237,7 +237,7 @@ func (an *Analyser) analyzeTrigrams() {
 					if f0 != LI && f0 != RI &&
 						f1 != LI && f1 != RI &&
 						f2 != LI && f2 != RI {
-						redBad += cnt
+						redWeak += cnt
 					} else if f0 == f2 && diffIdx02 {
 						redSFS += cnt
 					} else {
@@ -266,10 +266,10 @@ func (an *Analyser) analyzeTrigrams() {
 	an.Metrics["3RL-OUT"] = float64(rl3Out) * factor
 	an.Metrics["3RL"] = an.Metrics["3RL-IN"] + an.Metrics["3RL-OUT"]
 
-	an.Metrics["RED-BAD"] = float64(redBad) * factor
+	an.Metrics["RED-WEAK"] = float64(redWeak) * factor
 	an.Metrics["RED-SFS"] = float64(redSFS) * factor
 	an.Metrics["RED-OTH"] = float64(redOth) * factor
-	an.Metrics["RED"] = an.Metrics["RED-OTH"] + an.Metrics["RED-SFS"] + an.Metrics["RED-BAD"]
+	an.Metrics["RED"] = an.Metrics["RED-OTH"] + an.Metrics["RED-SFS"] + an.Metrics["RED-WEAK"]
 
 	an.Metrics["IN:OUT"] = (an.Metrics["2RL-IN"] + an.Metrics["3RL-IN"]) / (an.Metrics["2RL-OUT"] + an.Metrics["3RL-OUT"])
 }
@@ -523,7 +523,7 @@ func (an *Analyser) SSDetails() (*MetricDetails, *MetricDetails) {
 //   - ALT: Alternations between hands (including ALT-SFS for same-finger alternations)
 //   - 2RL: Two-key rolls (inward/outward) between adjacent fingers on one hand
 //   - 3RL: Three-key rolls (inward/outward) on one hand
-//   - RED: Redirections—direction changes on one hand, split into RED-OTH (general), RED-SFS (same-finger skipgram), and RED-BAD (without pinky involvement)
+//   - RED: Redirections—direction changes on one hand, split into RED-OTH (general), RED-SFS (same-finger skipgram), and RED-WEAK (without index involvement)
 //
 // Each returned MetricAnalysis includes frequency counts and can be used to compute derived totals and ratios.
 func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDetails, *MetricDetails) {
@@ -640,7 +640,7 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 					if f0 != LI && f0 != RI &&
 						f1 != LI && f1 != RI &&
 						f2 != LI && f2 != RI {
-						red.Custom[triStr]["Kind"] = "BAD"
+						red.Custom[triStr]["Kind"] = "WEAK"
 					} else if f0 == f2 && diffIdx02 {
 						red.Custom[triStr]["Kind"] = "SFS"
 					} else {

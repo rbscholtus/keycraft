@@ -7,7 +7,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
-	kc "github.com/rbscholtus/kb/internal/keycraft"
+	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
 
@@ -51,7 +51,7 @@ func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool) er
 		if err != nil {
 			return err
 		}
-		an := kc.NewAnalyser(lay, corpus, "")
+		an := kc.NewAnalyser(lay, corpus)
 		analysers = append(analysers, an)
 	}
 

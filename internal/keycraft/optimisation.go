@@ -10,6 +10,7 @@ import (
 	"github.com/MaxHalford/eaopt"
 )
 
+// getAcceptFunc returns an acceptance function for simulated annealing based on the chosen policy.
 func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 {
 	switch acceptWorse {
 	case "always":
@@ -40,7 +41,7 @@ func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 
 func (sl *SplitLayout) Optimise(corp *Corpus, weights *Weights, generations uint, acceptWorse string) *SplitLayout {
 	sl.optCorpus = corp
 	sl.optWeights = weights
-	analysers := Must(LoadAnalysers("data/layouts/", corp, "layoutsdoc"))
+	analysers := Must(LoadAnalysers("data/layouts/", corp))
 	sl.optMedians, sl.optIqrs = computeMediansAndIQR(analysers)
 
 	// Configure the simulated annealing algorithm.
@@ -83,7 +84,7 @@ func (sl *SplitLayout) Optimise(corp *Corpus, weights *Weights, generations uint
 
 // Evaluate evaluates the fitness of the current layout.
 func (sl *SplitLayout) Evaluate() (float64, error) {
-	analyser := NewAnalyser(sl, sl.optCorpus, "")
+	analyser := NewAnalyser(sl, sl.optCorpus)
 	// return 5*sl.SimpleSfbs(sl.optCorpus) + sl.SimpleLsbs(sl.optCorpus), nil
 
 	score := 0.0

@@ -3,89 +3,10 @@ package keycraft
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"os"
 	"sort"
 )
-
-// UnigramCount represents a unigram and its count
-// type UnigramCount struct {
-// 	Unigram Unigram
-// 	Count   uint64
-// }
-
-// // BigramCount represents a bigram and its count
-// type BigramCount struct {
-// 	Bigram Bigram
-// 	Count  uint64
-// }
-
-// // TrigramCount represents a trigram and its count
-// type TrigramCount struct {
-// 	Trigram Trigram
-// 	Count   uint64
-// }
-
-// // SkipgramCount represents a skipgram and its count
-// type SkipgramCount struct {
-// 	Skipgram Skipgram
-// 	Count    uint64
-// }
-
-// Comma returns a string representation of the given number with commas.
-func Comma(v uint64) string {
-	// Calculate the number of digits and commas needed.
-	var count byte
-	for n := v; n != 0; n = n / 10 {
-		count++
-	}
-	count += (count - 1) / 3
-
-	// Create an output slice to hold the formatted number.
-	output := make([]byte, count)
-	j := len(output) - 1
-
-	// Populate the output slice with digits and commas.
-	var counter byte
-	for v > 9 {
-		output[j] = byte(v%10) + '0'
-		v = v / 10
-		j--
-		if counter == 2 {
-			counter = 0
-			output[j] = ','
-			j--
-		} else {
-			counter++
-		}
-	}
-
-	output[j] = byte(v) + '0'
-
-	return string(output)
-}
-
-func Fraction(val any) string {
-	if number, ok := val.(float64); ok {
-		return fmt.Sprintf("%.2f", number)
-	}
-	return fmt.Sprintf("%v", val)
-}
-
-func Percentage(val any) string {
-	if number, ok := val.(float64); ok {
-		return fmt.Sprintf("%.2f%%", 100*number)
-	}
-	return fmt.Sprintf("%v", val)
-}
-
-func Thousands(val any) string {
-	if number, ok := val.(uint64); ok {
-		return Comma(number)
-	}
-	return fmt.Sprintf("%v", val)
-}
 
 // IfThen returns `a` if the condition is true, otherwise returns `b`.
 // Both `a` and `b` are always evaluated before the function is called,
