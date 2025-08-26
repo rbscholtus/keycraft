@@ -12,11 +12,11 @@ HSS = -0.75
 ALT-SFS = -1.0
 #ALT-OTH
 #sum: ALT
-2RL-SF = -0.5
+2RL-SFB = -0.5
 #2RL-IN
 #2RL-OUT
 #in+out: 2RL
-3RL-SF = -0.5
+3RL-SFS = -0.5
 #3RL-IN
 #3RL-OUT
 #in+out: 3RL
