@@ -1,7 +1,3 @@
-// listing.go provides functionality to evaluate and rank keyboard layouts
-// based on various ergonomic and usage metrics. It calculates scores
-// that help determine the relative quality of each layout.
-
 package keycraft
 
 import (
@@ -30,8 +26,8 @@ var MetricsMap = map[string][]string{
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS", "LSS", "FSS", "HSS",
 		"ALT", "ALT-SFS", "ALT-OTH",
-		"2RL", "2RL-IN", "2RL-OUT", "2RL-SF",
-		"3RL", "3RL-IN", "3RL-OUT", "3RL-SF",
+		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
+		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFS",
 		"RED", "RED-WEAK", "RED-SFS", "RED-OTH",
 		"IN:OUT", "FBL", "POH",
 	},

@@ -1,5 +1,19 @@
 // Package main provides the CLI entrypoint and helper functions for the
 // keycraft command-line tool.
+//
+// view.go implements the "view" command for the keycraft CLI; it loads a corpus
+// and analyzes one or more keyboard layout files for display.
+//
+// analyse.go contains functions to analyse keyboard layouts and render
+// human-friendly tables summarising hand/row usage and other metrics.
+//
+// rank.go provides the implementation for the "rank" command in the kb CLI tool.
+// It allows users to compare keyboard layouts based on various metrics and user-defined weights.
+// The command can compare specific layouts or all layouts in a directory, and supports ordering
+// of results and custom metric weighting.
+//
+// optimise.go implements the optimise command which runs simulated
+// optimisation on a layout using corpus, pins and weight configuration.
 package main
 
 import (

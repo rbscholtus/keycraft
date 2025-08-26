@@ -1,4 +1,3 @@
-// Package layout provides functionality for optimizing keyboard layouts.
 package keycraft
 
 import (

@@ -1,4 +1,3 @@
-// Package layout provides common structs and utility functions.
 package keycraft
 
 import (

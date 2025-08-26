@@ -1,5 +1,3 @@
-// optimise.go implements the optimise command which runs simulated
-// optimisation on a layout using corpus, pins and weight configuration.
 package main
 
 import (

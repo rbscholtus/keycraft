@@ -1,22 +1,3 @@
-// Package layout provides ergonomic analysis tools for keyboard layouts.
-//
-// Glossary of abbreviations used throughout this package:
-//
-//	SFB  - Same Finger Bigram
-//	LSB  - Lateral Stretch Bigram
-//	FSB  - Full Scissor Bigram
-//	HSB  - Half Scissor Bigram
-//	SFS  - Same Finger Skipgram
-//	LSS  - Lateral Stretch Skipgram
-//	FSS  - Full Scissor Skipgram
-//	HSS  - Half Scissor Skipgram
-//	ALT  - Alternation between hands (trigrams)
-//	2RL  - Two-key rolls (inward/outward)
-//	3RL  - Three-key rolls (inward/outward)
-//	RED  - Redirections (direction changes on one hand)
-//	FBL  - Finger Balance Load (deviation from ideal finger load)
-//
-// Metrics are calculated from unigrams, bigrams, skipgrams, and trigrams in the corpus.
 package keycraft
 
 import (
@@ -186,13 +167,9 @@ func (an *Analyser) analyzeSkipgrams() {
 }
 
 // analyzeTrigrams computes trigram-based metrics: ALT (alternations), 2RL (two-key rolls), 3RL (three-key rolls), and RED (redirections).
-// ALT captures alternation between hands (including ALT-SFS for same-finger alternations).
-// 2RL and 3RL distinguish inward and outward rolling motions between adjacent fingers, with 2RL-SF and 3RL-SF for same-finger cases.
-// RED includes redirections—direction changes on one hand—split into RED-OTH (general), RED-SFS (same-finger skipgram), and RED-WEAK (redirections without index involvement).
-// Derived totals (ALT, 2RL, 3RL, RED, IN:OUT) are computed as sums or ratios of the above for overall ergonomic summary.
 func (an *Analyser) analyzeTrigrams() {
-	var rl2SF, rl2In, rl2Out, altSFS uint64
-	var altOth, rl3SF, rl3In, rl3Out, redWeak, redSFS, redOth uint64
+	var rl2SFB, rl2In, rl2Out, altSFS uint64
+	var altOth, rl3SFS, rl3In, rl3Out, redWeak, redSFS, redOth uint64
 
 	for tri, cnt := range an.Corpus.Trigrams {
 		r0, ok0 := an.Layout.RuneInfo[tri[0]]
@@ -208,7 +185,7 @@ func (an *Analyser) analyzeTrigrams() {
 		add2Roll := func(fA, fB uint8) {
 			switch {
 			case fA == fB:
-				rl2SF += cnt
+				rl2SFB += cnt
 			case (fA < fB) == (h1 == LEFT):
 				rl2In += cnt
 			default:
@@ -226,7 +203,7 @@ func (an *Analyser) analyzeTrigrams() {
 			} else {
 				switch {
 				case f0 == f1 || f1 == f2:
-					rl3SF += cnt
+					rl3SFS += cnt
 				case (f0 < f1) == (f1 < f2):
 					if (f0 < f1) == (h0 == LEFT) {
 						rl3In += cnt
@@ -251,17 +228,18 @@ func (an *Analyser) analyzeTrigrams() {
 			add2Roll(f1, f2)
 		}
 	}
+
 	factor := 100 / float64(an.Corpus.TotalTrigramsCount)
 	an.Metrics["ALT-SFS"] = float64(altSFS) * factor
 	an.Metrics["ALT-OTH"] = float64(altOth) * factor
 	an.Metrics["ALT"] = an.Metrics["ALT-OTH"] + an.Metrics["ALT-SFS"]
 
-	an.Metrics["2RL-SF"] = float64(rl2SF) * factor
+	an.Metrics["2RL-SFB"] = float64(rl2SFB) * factor
 	an.Metrics["2RL-IN"] = float64(rl2In) * factor
 	an.Metrics["2RL-OUT"] = float64(rl2Out) * factor
 	an.Metrics["2RL"] = an.Metrics["2RL-IN"] + an.Metrics["2RL-OUT"]
 
-	an.Metrics["3RL-SF"] = float64(rl3SF) * factor
+	an.Metrics["3RL-SFS"] = float64(rl3SFS) * factor
 	an.Metrics["3RL-IN"] = float64(rl3In) * factor
 	an.Metrics["3RL-OUT"] = float64(rl3Out) * factor
 	an.Metrics["3RL"] = an.Metrics["3RL-IN"] + an.Metrics["3RL-OUT"]

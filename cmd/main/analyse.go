@@ -1,5 +1,3 @@
-// analyse.go contains functions to analyse keyboard layouts and render
-// human-friendly tables summarising hand/row usage and other metrics.
 package main
 
 import (

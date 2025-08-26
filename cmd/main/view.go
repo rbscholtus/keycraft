@@ -1,5 +1,3 @@
-// view.go implements the "view" command for the keycraft CLI; it loads a corpus
-// and analyzes one or more keyboard layout files for display.
 package main
 
 import (

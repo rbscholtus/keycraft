@@ -1,6 +1,3 @@
-// Package layout provides data structures and algorithms for representing and analyzing text corpora,
-// including n-grams such as unigrams, bigrams, trigrams, and skipgrams. It supports loading text data from files,
-// counting occurrences of n-grams, and serializing/deserializing corpora to and from JSON files.
 package keycraft
 
 import (

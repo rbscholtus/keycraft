@@ -1,7 +1,3 @@
-// rank.go provides the implementation for the "rank" command in the kb CLI tool.
-// It allows users to compare keyboard layouts based on various metrics and user-defined weights.
-// The command can compare specific layouts or all layouts in a directory, and supports ordering
-// of results and custom metric weighting.
 package main
 
 import (

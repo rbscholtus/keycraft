@@ -168,7 +168,7 @@ func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 		add2Roll := func(h, fA, fB uint8) {
 			switch {
 			case fA == fB:
-				stats["2RL-SF"] += cnt
+				stats["2RL-SFB"] += cnt
 			case (fA < fB) == (h == kc.LEFT):
 				stats["2RL-I"] += cnt
 			default:
@@ -200,7 +200,7 @@ func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 				// One-hand trigrams
 				switch {
 				case f0 == f1 || f1 == f2:
-					stats["3RL-SF"] += cnt
+					stats["3RL-SFS"] += cnt
 				case (f0 < f1) == (f1 < f2):
 					if (f0 < f1) == (h0 == kc.LEFT) {
 						stats["3RL-I"] += cnt

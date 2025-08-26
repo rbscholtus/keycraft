@@ -1,3 +1,7 @@
+// Package keycraft provides ergonomic analysis tools for keyboard layouts.
+//
+// Metrics are described in README.md.
+// Metrics are calculated from unigrams, bigrams, skipgrams, and trigrams in the corpus.
 package keycraft
 
 import (
