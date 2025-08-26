@@ -47,7 +47,8 @@ func Must0(err error) {
 	}
 }
 
-// Pair is a generic key-value pair struct.
+// Pair represents a generic key/value pair.
+// It is used throughout the codebase for temporary key-index or key-value collections.
 type Pair[K comparable, V any] struct {
 	// Key is the key of the pair.
 	Key K
@@ -55,7 +56,7 @@ type Pair[K comparable, V any] struct {
 	Value V
 }
 
-// CountPair represents a key-value pair from a map, where the value is a count
+// CountPair represents a key/count pair extracted from a map[K]uint64.
 type CountPair[K comparable] struct {
 	Key   K      // the key from the map
 	Count uint64 // the count associated with the key

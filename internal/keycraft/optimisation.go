@@ -107,7 +107,7 @@ func (sl *SplitLayout) Mutate(rng *rand.Rand) {
 	// Create a slice to store pairs of indexes and keys that are not pinned.
 	pairs := make([]Pair[int, rune], 0, len(sl.Runes))
 	for i, r := range sl.Runes {
-		if r != 0 && !sl.Pinned[i] {
+		if r != 0 && !sl.optPinned[i] {
 			// Add the pair to the slice and increment the count.
 			pairs = append(pairs, Pair[int, rune]{Key: i, Value: r})
 		}
@@ -145,7 +145,7 @@ func (sl *SplitLayout) Clone() eaopt.Genome {
 		KeyPairDistances: sl.KeyPairDistances,
 		LSBs:             sl.LSBs,
 		Scissors:         sl.Scissors,
-		Pinned:           sl.Pinned,
+		optPinned:        sl.optPinned,
 		optCorpus:        sl.optCorpus,
 		optWeights:       sl.optWeights,
 		optMedians:       sl.optMedians,

@@ -48,7 +48,7 @@ type Weights struct {
 	weights map[string]float64
 }
 
-// DefaultMetrics provides any built-in default metric weights.
+// DefaultMetrics contains built-in metric weights used as defaults when no custom weight is provided.
 var DefaultMetrics = map[string]float64{
 	"SFB": -1.0,
 }

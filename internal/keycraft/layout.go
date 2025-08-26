@@ -38,12 +38,12 @@ const (
 	COLSTAG LayoutType = "colstag"
 )
 
-// Standard keyboard offsets
+// Standard row-staggered keyboard column offsets
 var rowStagOffsets = [4]float64{
 	0, 0.25, 0.75, 0,
 }
 
-// Corne-style offsets
+// Corne-style row offsets
 var colStagOffsets = [12]float64{
 	0.35, 0.35, 0.1, 0, 0.1, 0.2, 0.2, 0.1, 0, 0.1, 0.35, 0.35,
 }
@@ -95,31 +95,36 @@ func NewKeyInfo(row, col uint8) KeyInfo {
 	}
 }
 
+// KeyPair represents an ordered pair of key indices.
 type KeyPair [2]uint8
 
+// KeyPairDistance contains precomputed distance metrics between two key indices.
 type KeyPairDistance struct {
-	RowDist    float64
-	ColDist    float64
-	FingerDist uint8
-	Distance   float64
+	RowDist    float64 // vertical (row) distance in layout units
+	ColDist    float64 // horizontal (column) distance in layout units
+	FingerDist uint8   // absolute difference between the two keys' finger indices
+	Distance   float64 // Euclidean distance (sqrt(RowDist^2 + ColDist^2))
 }
 
-// SplitLayout represents a split layout
+// SplitLayout represents a split keyboard layout and associated analysis metadata.
+// It contains rune placement, per-rune key information, precomputed pairwise distances,
+// notable lateral-stretch and scissor pairs, pinned-key flags, and optional fields used
+// during optimisation.
 type SplitLayout struct {
-	Name             string
-	LayoutType       LayoutType
-	Runes            [42]rune
-	RuneInfo         map[rune]KeyInfo
-	GetRowDist       func(uint8, uint8, uint8, uint8) float64
-	GetColDist       func(uint8, uint8, uint8, uint8) float64
-	KeyPairDistances map[KeyPair]KeyPairDistance
-	LSBs             []LSBInfo
-	Scissors         []ScissorInfo
-	Pinned           [42]bool
-	optCorpus        *Corpus
-	optWeights       *Weights
-	optMedians       map[string]float64
-	optIqrs          map[string]float64
+	Name             string                                   // layout identifier (filename or user-provided)
+	LayoutType       LayoutType                               // geometry type (ROWSTAG, ORTHO, COLSTAG)
+	Runes            [42]rune                                 // runes mapped to physical key positions (42 positions)
+	RuneInfo         map[rune]KeyInfo                         // map from rune to KeyInfo for quick lookup
+	GetRowDist       func(uint8, uint8, uint8, uint8) float64 // computes row distance between two keys
+	GetColDist       func(uint8, uint8, uint8, uint8) float64 // computes column distance between two keys
+	KeyPairDistances map[KeyPair]KeyPairDistance              // cache of distances between key index pairs
+	LSBs             []LSBInfo                                // notable lateral-stretch bigram key-pairs
+	Scissors         []ScissorInfo                            // notable scissor key-pairs (full/half)
+	optPinned        [42]bool                                 // flags indicating keys that must not be moved
+	optCorpus        *Corpus                                  // optimisation: corpus used during layout optimisation (optional)
+	optWeights       *Weights                                 // optimisation: metric weights used (optional)
+	optMedians       map[string]float64                       // optimisation: median values per metric (optional)
+	optIqrs          map[string]float64                       // optimisation: IQR values per metric (optional)
 }
 
 // NewSplitLayout creates a new split layout
@@ -180,16 +185,24 @@ func (sl *SplitLayout) String() string {
 	return sb.String()
 }
 
-// NewLayoutFromFile loads a layout from a text file
-// Lines that begin with # are ignored
-// The file format is:
-// - 3 lines of 12 keys each (6 left, 6 right)
-// - 1 line of 6 thumb keys (3 left, 3 right)
-// - ~ means no character, ~~ means ~
-// - _ means the Space character, __ means _
-// - ## means #
-// - empty lines and lines that start with # are ignored
-// - characters cannot be repeated
+// NewLayoutFromFile loads a SplitLayout from the named file.
+// The file must contain:
+//   - a first non-empty, non-comment line indicating layout type:
+//     "rowstag", "ortho", or "colstag" (prefix matching allowed).
+//   - three subsequent rows of 12 keys each (6 left, 6 right).
+//   - one final row of 6 thumb keys (3 left, 3 right).
+//
+// Special tokens in the file:
+//
+//	"~"   -> empty key
+//	"_"   -> space character
+//	"~~"  -> literal '~'
+//	"__"  -> literal '_'
+//	"##"  -> literal '#'
+//
+// Lines starting with '#' and empty lines are ignored. Each key entry must be
+// either one character or one of the special tokens above. Characters must not
+// be repeated. Returns a parsed *SplitLayout or an error on malformed input.
 func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	keyMap := map[string]rune{
 		"~":  rune(0),
@@ -358,10 +371,10 @@ func (sl *SplitLayout) LoadPins(path string) error {
 			switch rune(key[0]) {
 			case '.', '_', '-':
 				// Unpinned keys.
-				sl.Pinned[index] = false
+				sl.optPinned[index] = false
 			case '*', 'x', 'X':
 				// Pinned keys.
-				sl.Pinned[index] = true
+				sl.optPinned[index] = true
 			default:
 				return fmt.Errorf("invalid character in %s '%c' at position %d in row %d", path, key[0], col+1, row+1)
 			}
@@ -396,8 +409,8 @@ func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
 	if free != "" {
 		// Pin all runes except those in free string
 		// First, mark all as pinned
-		for i := range sl.Pinned {
-			sl.Pinned[i] = true
+		for i := range sl.optPinned {
+			sl.optPinned[i] = true
 		}
 		// Unpin the runes in free, if they exist in layout
 		for _, r := range free {
@@ -405,7 +418,7 @@ func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
 			if !ok {
 				return fmt.Errorf("cannot free unavailable character: %c", r)
 			}
-			sl.Pinned[key.Index] = false
+			sl.optPinned[key.Index] = false
 		}
 		return nil
 	}
@@ -419,7 +432,7 @@ func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
 		// Otherwise, pin keys that are not used for an actual rune and Space
 		for i, r := range sl.Runes {
 			if r == 0 || unicode.IsSpace(r) {
-				sl.Pinned[i] = true
+				sl.optPinned[i] = true
 			}
 		}
 	}
@@ -430,7 +443,7 @@ func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
 		if !ok {
 			return fmt.Errorf("cannot pin unavailable character: %c", r)
 		}
-		sl.Pinned[key.Index] = true
+		sl.optPinned[key.Index] = true
 	}
 
 	return nil
@@ -527,6 +540,7 @@ func AbsColDistAdj(row1, col1, row2, col2 uint8) float64 {
 		(float64(col2) + rowStagOffsets[row2])))
 }
 
+// LSBInfo holds information about a lateral-stretch bigram candidate on the layout.
 type LSBInfo struct {
 	keyIdx1     int
 	keyIdx2     int
@@ -593,6 +607,7 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map
 	return LSBs
 }
 
+// ScissorInfo describes a scissor key-pair (full or half) including finger distance, row distance and angle.
 type ScissorInfo struct {
 	keyIdx1    uint8
 	keyIdx2    uint8
