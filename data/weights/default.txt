@@ -10,24 +10,27 @@ FSS = -0.75
 HSS = -0.75
 
 ALT-SFS = -1.0
-#ALT-OTH
-#sum: ALT
+ALT-OTH = 2
+#sum: ALT = 2
+
 2RL-SFB = -0.5
 #2RL-IN
 #2RL-OUT
-#in+out: 2RL
+2RL = 2
+
 3RL-SFS = -0.5
 #3RL-IN
 #3RL-OUT
-#in+out: 3RL
-RED-BAD = -3
+3RL = 1
+
+RED-WEAK = -2
 #RED-SFS = -2
 #RED-OTH = -2
-RED = -3
+RED = -2
 
 #IN:OUT
 FBL = -3.0
-POH = -4.0
+POH = -3.0
 
 #F0 = -0.5
 #F1 = -0.5
