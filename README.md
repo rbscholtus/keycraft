@@ -6,7 +6,7 @@ Keycraft is a Golang-based command-line utility for analyzing and optimizing key
 
 ```bash
 # Install (requires golang on your system)
-go install github.com/rbscholtus/keycraft@latest
+go install github.com/rbscholtus/keycraft/cmd/keycraft@latest
 
 # View a built-in layout
 keycraft view qwerty.klf
@@ -116,6 +116,10 @@ This does not include space because n-grams with spaces are discarded from the c
   ```bash
   go mod download
   go build ./...
+  ```
+- To install via `go install`:
+  ```bash
+  go install github.com/rbscholtus/keycraft/cmd/keycraft@latest
   ```
 
 ## Usage
@@ -233,3 +237,5 @@ The below features will hopefully start to add some value:
 - Add support for more than 1 layer
 - support angle mod (?)
 - investigate space analysis
+
+Note: the main package is located in `./cmd/keycraft`.
