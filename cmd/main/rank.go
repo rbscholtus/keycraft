@@ -11,13 +11,18 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// validMetricSets defines the accepted values for the --metrics flag.
+// These presets control which set of layout metrics are displayed
+// when ranking layouts (e.g., "basic" for common metrics, "extended" for more detailed ones).
+var validMetricSets = []string{"basic", "extended", "fingers"}
+
 // rankCommand defines the "rank" CLI command for the kb tool.
 // It lists keyboard layouts from a specified directory, optionally filtered by filename.
 // Users can:
 //   - Filter which layouts are listed (by CLI args or all .klf files in the data/layouts directory)
-//   - Apply metric weights directly or from a file
 //   - Display delta rows showing metric differences between layouts
 //   - Show extended metrics for deeper analysis
+//   - Apply metric weights directly or from a file
 //
 // By default, layouts are shown in CLI-specified order unless `--show-deltas` is enabled,
 // in which case the default order switches to 'rank'.
@@ -25,7 +30,7 @@ var rankCommand = &cli.Command{
 	Name:    "rank",
 	Aliases: []string{"r"},
 	Usage:   "Rank keyboard layouts and optionally view deltas",
-	Flags:   flagsSlice("corpus", "weights-file", "weights", "metrics", "deltas"),
+	Flags:   flagsSlice("corpus", "deltas", "metrics", "weights-file", "weights"),
 	Action:  rankAction,
 }
 

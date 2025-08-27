@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,7 +57,7 @@ var appFlagsMap = map[string]cli.Flag{
 	"metrics": &cli.StringFlag{
 		Name:    "metrics",
 		Aliases: []string{"m"},
-		Usage:   "metrics to show: basic, extended, or fingers",
+		Usage:   fmt.Sprintf("metrics to show: %v", validMetricSets),
 		Value:   "basic",
 	},
 	"deltas": &cli.StringFlag{
@@ -128,7 +127,7 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 }
 
