@@ -38,7 +38,7 @@ var rankCommand = &cli.Command{
 // It processes user inputs, loads layouts and weights, validates flags,
 // and executes the layout ranking display.
 func rankAction(c *cli.Context) error {
-	// Load the corpus used for analyzing layouts.
+	// Load the corpus used for analysing layouts.
 	corpus, err := loadCorpus(c.String("corpus"))
 	if err != nil {
 		return err

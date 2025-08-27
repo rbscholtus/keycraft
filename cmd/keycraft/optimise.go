@@ -29,7 +29,7 @@ var optimiseCommand = &cli.Command{
 //   - runs optimisation and persists the best layout
 //   - runs analysis and ranking on original vs optimized layouts
 func optimiseAction(c *cli.Context) error {
-	// Load the corpus used for analyzing layouts.
+	// Load the corpus used for analysing layouts.
 	corpus, err := loadCorpus(c.String("corpus"))
 	if err != nil {
 		return err

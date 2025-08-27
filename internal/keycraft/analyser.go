@@ -89,13 +89,13 @@ func (an *Analyser) quickHandAnalysis() {
 
 // quickMetricAnalysis computes a core set of ergonomic motion metrics, grouped as bigram, skipgram, and trigram features.
 func (an *Analyser) quickMetricAnalysis() {
-	an.analyzeBigrams()
-	an.analyzeSkipgrams()
-	an.analyzeTrigrams()
+	an.analyseBigrams()
+	an.analyseSkipgrams()
+	an.analyseTrigrams()
 }
 
-// analyzeBigrams computes bigram-based metrics: SFB, LSB, FSB, and HSB.
-func (an *Analyser) analyzeBigrams() {
+// analyseBigrams computes bigram-based metrics: SFB, LSB, FSB, and HSB.
+func (an *Analyser) analyseBigrams() {
 	var count1, count2, count3, count4 uint64
 	for bi, biCnt := range an.Corpus.Bigrams {
 		key1, ok1 := an.Layout.RuneInfo[bi[0]]
@@ -130,8 +130,8 @@ func (an *Analyser) analyzeBigrams() {
 	an.Metrics["HSB"] = float64(count4) * factor
 }
 
-// analyzeSkipgrams computes skipgram-based metrics: SFS, LSS, FSS, and HSS.
-func (an *Analyser) analyzeSkipgrams() {
+// analyseSkipgrams computes skipgram-based metrics: SFS, LSS, FSS, and HSS.
+func (an *Analyser) analyseSkipgrams() {
 	var count1, count2, count3, count4 uint64
 	for skp, skpCnt := range an.Corpus.Skipgrams {
 		key1, ok1 := an.Layout.RuneInfo[skp[0]]
@@ -166,10 +166,9 @@ func (an *Analyser) analyzeSkipgrams() {
 	an.Metrics["HSS"] = float64(count4) * factor
 }
 
-// analyzeTrigrams computes trigram-based metrics: ALT (alternations), 2RL (two-key rolls), 3RL (three-key rolls), and RED (redirections).
-func (an *Analyser) analyzeTrigrams() {
-	var rl2SFB, rl2In, rl2Out, altSFS uint64
-	var altOth, rl3SFS, rl3In, rl3Out, redWeak, redSFS, redOth uint64
+// analyseTrigrams computes trigram-based metrics: ALT (alternations), 2RL (two-key rolls), 3RL (three-key rolls), and RED (redirections).
+func (an *Analyser) analyseTrigrams() {
+	var rl2SFB, rl2In, rl2Out, altSFS, altOth, rl3SFS, rl3In, rl3Out, redWeak, redSFS, redOth uint64
 
 	for tri, cnt := range an.Corpus.Trigrams {
 		r0, ok0 := an.Layout.RuneInfo[tri[0]]
@@ -184,7 +183,7 @@ func (an *Analyser) analyzeTrigrams() {
 
 		add2Roll := func(fA, fB uint8) {
 			switch {
-			case fA == fB:
+			case fA == fB: // the same index is also a SFB??
 				rl2SFB += cnt
 			case (fA < fB) == (h1 == LEFT):
 				rl2In += cnt
@@ -202,7 +201,7 @@ func (an *Analyser) analyzeTrigrams() {
 				}
 			} else {
 				switch {
-				case f0 == f1 || f1 == f2:
+				case f0 == f1 || f1 == f2: // the same index is also a SFS??
 					rl3SFS += cnt
 				case (f0 < f1) == (f1 < f2):
 					if (f0 < f1) == (h0 == LEFT) {

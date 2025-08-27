@@ -6,12 +6,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// viewCommand defines the CLI command for viewing and analyzing keyboard layouts.
-// It supports analyzing one or more layouts using a specified corpus of text.
+// viewCommand defines the CLI command for viewing and analysing keyboard layouts.
+// It supports analysing one or more layouts using a specified corpus of text.
 var viewCommand = &cli.Command{
 	Name:      "view",
 	Aliases:   []string{"v"},
-	Usage:     "Analyze and display one or more keyboard layouts",
+	Usage:     "Analyse and display one or more keyboard layouts",
 	ArgsUsage: "<layout1.klf> <layout2.klf> ...",
 	Action:    viewAction,
 	Flags:     flagsSlice("corpus"),
@@ -29,7 +29,7 @@ func viewAction(c *cli.Context) error {
 		return fmt.Errorf("need at least 1 layout")
 	}
 
-	// Analyze all provided layouts using the corpus.
+	// Analyse all provided layouts using the corpus.
 	// The 'false' parameter indicates not to include detailed metrics.
 	if err := DoAnalysis(corp, c.Args().Slice(), false); err != nil {
 		return err

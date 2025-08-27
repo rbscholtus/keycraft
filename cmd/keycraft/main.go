@@ -2,7 +2,7 @@
 // keycraft command-line tool.
 //
 // view.go implements the "view" command for the keycraft CLI; it loads a corpus
-// and analyzes one or more keyboard layout files for display.
+// and analyses one or more keyboard layout files for display.
 //
 // analyse.go contains functions to analyse keyboard layouts and render
 // human-friendly tables summarising hand/row usage and other metrics.

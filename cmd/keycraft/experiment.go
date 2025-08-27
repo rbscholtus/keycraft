@@ -22,7 +22,7 @@ var experimentCommand = &cli.Command{
 func experimentAction(c *cli.Context) error {
 	fmt.Println("Running experiment...")
 
-	// Load the corpus used for analyzing layouts.
+	// Load the corpus used for analysing layouts.
 	corpus, err := loadCorpus(c.String("corpus"))
 	if err != nil {
 		return err

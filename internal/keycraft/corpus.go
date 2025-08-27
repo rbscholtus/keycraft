@@ -103,7 +103,7 @@ func (s *Skipgram) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// Corpus represents a text corpus used for analyzing character-level statistics.
+// Corpus represents a text corpus used for analysing character-level statistics.
 // It tracks frequency counts and totals for different types of n-grams:
 //
 //   - Unigrams: single characters
