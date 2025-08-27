@@ -1,6 +1,6 @@
 # Keycraft
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/rbscholtus/keycraft)]
+![Go Version](https://img.shields.io/github/go-mod/go-version/rbscholtus/keycraft)
 [![License](https://img.shields.io/github/license/rbscholtus/keycraft)](./LICENSE)
 [![Release](https://img.shields.io/github/v/release/rbscholtus/keycraft)](https://github.com/rbscholtus/keycraft/releases)
 [![Build](https://github.com/rbscholtus/keycraft/actions/workflows/go.yml/badge.svg)](https://github.com/rbscholtus/keycraft/actions)
