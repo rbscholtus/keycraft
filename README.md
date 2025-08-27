@@ -1,23 +1,28 @@
 # Keycraft
 
-Keycraft is a command-line utility for analying and optimising keyboard layouts. It's goal is to help the user design their "ideal" layout.
+Keycraft is a Golang-based command-line utility for analyzing and optimizing keyboard layouts. It provides layout visualizations, metric analysis (bigram, trigram, skipgram), layout ranking, and optimization tools to help you design your "ideal" layout.
 
-## Table of contents
-- Features
-- Quick start
-- Installation
-- Usage
-- Configuration
-- Development
-- Testing
-- Contributing
-- License
-- Contact
+## Quick start
 
-## Overview
-Keycraft is a command-line utility for analying and optimising keyboard layouts. It's goal is to help the user design their "ideal" layout.
+```bash
+# Install (requires golang on your system)
+go install github.com/rbscholtus/keycraft@latest
+
+# View a built-in layout
+keycraft view qwerty.klf
+
+# Analyse multiple layouts
+keycraft analyse colemak.klf dvorak.klf
+
+# Rank built-in layouts with custom weights (making SFB the dominant metric)
+keycraft rank --weights sfb=-1000
+
+# Optimise the qwerty layout but keeping its signature keys in place
+keycraft optimise --pins qwerty qwerty.klf
+```
 
 ## Features
+
 - Supports 4x6+3 (x2) layouts, and the layout types row-staggered, ortholinear, column-staggered
 - Supports metrics that use the Euclidian distance for each physical layout type
 - Has 30+ layouts out of the box, based on https://getreuer.info/posts/keyboards/alt-layouts/stats.html
@@ -98,34 +103,14 @@ The following metrics are currently supported by Keycraft. Spaces in the corpus 
 | Ideal load (%)| 8.0        | 11.0      | 16.0        | 15.0       | 15.0        | 16.0         | 11.0       | 8.0         |
 
 ### Hand balance metrics
-This does not include space because n-grams with space are discarded from the corpus.
+This does not include space because n-grams with spaces are discarded from the corpus.
 
 - H0, H1 (Hand usage) - percentage of total keystrokes by each hand (H0 = left, H1 = right). 
 - F0–F9 (Finger usage) - percentage of total keystrokes by each finger (F0 = left pinky … F4 = left thumb, F5 = right thumb … F9 = right pinky).
 - C0–C11 (Column usage) - percentage of total keystrokes per physical column on the layout.
 - R0–R3 (Row usage) - percentage of total keystrokes per physical row on the layout.
 
-## Quick start
-1. Install (if CLI):
-   ```bash
-   go install github.com/yourusername/keycraft@latest
-   ```
-2. Build from source:
-   ```bash
-   git clone https://github.com/yourusername/keycraft.git
-   cd keycraft
-   go build ./...
-   ```
-3. Run a simple example:
-   ```bash
-   # CLI example
-   keycraft generate --name mykey
-
-   # or as a library
-   go run ./examples/simple
-   ```
-
-## Installation
+## Installation TO DO
 - Prebuilt binaries (if available): link or note where to find them.
 - From source:
   ```bash
@@ -134,45 +119,92 @@ This does not include space because n-grams with space are discarded from the co
   ```
 
 ## Usage
-- CLI: brief command list with examples
-  ```bash
-  keycraft help
-  keycraft generate --type rsa --bits 2048
-  keycraft export --format pem --out key.pem
-  ```
-- Library: short example of importing and using a primary package
-  ```go
-  import "github.com/yourusername/keycraft/pkg/keycraft"
 
-  // ...example code...
-  ```
-- Note about configuration files / environment variables (if any)
+### Getting help
+
+Use the `help` command to get help for the tool or a specific command, for example:
+
+```bash
+keycraft help
+keycraft help optimise
+keycraft h o
+```
+
+- Most commands and flags have shortened versions to avoid typing too much.
+
+### Viewing one or more layouts
+
+Use the `view` command and specify the layout(s) you want to view. The layouts you specify must be files that are located in the `./data/layouts` directory. To view your own layout, add the `.klf` file for your layout here first.
+
+```bash
+keycraft view focal.klf gallium-v2.klf
+```
+
+The corpus that is used to generate the stats is `./data/corpus/default.txt`. At the moment this is Shai's Cleaned iweb (90m words), available from:
+  https://colemak.com/pub/corpus/iweb-corpus-samples-cleaned.txt.xz
+
+To change to any of the corpuses in `./data/corpus`, use the `corpus` command:
+
+```bash
+keycraft view -c monkeyracer.txt focal.klf gallium-v2.klf
+```
+
+The first time a corpus is used (or after a corpus has changed), a cache is generated that will make loading it faster next time.
+
+### Analysing and comparing one or more layouts
+
+Use the `analyse` command and specify the layout(s) you want to analyse.
+
+```bash
+keycraft analyse focal.klf sturdy.klf gallium-v2.klf
+```
+
+Note that the trigrams totals listed in the tables will be higher than the stats in the overview. This is because the tables show more than what is included in the overview. That's why they're called __detailed__ tables!
+
+### Ranking layouts
+
+Use the `rank` command to rank and compare a large number of layouts. Layouts are ranked by their overall score which depends on the weights you assign to each of the metrics, as well as the corpus you use. The weights that are applied are shown in the table's header.
+
+```bash
+keycraft rank  ## to rank all layouts in ./data/layouts
+keycraft rank --deltas rows  ## show the difference between each pair of rows, to easily compare layouts
+keycraft rank --deltas median  ## add a median layout (ranked #0), and show the difference between this median layout and the other layouts
+keycraft rank --deltas canary.klf  ## show the difference between canary.klf and the other layouts
+keycraft rank --metrics extended  ## show more columns with more metrics
+keycraft rank --weights sfb=-1000  ## override the weight of the SFB metric with a high value (effectively making the ranks SFB-based ranks)
+keycraft rank -d canary.klf colemak.klf "colemak-qi;x.klf" colemak-dh.klf  ## show only a few layouts, comparing them against canary.klf
+```
+
+- Better layouts appear at the top of the list. `qwerty.klf` appears at the bottom of the list!
+- The median layout is determined by taking the median of all layouts for each metric, normalising all metrics, and calculating the median layout's score by applying weights.
+- Default weights are specified in the file `./data/weighs/default.txt`. You can either specify a different weights file using the `--weights-file` flag, or override specific weights using the `--weights` flag.
+- The metrics shown in the table do not affect the calculation of each layout's score. The basic table for example shows a weight of 0 for ALT, which makes you think Alts do not affect the scores. But actually if you show extended metrics, you will see a weight is applied to ALT-SFS.
+
+### Optimising a layout
+
+Use the `optimise` command and specify the layout you want to optimise.
+
+```bash
+keycraft optimise qwerty.klf
+```
 
 ## Configuration
+
+### Specifying and choosing a suitable corpus (for all commands)
+
+TO DO
+
+### Specifying weights (for ranking and optimising)
+
 - Describe config locations, file format (YAML/JSON), and common options.
-- Example config snippet.
-
-## Development
-- Prerequisites: Go version (e.g., Go 1.20+), other tools.
-- How to run linters, formatters:
-  ```bash
-  go vet ./...
-  go fmt ./...
-  golangci-lint run
-  ```
-- Project layout overview (brief) — main packages and responsibilities.
-
-## Testing
-- Run unit tests:
-  ```bash
-  go test ./...
-  ```
-- How to run integration tests or examples.
+	layoutDir  = "data/layouts/"
+	corpusDir  = "data/corpus/"
+	weightsDir = "data/weights/"
+	pinsDir    = "data/pins/"
 
 ## Contributing
-- Short contribution workflow: fork, branch, PR, code review.
-- Coding conventions and commit message style.
-- How to run pre-commit checks locally.
+- Questions, suggestions, and feedback are super welcome! Just open a New Issue and I'll get back to you as soon as I can.
+- I probably can't take PRs until I feel a solid base implementation is in place.
 
 ## License
 BSD-3-Clause license. See LICENSE file for details.
