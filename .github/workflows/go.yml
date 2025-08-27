@@ -25,17 +25,16 @@ jobs:
         go-version: '1.25'
 
     - name: Build
-      run: go build -v ./...
+      run: CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -v ./...
 
     - name: Test
       run: go test -v ./...
 
     - name: Build binaries
       run: |
-      
-        GOOS=linux GOARCH=amd64 go build -o ${{ github.event.repository.name }}-linux-amd64 ./cmd/keycraft
-        GOOS=darwin GOARCH=arm64 go build -o ${{ github.event.repository.name }}-darwin-arm64 ./cmd/keycraft
-        GOOS=windows GOARCH=amd64 go build -o ${{ github.event.repository.name }}-windows-amd64.exe ./cmd/keycraft
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o ${{ github.event.repository.name }}-linux-amd64 ./cmd/keycraft
+        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o ${{ github.event.repository.name }}-darwin-arm64 ./cmd/keycraft
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o ${{ github.event.repository.name }}-windows-amd64.exe ./cmd/keycraft
 
     - name: Upload binaries as artifact
       uses: actions/upload-artifact@v4
