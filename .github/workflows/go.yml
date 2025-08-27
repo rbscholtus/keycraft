@@ -29,9 +29,9 @@ jobs:
 
     - name: Build binaries
       run: |
-        GOOS=linux GOARCH=amd64 go build -o ${{ github.event.repository.name }}-linux-amd64 ./...
-        GOOS=darwin GOARCH=arm64 go build -o ${{ github.event.repository.name }}-darwin-arm64 ./...
-        GOOS=windows GOARCH=amd64 go build -o ${{ github.event.repository.name }}-windows-amd64.exe ./...
+        GOOS=linux GOARCH=amd64 go build -o ${{ github.event.repository.name }}-linux-amd64 ./cmd/main
+        GOOS=darwin GOARCH=arm64 go build -o ${{ github.event.repository.name }}-darwin-arm64 ./cmd/main
+        GOOS=windows GOARCH=amd64 go build -o ${{ github.event.repository.name }}-windows-amd64.exe ./cmd/main
 
     - name: Upload binaries as artifact
       uses: actions/upload-artifact@v4
@@ -51,3 +51,4 @@ jobs:
           ${{ github.event.repository.name }}-linux-amd64
           ${{ github.event.repository.name }}-darwin-arm64
           ${{ github.event.repository.name }}-windows-amd64.exe
+        generate_release_notes: true
