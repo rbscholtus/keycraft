@@ -89,7 +89,7 @@ func genLayoutStringFor(sl *kc.SplitLayout, template string, mapper []int) strin
 
 // MetricDetailsString renders MetricDetails as a paginated pretty table and
 // returns the combined string output.
-func MetricDetailsString(ma *kc.MetricDetails) string {
+func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 	t := createSimpleTable()
 	t.SetStyle(table.StyleRounded)
 
@@ -137,7 +137,7 @@ func MetricDetailsString(ma *kc.MetricDetails) string {
 	}
 	t.AppendFooter(footer)
 
-	return t.Pager(table.PageSize(15)).Render()
+	return t.Pager(table.PageSize(nrows)).Render()
 }
 
 func createSimpleTable() table.Writer {

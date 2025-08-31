@@ -31,7 +31,7 @@ func viewAction(c *cli.Context) error {
 
 	// Analyse all provided layouts using the corpus.
 	// The 'false' parameter indicates not to include detailed metrics.
-	if err := DoAnalysis(corp, c.Args().Slice(), false); err != nil {
+	if err := DoAnalysis(corp, c.Args().Slice(), false, 0); err != nil {
 		return err
 	}
 
