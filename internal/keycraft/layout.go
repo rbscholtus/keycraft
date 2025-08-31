@@ -27,20 +27,36 @@ const (
 	RP
 )
 
-var colToFingerMap = [...]uint8{
+var keyToFinger = [...]uint8{
 	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
 	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
 	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
 	LT, LT, LT, RT, RT, RT,
 }
 
-type LayoutType string
+var angleModKeyToFinger = [...]uint8{
+	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
+	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
+	LP, LR, LM, LI, LI, LI, RI, RI, RM, RR, RP, RP,
+	LT, LT, LT, RT, RT, RT,
+}
+
+type LayoutType uint8
 
 const (
-	ROWSTAG LayoutType = "rowstag"
-	ORTHO   LayoutType = "ortho"
-	COLSTAG LayoutType = "colstag"
+	ROWSTAG LayoutType = iota
+	ANGLEMOD
+	ORTHO
+	COLSTAG
 )
+
+// Map from LayoutType to string
+var layoutTypeStrings = map[LayoutType]string{
+	ROWSTAG:  "rowstag",
+	ANGLEMOD: "anglemod",
+	ORTHO:    "ortho",
+	COLSTAG:  "colstag",
+}
 
 // Standard row-staggered keyboard column offsets
 var rowStagOffsets = [4]float64{
@@ -59,7 +75,6 @@ const (
 
 // KeyInfo represents a key's position on a keyboard
 type KeyInfo struct {
-	// Char   rune
 	Index  uint8
 	Hand   uint8 // LEFT or RIGHT
 	Row    uint8 // 0-3
@@ -68,8 +83,8 @@ type KeyInfo struct {
 }
 
 // NewKeyInfo returns a new KeyInfo struct with some fields derived from row and col.
-func NewKeyInfo(row, col uint8) KeyInfo {
-	if col >= uint8(len(colToFingerMap)) {
+func NewKeyInfo(row, col uint8, layoutType LayoutType) KeyInfo {
+	if col >= uint8(len(keyToFinger)) {
 		panic(fmt.Sprintf("col exceeds max value: %d", col))
 	}
 	if row > 3 {
@@ -88,7 +103,12 @@ func NewKeyInfo(row, col uint8) KeyInfo {
 		hand = LEFT
 	}
 
-	finger := colToFingerMap[index]
+	var finger uint8
+	if layoutType == ANGLEMOD {
+		finger = angleModKeyToFinger[index]
+	} else {
+		finger = keyToFinger[index]
+	}
 
 	return KeyInfo{
 		Index:  index,
@@ -134,8 +154,8 @@ type SplitLayout struct {
 // NewSplitLayout creates a new split layout
 func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
 	rowDistFunc := IfThen(layoutType == COLSTAG, AbsRowDistAdj, AbsRowDist)
-	colDistFunc := IfThen(layoutType == ROWSTAG, AbsColDistAdj, AbsColDist)
-	keyDistances := getKeyDistances(rowDistFunc, colDistFunc)
+	colDistFunc := IfThen(layoutType == ROWSTAG || layoutType == ANGLEMOD, AbsColDistAdj, AbsColDist)
+	keyDistances := getKeyDistances(rowDistFunc, colDistFunc, IfThen(layoutType == ANGLEMOD, angleModKeyToFinger, keyToFinger))
 	lsbs := calcLSBKeyPairs(runes, runeInfo, keyDistances, layoutType)
 	scissors := calcScissorKeyPairs(runes, keyDistances)
 
@@ -164,25 +184,33 @@ func (sl *SplitLayout) String() string {
 		default:
 			sb.WriteRune(r)
 		}
+		sb.WriteRune(' ')
 	}
 
 	sb.WriteRune('\n')
 	for row := range 3 {
+		if sl.LayoutType == ANGLEMOD && row == 2 {
+			sb.WriteRune(' ')
+		}
 		for col := range 12 {
 			idx := row*12 + col
 			writeRune(sl.Runes[idx])
 			if col == 5 {
 				sb.WriteRune(' ')
+				if sl.LayoutType != ANGLEMOD || row != 2 {
+					sb.WriteRune(' ')
+				}
 			}
 		}
 		sb.WriteRune('\n')
 	}
 
-	sb.WriteString("   ")
+	sb.WriteString("      ")
 	for col := range 6 {
 		idx := 36 + col
 		writeRune(sl.Runes[idx])
 		if col == 2 {
+			sb.WriteRune(' ')
 			sb.WriteRune(' ')
 		}
 	}
@@ -235,12 +263,14 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	switch {
 	case strings.HasPrefix(layoutTypeStr, "rowstag"):
 		layoutType = ROWSTAG
+	case strings.HasPrefix(layoutTypeStr, "anglemod"):
+		layoutType = ANGLEMOD
 	case strings.HasPrefix(layoutTypeStr, "ortho"):
 		layoutType = ORTHO
 	case strings.HasPrefix(layoutTypeStr, "colstag"):
 		layoutType = COLSTAG
 	default:
-		types := []LayoutType{ROWSTAG, ORTHO, COLSTAG}
+		types := []LayoutType{ROWSTAG, ANGLEMOD, ORTHO, COLSTAG}
 		return nil, fmt.Errorf("invalid layout type in %s: %s. Must start with one of: %v", path, layoutTypeStr, types)
 	}
 
@@ -271,7 +301,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 			runeArray[index] = r
 			index++
 			if r != rune(0) {
-				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col))
+				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col), layoutType)
 			}
 		}
 	}
@@ -311,13 +341,19 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 	}
 
 	// Write layout type
-	_, _ = fmt.Fprintln(writer, strings.ToLower(string(sl.LayoutType)))
+	_, _ = fmt.Fprintln(writer, layoutTypeStrings[sl.LayoutType])
 
 	// Write main keys
 	for row := range 3 {
+		if sl.LayoutType == ANGLEMOD && row == 2 {
+			_, _ = fmt.Fprint(writer, " ")
+		}
 		for col := range 12 {
 			if col == 6 {
 				_, _ = fmt.Fprint(writer, " ")
+				if sl.LayoutType != ANGLEMOD || row != 2 {
+					_, _ = fmt.Fprint(writer, " ")
+				}
 			}
 			writeRune(sl.Runes[row*12+col])
 			if col < 11 {
@@ -331,7 +367,7 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 	_, _ = fmt.Fprint(writer, "      ")
 	for col := range 6 {
 		if col == 3 {
-			_, _ = fmt.Fprint(writer, " ")
+			_, _ = fmt.Fprint(writer, "  ")
 		}
 		writeRune(sl.Runes[36+col])
 		if col < 5 {
@@ -468,7 +504,11 @@ func readLine(scanner *bufio.Scanner) (string, error) {
 }
 
 // There is a minor error in the calcs for the thumb keys!
-func getKeyDistances(rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64, colDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64) map[KeyPair]KeyPairDistance {
+func getKeyDistances(
+	rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
+	colDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
+	keyToFinger [42]uint8,
+) map[KeyPair]KeyPairDistance {
 	keyDistances := make(map[KeyPair]KeyPairDistance)
 
 	sqrt := func(mul float64) float64 {
@@ -517,7 +557,7 @@ func getKeyDistances(rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 u
 			keyDistances[KeyPair{k1, k2}] = KeyPairDistance{
 				RowDist:    dy,
 				ColDist:    dx,
-				FingerDist: absDist(colToFingerMap[k1], colToFingerMap[k2]),
+				FingerDist: absDist(keyToFinger[k1], keyToFinger[k2]),
 				Distance:   dist,
 			}
 		}
@@ -546,9 +586,9 @@ func AbsColDistAdj(row1, col1, row2, col2 uint8) float64 {
 
 // LSBInfo holds information about a lateral-stretch bigram candidate on the layout.
 type LSBInfo struct {
-	keyIdx1     int
-	keyIdx2     int
-	colDistance float64
+	KeyIdx1     int
+	KeyIdx2     int
+	ColDistance float64
 }
 
 func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map[KeyPair]KeyPairDistance, layoutType LayoutType) []LSBInfo {
@@ -600,9 +640,9 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map
 		}
 	}
 
-	// As per Keyboard Layout Doc, section 7.4.2
+	// As per Keyboard Layouts Doc, section 7.4.2
 	// Add a few more notable LSBs on row-staggered
-	if layoutType == ROWSTAG {
+	if layoutType == ROWSTAG || layoutType == ANGLEMOD {
 		LSBs = append(LSBs, LSBInfo{1, 26, 1.75})
 		LSBs = append(LSBs, LSBInfo{2, 27, 1.75})
 		LSBs = append(LSBs, LSBInfo{3, 28, 1.75})

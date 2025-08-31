@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
@@ -20,6 +21,48 @@ var experimentCommand = &cli.Command{
 }
 
 func experimentAction(c *cli.Context) error {
+	_, err := loadCorpus(c.String("corpus"))
+	layout, err2 := loadLayout(c.Args().First())
+	if err != nil || err2 != nil {
+		return fmt.Errorf("sorry / %v / %v", err, err2)
+	}
+
+	tw := table.NewWriter()
+	tw.SetAutoIndex(true)
+	tw.SetColumnConfigs([]table.ColumnConfig{
+		{Name: "eucl.dist", Transformer: Fraction},
+	})
+	tw.AppendHeader(table.Row{"Idx1", "Idx2", "bi", "coldist", "rowdist", "fingerdist", "eucl.dist"})
+
+	for i := range 42 {
+		r := layout.Runes[i]
+		ki := layout.RuneInfo[r]
+		for j := range 42 {
+			r2 := layout.Runes[j]
+			ki2 := layout.RuneInfo[r2]
+			if (ki.Finger == kc.LM && ki2.Finger == kc.LI) ||
+				(ki.Finger == kc.RM && ki2.Finger == kc.RI) {
+				bi := string(r) + string(r2)
+				dist := layout.KeyPairDistances[kc.KeyPair{ki.Index, ki2.Index}]
+				if dist.Distance >= 2.0 {
+					tw.AppendRow(table.Row{ki.Index, ki2.Index, bi, dist.ColDist, dist.RowDist, dist.FingerDist, dist.Distance})
+				}
+			}
+		}
+	}
+
+	// fmt.Println(tw.Render())
+
+	fmt.Println(layout)
+	for _, lsb := range layout.LSBs {
+		bi := string(layout.Runes[lsb.KeyIdx1]) + string(layout.Runes[lsb.KeyIdx2])
+		fmt.Println(bi, " ", lsb)
+	}
+
+	return nil
+}
+
+func ExperimentAction2(c *cli.Context) error {
 	fmt.Println("Running experiment...")
 
 	// Load the corpus used for analysing layouts.

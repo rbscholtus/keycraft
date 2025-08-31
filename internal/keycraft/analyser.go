@@ -108,7 +108,7 @@ func (an *Analyser) analyseBigrams() {
 		}
 	}
 	for _, lsb := range an.Layout.LSBs {
-		bi := Bigram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		bi := Bigram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
 		if cnt, ok := an.Corpus.Bigrams[bi]; ok {
 			count2 += cnt
 		}
@@ -144,7 +144,7 @@ func (an *Analyser) analyseSkipgrams() {
 		}
 	}
 	for _, lsb := range an.Layout.LSBs {
-		skp := Skipgram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		skp := Skipgram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
 		if cnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			count2 += cnt
 		}
@@ -331,13 +331,13 @@ func (an *Analyser) LSBDetails() *MetricDetails {
 	}
 
 	for _, lsb := range an.Layout.LSBs {
-		bi := Bigram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		bi := Bigram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
 
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
-			kp := KeyPair{uint8(lsb.keyIdx1), uint8(lsb.keyIdx2)}
+			kp := KeyPair{uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2)}
 			dist := an.Layout.KeyPairDistances[kp].ColDist
 			ma.NGramDist[biStr] = dist
 			ma.TotalDist += dist * float64(biCnt)
@@ -436,13 +436,13 @@ func (an *Analyser) LSSDetails() *MetricDetails {
 	}
 
 	for _, lsb := range an.Layout.LSBs {
-		skp := Skipgram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		skp := Skipgram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
-			kp := KeyPair{uint8(lsb.keyIdx1), uint8(lsb.keyIdx2)}
+			kp := KeyPair{uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2)}
 			dist := an.Layout.KeyPairDistances[kp].ColDist
 			ma.NGramDist[skpStr] = dist
 			ma.TotalDist += dist * float64(skpCnt)
