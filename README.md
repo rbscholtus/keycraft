@@ -8,7 +8,7 @@
 
 Keycraft is a Golang-based command-line utility for analysing, comparing, and optimising keyboard layouts. It helps layout designers quickly evaluate efficiency with detailed metrics, rankings, and visualizations.
 
-#### Basic analysis example
+#### Basic analysis example (using the Shai corpus)
 
 ```
 ╭     ┬                                                       ╮
@@ -101,12 +101,12 @@ keycraft optimise --pins qwerty qwerty.klf
 
 - Supports 4x6+3 (x2) layouts, row-staggered, ortholinear, column-staggered
 - Supports Euclidian distance specific to each physical layout type
-- Supports MonkeyRacer, Shai, and AKL corpus files out of the box
-- Supports an internal cache for fast loading
+- Supports MonkeyRacer, Shai (default), and AKL corpus files out of the box
+- Supports an internal cache for fast loading of corpuses
 - Supports a default corpus, eliminating the need to specify the corpus for every command
 - Supports scoring and ranking some or all layouts
 - Supports showing deltas between rows for comparing how metrics differ between layouts
-- Supports showink deltas between each layout and the median or a specified "reference" layout
+- Supports showing deltas between each layout and the median, or a specific "reference" layout
 - Supports user-defined weights for all metrics, using a weights file and from the command-line
 - Supports a default weights file, eliminating the need to specify the weights for every command
 - Supports normalisation of metrics using stable scaling (using the median and inter-quartile range of each metric)
@@ -134,11 +134,11 @@ The following metrics are currently supported by Keycraft. Spaces in the corpus 
 | ALT      | Alternation total                   |                     |
 | ALT-SFS  | Alternation — Same Finger Skipgram  | "for", "men"        |
 | ALT-OTH  | Alternation — Other                 | "and", "ent", "iti" |
-| 2RL      | 2-key Rolls total                   |                     |
+| 2RL      | 2-key Rolls In + Out                |                     |
 | 2RL-IN   | 2-key Rolls — Inward                | "ing", "hat"        |
 | 2RL-OUT  | 2-key Rolls — Outward               | "tio", "thi"        |
 | 2RL-SFB  | 2-key Rolls — Same Finger Bigram    | "nce", "all"        |
-| 3RL      | 3-key Rolls total                   |                     |
+| 3RL      | 3-key Rolls In + Out                |                     |
 | 3RL-IN   | 3-key Rolls — Inward                | "act", "lin"        |
 | 3RL-OUT  | 3-key Rolls — Outward               | "rea", "tes"        |
 | 3RL-SFS  | 3-key Rolls — Same Finger Skipgram  | "ted", "ill"        |
@@ -361,7 +361,7 @@ keycraft rank --deltas canary.klf colemak.klf colemak-qix.klf colemak-dh.klf
 keycraft rank --metrics extended
 
 # Rank all, overriding the weight of the SFB metric
-# Specifying a high value like below will effectively rank layouts based on SFBs only. Note the minus (-) sign!
+# Specifying a high weight like below will effectively rank layouts based on SFBs only. Note the minus (-) sign!
 keycraft rank --weights sfb=-1000
 ```
 
@@ -379,12 +379,12 @@ Use the `optimise` command and specify the layout you want to optimise.
 # "drop-slow" allows the optimisation engine to make radical jumps to very different layouts
 keycraft optimise -g 500 qwerty.klf
 
-# Optimise an already very good layout with the "never" accept-worse function and the some keys pinned
+# Optimise an already very good layout with the "never" accept-worse function and some keys pinned
 # "never" prevents the optimisation engine from making unpredictable jumps to worse layouts
-# Pinning keys prevents them from being moved around, which could ruin the essence of a layout
+# Pinning keys prevents those keys from being moved around, which could otherwise ruin the essence of a layout
 keycraft optimise -g 100 -aw never --pins srntaeiou focal.klf
 
-# Optimise a layout, strongly aiming for good finger balance, but potentially ruining other properties
+# Optimise a layout, strongly aiming for good finger balance, but potentially ruining other metrics
 keycraft optimise --weights FBL=-100 -aw never -g 100 canary.klf
 
 # Optimise a small number of keys using the --free flag
@@ -392,7 +392,9 @@ keycraft optimise --weights FBL=-100 -aw never -g 100 canary.klf
 keycraft optimise -aw never -g 50 --free "';,.-/" graphite.klf
 ```
 
-The result of fine-tuning Focal is shown below. Disregarding potentially negative changes, the lateral streches problem in this layout has been solved! Further adjustment of the weights may help against the negative effects.
+#### Example
+
+The result of fine-tuning Focal is shown below. Disregarding potentially negative changes, the lateral streches problem in this layout has been solved! Further adjustment of the weights may help against the negative effects of the optimisation.
 
 ```
 ╭     ┬                                                      ┬                                                      ╮
