@@ -145,7 +145,7 @@ func main() {
 
 // validateFlags is called by urfave/cli Before hook.
 // Keep it small: perform early validation of flags here (no-op for now).
-func validateFlags(c *cli.Context) error {
+func validateFlags(_ *cli.Context) error {
 	return nil
 }
 
