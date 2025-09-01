@@ -103,10 +103,11 @@ func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 				customKeys = append(customKeys, k)
 			}
 		}
+		break // we don't need to visit all rows - they all have the same custom fields
 	}
 
 	// Header
-	header := table.Row{"orderby", ma.Metric, "Dist", "Count", "%"}
+	header := table.Row{"orderby", ma.Metric, "Count", "%", "Dist"}
 	for _, ck := range customKeys {
 		header = append(header, ck)
 	}
@@ -117,9 +118,9 @@ func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 		row := []any{
 			ma.NGramCount[ngram],
 			ngram,
-			ma.NGramDist[ngram],
 			ma.NGramCount[ngram],
 			float64(ma.NGramCount[ngram]) / float64(ma.CorpusNGramC),
+			ma.NGramDist[ngram],
 		}
 		for _, ck := range customKeys {
 			if fields, ok := ma.Custom[ngram]; ok {
@@ -131,7 +132,7 @@ func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 		t.AppendRow(row)
 	}
 
-	footer := table.Row{"", "", "", ma.TotalNGrams, float64(ma.TotalNGrams) / float64(ma.CorpusNGramC)}
+	footer := table.Row{"", "", ma.TotalNGrams, float64(ma.TotalNGrams) / float64(ma.CorpusNGramC)}
 	for range customKeys {
 		footer = append(footer, "")
 	}
@@ -149,9 +150,11 @@ func createSimpleTable() table.Writer {
 		{Name: "Distance", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Dist", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Row", Transformer: Fraction},
-		{Name: "Angle", Transformer: Fraction},
 		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
 		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
+		{Name: "Δrow", Transformer: Fraction, TransformerFooter: Fraction},
+		{Name: "Δcol", Transformer: Fraction, TransformerFooter: Fraction},
+		{Name: "Angle", Transformer: Angle, TransformerFooter: Angle},
 	})
 	tw.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
 	return tw
@@ -349,6 +352,19 @@ func Fraction(val any) string {
 		return fmt.Sprintf("%.2f", number)
 	}
 	return fmt.Sprintf("%v", val)
+}
+
+// Angle formats a numeric value as a degree string with one decimal for floats, or integer for ints.
+// Floats (float32, float64) are formatted as "%.1f°", ints as "%d°", others with fmt.Sprint.
+func Angle(val any) string {
+	switch v := val.(type) {
+	case float32, float64:
+		return fmt.Sprintf("%.1f°", v)
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprintf("%d°", v)
+	default:
+		return fmt.Sprint(val)
+	}
 }
 
 // Percentage formats a fractional value (0..1) as a percentage string with two decimals.

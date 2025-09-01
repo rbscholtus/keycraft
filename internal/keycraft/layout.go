@@ -143,8 +143,9 @@ type SplitLayout struct {
 	GetColDist       func(uint8, uint8, uint8, uint8) float64 // computes column distance between two keys
 	KeyPairDistances map[KeyPair]KeyPairDistance              // cache of distances between key index pairs
 	LSBs             []LSBInfo                                // notable lateral-stretch bigram key-pairs
-	Scissors         []ScissorInfo                            // notable scissor key-pairs (full/half)
-	optPinned        [42]bool                                 // flags indicating keys that must not be moved
+	FScissors        []ScissorInfo                            // notable full scissor key-pairs
+	HScissors        []ScissorInfo                            // notable half scissor key-pairs
+	optPinned        [42]bool                                 // optimisation: flags indicating keys that must not be moved
 	optCorpus        *Corpus                                  // optimisation: corpus used during layout optimisation (optional)
 	optWeights       *Weights                                 // optimisation: metric weights used (optional)
 	optMedians       map[string]float64                       // optimisation: median values per metric (optional)
@@ -157,9 +158,8 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 	colDistFunc := IfThen(layoutType == ROWSTAG || layoutType == ANGLEMOD, AbsColDistAdj, AbsColDist)
 	keyDistances := getKeyDistances(rowDistFunc, colDistFunc, IfThen(layoutType == ANGLEMOD, angleModKeyToFinger, keyToFinger))
 	lsbs := calcLSBKeyPairs(runes, runeInfo, keyDistances, layoutType)
-	scissors := calcScissorKeyPairs(runes, keyDistances)
 
-	return &SplitLayout{
+	sl := &SplitLayout{
 		Name:             name,
 		LayoutType:       layoutType,
 		Runes:            runes,
@@ -168,8 +168,10 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 		GetColDist:       colDistFunc,
 		KeyPairDistances: keyDistances,
 		LSBs:             lsbs,
-		Scissors:         scissors,
 	}
+	sl.initFScissors()
+	sl.initHScissors()
+	return sl
 }
 
 func (sl *SplitLayout) String() string {
@@ -642,9 +644,13 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map
 
 	// As per Keyboard Layouts Doc, section 7.4.2
 	// Add a few more notable LSBs on row-staggered
-	if layoutType == ROWSTAG || layoutType == ANGLEMOD {
+	switch layoutType {
+	case ROWSTAG:
 		LSBs = append(LSBs, LSBInfo{1, 26, 1.75})
 		LSBs = append(LSBs, LSBInfo{2, 27, 1.75})
+		LSBs = append(LSBs, LSBInfo{3, 28, 1.75})
+	case ANGLEMOD:
+		// only the middle - index situation is a stretch with anglemod
 		LSBs = append(LSBs, LSBInfo{3, 28, 1.75})
 	}
 
@@ -657,109 +663,124 @@ type ScissorInfo struct {
 	keyIdx2    uint8
 	fingerDist uint8
 	rowDist    float64
+	colDist    float64
 	angle      float64
 }
 
-func calcScissorKeyPairs(runes [42]rune, keyPairDists map[KeyPair]KeyPairDistance) []ScissorInfo {
-	var indexPairs = []KeyPair{
-		// Full Scissors
-		// left-hand side
-		{26, 1},
-		{27, 2},
-		{27, 4},
-		{27, 5},
-		{26, 4},
-		{26, 5},
-		{27, 1},
-		// right-hand side
-		{33, 10},
-		{32, 9},
-		{32, 7},
-		{32, 6},
-		{33, 7},
-		{33, 6},
-		{32, 10},
-		// pinky is lower than the ring
-		{25, 2},
-		{26, 3},
-		{34, 9},
-		{33, 8},
-		// Half Scissors
-		// left-hand side, row 0/1
-		{14, 1},
-		{15, 2},
-		{15, 4},
-		{15, 5},
-		{14, 4},
-		{14, 5},
-		{15, 1},
-		// left-hand, row 1/2
-		{26, 13},
-		{27, 14},
-		{27, 16},
-		{27, 17},
-		{26, 16},
-		{26, 17},
-		{27, 13},
-		// right-hand side, row 0/1
-		{21, 10},
-		{20, 9},
-		{20, 7},
-		{20, 6},
-		{21, 7},
-		{21, 6},
-		{20, 10},
-		// right-hand, row 1/2
-		{33, 22},
-		{32, 21},
-		{32, 19},
-		{32, 18},
-		{33, 19},
-		{33, 18},
-		{32, 22},
-		// // pinky is lower than the ring, row 0/1
-		// {13, 2},
-		// {14, 3},
-		// {22, 9},
-		// {21, 8},
-		// // pinky is lower than the ring, row 1/2
-		// {25, 14},
-		// {26, 15},
-		// {34, 21},
-		// {33, 20},
+// Helper to make map from slice of pairs
+func makePairs(pairs [][2]uint8) map[[2]uint8]bool {
+	m := make(map[[2]uint8]bool, len(pairs))
+	for _, p := range pairs {
+		m[p] = true
 	}
+	return m
+}
 
-	// Scissors we're going to find and track
-	var scissors []ScissorInfo
-	for _, idxPair := range indexPairs {
-		r0, r1 := runes[idxPair[0]], runes[idxPair[1]]
-		if r0 == 0 || r1 == 0 {
-			// key on layout has no character
-			continue
+// A config holds index ranges and the valid finger pair map
+type scissorConfig struct {
+	i1Start, i1End uint8
+	i2Start, i2End uint8
+	fingerPairs    map[[2]uint8]bool
+}
+
+// Helper to initialize scissor pairs
+func (sl *SplitLayout) initScissorPairs(configs []scissorConfig, out *[]ScissorInfo) {
+	var i1, i2 uint8
+	for _, cfg := range configs {
+		for i1 = cfg.i1Start; i1 <= cfg.i1End; i1++ {
+			r1 := sl.Runes[i1]
+			if r1 == 0 {
+				continue
+			}
+			ki1 := sl.RuneInfo[r1]
+
+			for i2 = cfg.i2Start; i2 <= cfg.i2End; i2++ {
+				r2 := sl.Runes[i2]
+				if r2 == 0 {
+					continue
+				}
+				ki2 := sl.RuneInfo[r2]
+
+				if cfg.fingerPairs[[2]uint8{ki1.Finger, ki2.Finger}] {
+					kp := sl.KeyPairDistances[KeyPair{uint8(i1), uint8(i2)}]
+					angle := math.Atan2(kp.RowDist, kp.ColDist) * 180 / math.Pi
+
+					*out = append(*out,
+						ScissorInfo{uint8(i1), uint8(i2), kp.FingerDist, kp.RowDist, kp.ColDist, angle},
+						ScissorInfo{uint8(i2), uint8(i1), kp.FingerDist, kp.RowDist, kp.ColDist, angle},
+					)
+				}
+			}
 		}
-
-		kp := keyPairDists[idxPair]
-		dx := kp.ColDist
-		dy := kp.RowDist
-		angle := math.Atan2(dy, dx) * 180 / math.Pi
-
-		// Add the new pair (bi-directional)
-		scissors = append(scissors, ScissorInfo{
-			keyIdx1:    idxPair[0],
-			keyIdx2:    idxPair[1],
-			fingerDist: kp.FingerDist,
-			rowDist:    dy,
-			angle:      angle,
-		}, ScissorInfo{
-			keyIdx1:    idxPair[1],
-			keyIdx2:    idxPair[0],
-			fingerDist: kp.FingerDist,
-			rowDist:    dy,
-			angle:      angle,
-		})
 	}
+}
 
-	// godump.Dump(scissors)
+// Initializes full scissors
+func (sl *SplitLayout) initFScissors() {
+	configs := []scissorConfig{
+		{
+			i1Start: 24, i1End: 29, // left-hand indices
+			i2Start: 0, i2End: 5,
+			fingerPairs: makePairs([][2]uint8{
+				{LM, LP}, {LM, LR}, {LM, LI}, // LM with anything else
+				{LR, LP}, {LR, LI}, // LR with LP and LI
+				{LP, LR}, {LR, LM}, // LP is lower than LR, LR is lower than LM
+			}),
+		},
+		{
+			i1Start: 30, i1End: 35, // right-hand indices
+			i2Start: 6, i2End: 11,
+			fingerPairs: makePairs([][2]uint8{
+				{RM, RI}, {RM, RR}, {RM, RP},
+				{RR, RP}, {RR, RI},
+				{RP, RR}, {RR, RM},
+			}),
+		},
+	}
+	sl.FScissors = make([]ScissorInfo, 0, 48)
+	sl.initScissorPairs(configs, &sl.FScissors)
+}
 
-	return scissors
+// Initializes half scissors
+func (sl *SplitLayout) initHScissors() {
+	configs := []scissorConfig{
+		{
+			i1Start: 12, i1End: 17, // left-hand indices
+			i2Start: 0, i2End: 5,
+			fingerPairs: makePairs([][2]uint8{
+				{LM, LP}, {LM, LR}, {LM, LI}, // LM with anything else
+				{LR, LP}, {LR, LI}, // LR with LP and LI
+				// {LP, LR}, {LR, LM}, // LP is lower than LR, LR is lower than LM
+			}),
+		},
+		{
+			i1Start: 24, i1End: 29,
+			i2Start: 12, i2End: 17,
+			fingerPairs: makePairs([][2]uint8{
+				{LM, LP}, {LM, LR}, {LM, LI},
+				{LR, LP}, {LR, LI},
+				// {LP, LR}, {LR, LM},
+			}),
+		},
+		{
+			i1Start: 18, i1End: 23,
+			i2Start: 6, i2End: 11,
+			fingerPairs: makePairs([][2]uint8{
+				{RM, RI}, {RM, RR}, {RM, RP},
+				{RR, RP}, {RR, RI},
+				// {RP, RR}, {RR, RM},
+			}),
+		},
+		{
+			i1Start: 30, i1End: 35,
+			i2Start: 18, i2End: 23,
+			fingerPairs: makePairs([][2]uint8{
+				{RM, RI}, {RM, RR}, {RM, RP},
+				{RR, RP}, {RR, RI},
+				// {RP, RR}, {RR, RM},
+			}),
+		},
+	}
+	sl.HScissors = make([]ScissorInfo, 0, 72)
+	sl.initScissorPairs(configs, &sl.HScissors)
 }
