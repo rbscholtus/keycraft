@@ -99,7 +99,7 @@ keycraft optimise --pins qwerty qwerty.klf
 
 ### Advanced Features
 
-- Supports 4x6+3 (x2) layouts, row-staggered, ortholinear, column-staggered
+- Supports 4x6+3 (x2) layouts (row-staggered, angle-modded, ortholinear, and column-staggered)
 - Supports Euclidian distance specific to each physical layout type
 - Supports MonkeyRacer, Shai (default), and AKL corpus files out of the box
 - Supports an internal cache for fast loading of corpuses
