@@ -7,8 +7,10 @@ package keycraft
 import (
 	"bufio"
 	"fmt"
+	"maps"
 	"math"
 	"os"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -75,7 +77,7 @@ const (
 
 // KeyInfo represents a key's position on a keyboard
 type KeyInfo struct {
-	Index  uint8
+	Index  uint8 // 0-41
 	Hand   uint8 // LEFT or RIGHT
 	Row    uint8 // 0-3
 	Column uint8 // 0-11 for Row=0-2, 0-5 for Row=3
@@ -157,7 +159,6 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 	rowDistFunc := IfThen(layoutType == COLSTAG, AbsRowDistAdj, AbsRowDist)
 	colDistFunc := IfThen(layoutType == ROWSTAG || layoutType == ANGLEMOD, AbsColDistAdj, AbsColDist)
 	keyDistances := getKeyDistances(rowDistFunc, colDistFunc, IfThen(layoutType == ANGLEMOD, angleModKeyToFinger, keyToFinger))
-	lsbs := calcLSBKeyPairs(runes, runeInfo, keyDistances, layoutType)
 
 	sl := &SplitLayout{
 		Name:             name,
@@ -167,8 +168,8 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 		GetRowDist:       rowDistFunc,
 		GetColDist:       colDistFunc,
 		KeyPairDistances: keyDistances,
-		LSBs:             lsbs,
 	}
+	sl.initLSBs()
 	sl.initFScissors()
 	sl.initHScissors()
 	return sl
@@ -262,7 +263,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 
 	var layoutType LayoutType
 	layoutTypeStr = strings.ToLower(layoutTypeStr)
-	switch {
+	switch { // must include all of layoutTypeStrings
 	case strings.HasPrefix(layoutTypeStr, "rowstag"):
 		layoutType = ROWSTAG
 	case strings.HasPrefix(layoutTypeStr, "anglemod"):
@@ -272,8 +273,9 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	case strings.HasPrefix(layoutTypeStr, "colstag"):
 		layoutType = COLSTAG
 	default:
-		types := []LayoutType{ROWSTAG, ANGLEMOD, ORTHO, COLSTAG}
-		return nil, fmt.Errorf("invalid layout type in %s: %s. Must start with one of: %v", path, layoutTypeStr, types)
+		types := slices.Collect(maps.Values(layoutTypeStrings))
+		return nil, fmt.Errorf("invalid layout type in %s: %s. Must start with one of: %v",
+			path, layoutTypeStr, types)
 	}
 
 	var runeArray [42]rune
@@ -288,7 +290,8 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 		}
 		keys := strings.Fields(line)
 		if len(keys) != expectedKeyCount {
-			return nil, fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", path, row+1, len(keys), expectedKeyCount)
+			return nil, fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d",
+				path, row+1, len(keys), expectedKeyCount)
 		}
 
 		for col, key := range keys {
@@ -593,7 +596,8 @@ type LSBInfo struct {
 	ColDistance float64
 }
 
-func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map[KeyPair]KeyPairDistance, layoutType LayoutType) []LSBInfo {
+// Initialize LSB key-pairs
+func (sl *SplitLayout) initLSBs() {
 	// Which two fingers (nrs 0..9) may form pairs,
 	// and what it the minimum distance (2.0 or 3.5) to note them
 	// Each pair is noted in both directions
@@ -606,23 +610,22 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map
 		{RP, RR}: 2.0, {RR, RP}: 2.0,
 	}
 
-	// LSBs we're going to find and track
-	LSBs := []LSBInfo{}
+	sl.LSBs = make([]LSBInfo, 0)
 
-	for key1, rune1 := range runes {
+	for key1, rune1 := range sl.Runes {
 		if rune1 == 0 {
 			continue
 		}
-		ri1, ok1 := runeInfo[rune1]
+		ri1, ok1 := sl.RuneInfo[rune1]
 		if !ok1 {
 			continue
 		}
 
-		for key2, rune2 := range runes {
+		for key2, rune2 := range sl.Runes {
 			if rune2 == 0 || key1 == key2 {
 				continue
 			}
-			ri2, ok2 := runeInfo[rune2]
+			ri2, ok2 := sl.RuneInfo[rune2]
 			if !ok2 {
 				continue
 			}
@@ -635,26 +638,24 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map
 			}
 
 			// Get horizontal distance and add
-			dx := keyPairDists[KeyPair{uint8(key1), uint8(key2)}].ColDist
+			dx := sl.KeyPairDistances[KeyPair{uint8(key1), uint8(key2)}].ColDist
 			if dx >= minHorDistance {
-				LSBs = append(LSBs, LSBInfo{key1, key2, dx})
+				sl.LSBs = append(sl.LSBs, LSBInfo{key1, key2, dx})
 			}
 		}
 	}
 
 	// As per Keyboard Layouts Doc, section 7.4.2
 	// Add a few more notable LSBs on row-staggered
-	switch layoutType {
+	switch sl.LayoutType {
 	case ROWSTAG:
-		LSBs = append(LSBs, LSBInfo{1, 26, 1.75})
-		LSBs = append(LSBs, LSBInfo{2, 27, 1.75})
-		LSBs = append(LSBs, LSBInfo{3, 28, 1.75})
+		sl.LSBs = append(sl.LSBs, LSBInfo{1, 26, 1.75})
+		sl.LSBs = append(sl.LSBs, LSBInfo{2, 27, 1.75})
+		sl.LSBs = append(sl.LSBs, LSBInfo{3, 28, 1.75})
 	case ANGLEMOD:
 		// only the middle - index situation is a stretch with anglemod
-		LSBs = append(LSBs, LSBInfo{3, 28, 1.75})
+		sl.LSBs = append(sl.LSBs, LSBInfo{3, 28, 1.75})
 	}
-
-	return LSBs
 }
 
 // ScissorInfo describes a scissor key-pair (full or half) including finger distance, row distance and angle.

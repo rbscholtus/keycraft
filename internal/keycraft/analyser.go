@@ -304,6 +304,7 @@ func (an *Analyser) SFBiDetails() *MetricDetails {
 		// Unsupported:  make(map[string]uint64),
 		NGramCount: make(map[string]uint64),
 		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
 	for bi, biCnt := range an.Corpus.Bigrams {
@@ -320,9 +321,14 @@ func (an *Analyser) SFBiDetails() *MetricDetails {
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
 			kp := KeyPair{key1.Index, key2.Index}
-			dist := an.Layout.KeyPairDistances[kp].Distance
-			ma.NGramDist[biStr] = dist
-			ma.TotalDist += dist * float64(biCnt)
+			kpDist := an.Layout.KeyPairDistances[kp]
+			ma.NGramDist[biStr] = kpDist.Distance
+			ma.TotalDist += kpDist.Distance * float64(biCnt)
+
+			if _, ok := ma.Custom[biStr]; !ok {
+				ma.Custom[biStr] = make(map[string]any)
+			}
+			ma.Custom[biStr]["Δrow"] = kpDist.RowDist
 		}
 	}
 
@@ -339,6 +345,7 @@ func (an *Analyser) LSBiDetails() *MetricDetails {
 		// Unsupported:  make(map[string]uint64),
 		NGramCount: make(map[string]uint64),
 		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
 	for _, lsb := range an.Layout.LSBs {
@@ -349,9 +356,14 @@ func (an *Analyser) LSBiDetails() *MetricDetails {
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
 			kp := KeyPair{uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].ColDist
-			ma.NGramDist[biStr] = dist
-			ma.TotalDist += dist * float64(biCnt)
+			kpDist := an.Layout.KeyPairDistances[kp]
+			ma.NGramDist[biStr] = kpDist.Distance
+			ma.TotalDist += kpDist.Distance * float64(biCnt)
+
+			if _, ok := ma.Custom[biStr]; !ok {
+				ma.Custom[biStr] = make(map[string]any)
+			}
+			ma.Custom[biStr]["Δcol"] = kpDist.ColDist
 		}
 	}
 
@@ -433,6 +445,7 @@ func (an *Analyser) SFSkpDetails() *MetricDetails {
 		// Unsupported:  make(map[string]uint64),
 		NGramCount: make(map[string]uint64),
 		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
 	for skp, skpCnt := range an.Corpus.Skipgrams {
@@ -449,9 +462,14 @@ func (an *Analyser) SFSkpDetails() *MetricDetails {
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
 			kp := KeyPair{key1.Index, key2.Index}
-			dist := an.Layout.KeyPairDistances[kp].Distance
-			ma.NGramDist[skpStr] = dist
-			ma.TotalDist += dist * float64(skpCnt)
+			kpDist := an.Layout.KeyPairDistances[kp]
+			ma.NGramDist[skpStr] = kpDist.Distance
+			ma.TotalDist += kpDist.Distance * float64(skpCnt)
+
+			if _, ok := ma.Custom[skpStr]; !ok {
+				ma.Custom[skpStr] = make(map[string]any)
+			}
+			ma.Custom[skpStr]["Δrow"] = kpDist.RowDist
 		}
 	}
 
@@ -468,6 +486,7 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 		// Unsupported:  make(map[string]uint64),
 		NGramCount: make(map[string]uint64),
 		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
 	for _, lsb := range an.Layout.LSBs {
@@ -478,9 +497,14 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
 			kp := KeyPair{uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].ColDist
-			ma.NGramDist[skpStr] = dist
-			ma.TotalDist += dist * float64(skpCnt)
+			kpDist := an.Layout.KeyPairDistances[kp]
+			ma.NGramDist[skpStr] = kpDist.Distance
+			ma.TotalDist += kpDist.Distance * float64(skpCnt)
+
+			if _, ok := ma.Custom[skpStr]; !ok {
+				ma.Custom[skpStr] = make(map[string]any)
+			}
+			ma.Custom[skpStr]["Δcol"] = kpDist.ColDist
 		}
 	}
 

@@ -218,6 +218,8 @@ func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weigh
 func renderTable(scores []LayoutScore, metrics []string, weights *Weights, deltas string, base *LayoutScore) {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
+	tw.Style().Box.PaddingLeft = ""
+	tw.Style().Box.PaddingRight = ""
 	tw.Style().Title.Align = text.AlignCenter
 	if base == nil {
 		tw.SetTitle("Layout Ranking")

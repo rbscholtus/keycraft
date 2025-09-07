@@ -21,6 +21,15 @@ const ( //\u00A0
    ╰───┴───┴───┼───┼───┼───┤  ├───┼───┼───┼───┴───┴───╯
                │%3s│%3s│%3s│  │%3s│%3s│%3s│            
                ╰───┴───┴───╯  ╰───┴───┴───╯            `
+	anglemodTempl = `╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮   
+│%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│   
+╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮ ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮  
+ │%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│  
+ ╰┬┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮
+  ╰┤%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│
+   ╰───┴───┴───┼───┼───┼───┤  ├───┼───┼───┼───┴───┴───╯
+               │%3s│%3s│%3s│  │%3s│%3s│%3s│            
+               ╰───┴───┴───╯  ╰───┴───┴───╯            `
 	orthoTempl = `╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮
 │%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│
 ├───┼───┼───┼───┼───┼───┤  ├───┼───┼───┼───┼───┼───┤
@@ -46,6 +55,8 @@ const ( //\u00A0
 // This is a cmd-level formatter (not a method on internal types).
 func SplitLayoutString(sl *kc.SplitLayout) string {
 	switch sl.LayoutType {
+	case kc.ANGLEMOD:
+		return genLayoutStringFor(sl, anglemodTempl, nil)
 	case kc.ORTHO:
 		return genLayoutStringFor(sl, orthoTempl, nil)
 	case kc.COLSTAG:
@@ -60,7 +71,7 @@ func SplitLayoutString(sl *kc.SplitLayout) string {
 			38, 39,
 		}
 		return genLayoutStringFor(sl, colstagTempl, mapper[:])
-	default:
+	default: // kc.ROWSTAG
 		return genLayoutStringFor(sl, rowstagTempl, nil)
 	}
 }
@@ -91,7 +102,6 @@ func genLayoutStringFor(sl *kc.SplitLayout, template string, mapper []int) strin
 // returns the combined string output.
 func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 	t := createSimpleTable()
-	t.SetStyle(table.StyleRounded)
 
 	// Collect unique custom keys
 	customKeys := []string{}
@@ -144,7 +154,10 @@ func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 func createSimpleTable() table.Writer {
 	tw := table.NewWriter()
 	tw.SetAutoIndex(true)
+	tw.SetStyle(table.StyleRounded)
 	tw.Style().Title.Align = text.AlignCenter
+	tw.Style().Box.PaddingLeft = ""
+	tw.Style().Box.PaddingRight = ""
 	tw.SetColumnConfigs([]table.ColumnConfig{
 		{Name: "orderby", Hidden: true},
 		{Name: "Distance", Transformer: Fraction, TransformerFooter: Fraction},
