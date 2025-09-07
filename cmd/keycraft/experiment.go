@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
@@ -16,10 +19,212 @@ var experimentCommand = &cli.Command{
 	Usage:     "Run experiments (for the developer)",
 	ArgsUsage: "<layout.klf>",
 	Flags:     flagsSlice("corpus", "weights-file", "weights", "free", "generations", "accept-worse"),
-	Action:    experimentAction,
+	Action:    DoExperiment3,
 }
 
-func experimentAction(c *cli.Context) error {
+type KeyInfo struct {
+	Row    int    `json:"row"`
+	Col    int    `json:"col"`
+	Finger string `json:"finger"`
+}
+
+type Layout struct {
+	Name   string `json:"name"`
+	User   any    `json:"user"`
+	Author string
+	Board  string             `json:"board"`
+	Keys   map[string]KeyInfo `json:"keys"`
+	Likes  uint
+}
+
+func DoExperiment3(c *cli.Context) (err error) {
+	// Load authors.json
+	authorsFile := "./authors.json"
+	authorsData, err := os.ReadFile(authorsFile)
+	if err != nil {
+		return fmt.Errorf("error reading %s: %v", authorsFile, err)
+	}
+	var authorsMap map[string]any
+	if err := json.Unmarshal(authorsData, &authorsMap); err != nil {
+		return fmt.Errorf("error parsing %s: %v", authorsFile, err)
+	}
+	// Reverse lookup: from int64 to string
+	reverseAuthors := make(map[any]string)
+	for name, id := range authorsMap {
+		reverseAuthors[id] = name
+	}
+
+	// Load likes.json
+	likesFile := "./likes.json"
+	likesData, err := os.ReadFile(likesFile)
+	if err != nil {
+		return fmt.Errorf("error reading %s: %v", likesFile, err)
+	}
+	var likeEntries map[string][]int64
+	if err := json.Unmarshal(likesData, &likeEntries); err != nil {
+		return fmt.Errorf("error parsing %s: %v", likesFile, err)
+	}
+	likesMap := make(map[string]uint)
+	for name, numbers := range likeEntries {
+		likesMap[name] = uint(len(numbers))
+	}
+
+	// load layouts
+	dir := "./cmini"
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	layouts := make([]Layout, 0, 3000)
+
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		path := filepath.Join(dir, f.Name())
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			fmt.Printf("error reading %s: %v\n", f.Name(), err)
+			continue
+		}
+
+		// skip files with "keys": {}
+		if strings.Contains(string(data), `"keys": {}`) {
+			continue
+		}
+
+		var layout Layout
+		if err := json.Unmarshal(data, &layout); err != nil {
+			fmt.Printf("error parsing %s: %v\n", f.Name(), err)
+			continue
+		}
+
+		// Check if all letters a-z are present in layout.Keys
+		if len(layout.Keys) < 26 {
+			continue
+		}
+		missingLetter := false
+		for r := 'a'; r <= 'z'; r++ {
+			if _, ok := layout.Keys[string(r)]; !ok {
+				missingLetter = true
+				break
+			}
+		}
+		if missingLetter {
+			continue
+		}
+
+		// Assign likes from likesMap
+		layout.Likes = likesMap[layout.Name]
+
+		// Assign author from reverseAuthors map if possible
+		if authorName, ok := reverseAuthors[layout.User]; ok {
+			layout.Author = authorName
+		}
+
+		// Skip layouts with 0 likes
+		if layout.Likes == 0 {
+			continue
+		}
+		layouts = append(layouts, layout)
+	}
+
+	// godump.Dump(layouts[0].Keys)
+
+	// Sort layouts by Likes descending
+	slices.SortFunc(layouts, func(a, b Layout) int {
+		if a.Likes > b.Likes {
+			return -1
+		}
+		if a.Likes < b.Likes {
+			return 1
+		}
+		return 0
+	})
+
+	for _, l := range layouts {
+		fmt.Printf("Name: %s, Author: %s, Board: %s, Keys: %d, Likes: %d\n",
+			l.Name, l.Author, l.Board, len(l.Keys), l.Likes)
+	}
+
+	// Count how many layouts each author has authored
+	authorCounts := make(map[string]int)
+	for _, layout := range layouts {
+		authorCounts[layout.Author]++
+	}
+
+	// Print authors and counts, sorted by count descending
+	fmt.Println("\nAuthors:")
+	type authorCount struct {
+		Author string
+		Count  int
+	}
+	var authorCountSlice []authorCount
+	for author, count := range authorCounts {
+		authorCountSlice = append(authorCountSlice, authorCount{Author: author, Count: count})
+	}
+	slices.SortFunc(authorCountSlice, func(a, b authorCount) int {
+		if a.Count > b.Count {
+			return -1
+		}
+		if a.Count < b.Count {
+			return 1
+		}
+		return 0
+	})
+	for _, ac := range authorCountSlice {
+		fmt.Printf("%s (%d layouts)\n", ac.Author, ac.Count)
+	}
+
+	return
+}
+
+func ExperimentAction(c *cli.Context) error {
+	_, err := loadCorpus(c.String("corpus"))
+	layout, err2 := loadLayout(c.Args().First())
+	if err != nil || err2 != nil {
+		return fmt.Errorf("sorry / %v / %v", err, err2)
+	}
+
+	tw := table.NewWriter()
+	tw.SetAutoIndex(true)
+	tw.SetColumnConfigs([]table.ColumnConfig{
+		{Name: "eucl.dist", Transformer: Fraction},
+	})
+	tw.AppendHeader(table.Row{"Idx1", "Idx2", "bi", "coldist", "rowdist", "fingerdist", "eucl.dist"})
+
+	for i := range 42 {
+		r := layout.Runes[i]
+		ki := layout.RuneInfo[r]
+		for j := range 42 {
+			r2 := layout.Runes[j]
+			ki2 := layout.RuneInfo[r2]
+			if (ki.Finger == kc.LM && ki2.Finger == kc.LI) ||
+				(ki.Finger == kc.RM && ki2.Finger == kc.RI) {
+				bi := string(r) + string(r2)
+				dist := layout.KeyPairDistances[kc.KeyPair{ki.Index, ki2.Index}]
+				if dist.Distance >= 2.0 {
+					tw.AppendRow(table.Row{ki.Index, ki2.Index, bi, dist.ColDist, dist.RowDist, dist.FingerDist, dist.Distance})
+				}
+			}
+		}
+	}
+
+	// fmt.Println(tw.Render())
+
+	fmt.Println(layout)
+	for _, lsb := range layout.LSBs {
+		bi := string(layout.Runes[lsb.KeyIdx1]) + string(layout.Runes[lsb.KeyIdx2])
+		fmt.Println(bi, " ", lsb)
+	}
+
+	return nil
+}
+
+func ExperimentAction2(c *cli.Context) error {
 	fmt.Println("Running experiment...")
 
 	// Load the corpus used for analysing layouts.

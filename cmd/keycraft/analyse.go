@@ -16,7 +16,7 @@ var analyseCommand = &cli.Command{
 	Aliases:   []string{"a"},
 	Usage:     "Analyse one or more keyboard layouts in detail",
 	ArgsUsage: "<layout1.klf> <layout2.klf> ...",
-	Flags:     flagsSlice("corpus"),
+	Flags:     flagsSlice("corpus", "rows"),
 	Action:    analyseAction,
 }
 
@@ -32,7 +32,7 @@ func analyseAction(c *cli.Context) error {
 		return fmt.Errorf("need at least 1 layout")
 	}
 
-	if err := DoAnalysis(corp, c.Args().Slice(), true); err != nil {
+	if err := DoAnalysis(corp, c.Args().Slice(), true, c.Int("rows")); err != nil {
 		return err
 	}
 	return nil
@@ -41,7 +41,7 @@ func analyseAction(c *cli.Context) error {
 // DoAnalysis loads analysers for the provided layouts, produces overview
 // rows (board, hand, row, stats) and optionally appends detailed metric
 // tables. The rendered table output is printed to stdout.
-func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool) error {
+func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool, nRows int) error {
 	// load an analyser for each layout
 	analysers := make([]*kc.Analyser, 0, len(layoutFilenames))
 	for _, fn := range layoutFilenames {
@@ -116,7 +116,7 @@ func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool) er
 			data := table.Row{ma.Metric}
 			for _, mas := range details {
 				// render MetricDetails via the cmd formatter
-				data = append(data, MetricDetailsString(mas[i]))
+				data = append(data, MetricDetailsString(mas[i], nRows))
 			}
 			twOuter.AppendRow(data)
 		}

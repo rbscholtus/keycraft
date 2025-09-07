@@ -93,6 +93,18 @@ var appFlagsMap = map[string]cli.Flag{
 		Usage:   fmt.Sprintf("accept-worse function (how likely is it a worse layout is accepted): %v", validAcceptFuncs),
 		Value:   "drop-slow",
 	},
+	"rows": &cli.IntFlag{
+		Name:    "rows",
+		Aliases: []string{"r"},
+		Usage:   "number of rows to show in data tables",
+		Value:   10,
+		Action: func(c *cli.Context, value int) error {
+			if value < 1 {
+				return fmt.Errorf("--rows must be at least 1 (got %d)", value)
+			}
+			return nil
+		},
+	},
 }
 
 // Helper: convert selected flag keys to a slice.

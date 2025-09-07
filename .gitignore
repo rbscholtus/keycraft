@@ -33,3 +33,7 @@ vendor/
 /data/layouts2
 /data/corpus/sources
 /*.klf
+/cmini/
+authors.json
+likes.json
+.gitignore

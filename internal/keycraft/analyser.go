@@ -107,20 +107,25 @@ func (an *Analyser) analyseBigrams() {
 			count1 += biCnt
 		}
 	}
+
 	for _, lsb := range an.Layout.LSBs {
-		bi := Bigram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		bi := Bigram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
 		if cnt, ok := an.Corpus.Bigrams[bi]; ok {
 			count2 += cnt
 		}
 	}
-	for _, sci := range an.Layout.Scissors {
+
+	for _, sci := range an.Layout.FScissors {
 		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
 		if cnt, ok := an.Corpus.Bigrams[bi]; ok {
-			if sci.rowDist > 1.5 {
-				count3 += cnt
-			} else {
-				count4 += cnt
-			}
+			count3 += cnt
+		}
+	}
+
+	for _, sci := range an.Layout.HScissors {
+		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		if cnt, ok := an.Corpus.Bigrams[bi]; ok {
+			count4 += cnt
 		}
 	}
 	factor := 100 / float64(an.Corpus.TotalBigramsCount)
@@ -143,22 +148,28 @@ func (an *Analyser) analyseSkipgrams() {
 			count1 += skpCnt
 		}
 	}
+
 	for _, lsb := range an.Layout.LSBs {
-		skp := Skipgram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		skp := Skipgram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
 		if cnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			count2 += cnt
 		}
 	}
-	for _, sci := range an.Layout.Scissors {
+
+	for _, sci := range an.Layout.FScissors {
 		skp := Skipgram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
 		if cnt, ok := an.Corpus.Skipgrams[skp]; ok {
-			if sci.rowDist > 1.5 {
-				count3 += cnt
-			} else {
-				count4 += cnt
-			}
+			count3 += cnt
 		}
 	}
+
+	for _, sci := range an.Layout.HScissors {
+		skp := Skipgram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		if cnt, ok := an.Corpus.Skipgrams[skp]; ok {
+			count4 += cnt
+		}
+	}
+
 	factor := 100 / float64(an.Corpus.TotalSkipgramsCount)
 	an.Metrics["SFS"] = float64(count1) * factor
 	an.Metrics["LSS"] = float64(count2) * factor
@@ -256,25 +267,25 @@ type MetricDetails struct {
 	Corpus       *Corpus
 	CorpusNGramC uint64
 	Metric       string
-	Unsupported  map[string]uint64
-	NGramCount   map[string]uint64
-	NGramDist    map[string]float64 // todo: change to a map for any ngram info
-	TotalNGrams  uint64
-	TotalDist    float64 // todo: do we need it?
-	Custom       map[string]map[string]any
+	// Unsupported  map[string]uint64
+	NGramCount  map[string]uint64
+	NGramDist   map[string]float64 // todo: change to a map for any ngram info
+	TotalNGrams uint64
+	TotalDist   float64 // todo: do we need it?
+	Custom      map[string]map[string]any
 }
 
 // AllMetricsDetails runs detailed analyses for multiple metrics, returning results for bigrams, skipgrams, and trigrams. Includes: SFB, LSB, FSB, HSB, SFS, LSS, FSS, HSS, ALT, 2RL, 3RL, and RED.
 func (an *Analyser) AllMetricsDetails() []*MetricDetails {
 	all := make([]*MetricDetails, 0, 30)
 
-	all = append(all, an.SFBDetails())
-	all = append(all, an.LSBDetails())
-	ma, ma2 := an.SBDetails()
+	all = append(all, an.SFBiDetails())
+	all = append(all, an.LSBiDetails())
+	ma, ma2 := an.ScissBiDetails()
 	all = append(all, ma, ma2)
-	all = append(all, an.SFSDetails())
-	all = append(all, an.LSSDetails())
-	ma3, ma4 := an.SSDetails()
+	all = append(all, an.SFSkpDetails())
+	all = append(all, an.LSSkpDetails())
+	ma3, ma4 := an.ScissSkpDetails()
 	all = append(all, ma3, ma4)
 	ta1, ta2, ta3, ta4 := an.TrigramDetails()
 	all = append(all, ta1, ta2, ta3, ta4)
@@ -282,17 +293,18 @@ func (an *Analyser) AllMetricsDetails() []*MetricDetails {
 	return all
 }
 
-// SFBDetails performs a detailed Same Finger Bigram (SFB) analysis.
+// SFBiDetails performs a detailed Same Finger Bigram (SFB) analysis.
 // It scans all bigrams in the corpus and identifies those typed with the same finger (but not the same key).
 // Unsupported bigrams (not present in the layout) are also tracked, and the Euclidean distance between keys is included.
-func (an *Analyser) SFBDetails() *MetricDetails {
+func (an *Analyser) SFBiDetails() *MetricDetails {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalBigramsCount,
 		Metric:       "SFB",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
 	for bi, biCnt := range an.Corpus.Bigrams {
@@ -301,7 +313,7 @@ func (an *Analyser) SFBDetails() *MetricDetails {
 		key2, ok2 := an.Layout.RuneInfo[bi[1]]
 
 		if !ok1 || !ok2 {
-			ma.Unsupported[biStr] += biCnt
+			// ma.Unsupported[biStr] += biCnt
 			continue
 		}
 
@@ -309,95 +321,131 @@ func (an *Analyser) SFBDetails() *MetricDetails {
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
 			kp := KeyPair{key1.Index, key2.Index}
-			dist := an.Layout.KeyPairDistances[kp].Distance
-			ma.NGramDist[biStr] = dist
-			ma.TotalDist += dist * float64(biCnt)
+			kpDist := an.Layout.KeyPairDistances[kp]
+			ma.NGramDist[biStr] = kpDist.Distance
+			ma.TotalDist += kpDist.Distance * float64(biCnt)
+
+			if _, ok := ma.Custom[biStr]; !ok {
+				ma.Custom[biStr] = make(map[string]any)
+			}
+			ma.Custom[biStr]["Δrow"] = kpDist.RowDist
 		}
 	}
 
 	return ma
 }
 
-// LSBDetails performs a detailed Lateral Stretch Bigram (LSB) analysis.
+// LSBiDetails performs a detailed Lateral Stretch Bigram (LSB) analysis.
 // Evaluates all layout-defined lateral stretch bigrams, returning their corpus frequency and column distance distribution.
-func (an *Analyser) LSBDetails() *MetricDetails {
+func (an *Analyser) LSBiDetails() *MetricDetails {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalBigramsCount,
 		Metric:       "LSB",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
 	for _, lsb := range an.Layout.LSBs {
-		bi := Bigram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		bi := Bigram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
 
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
-			kp := KeyPair{uint8(lsb.keyIdx1), uint8(lsb.keyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].ColDist
-			ma.NGramDist[biStr] = dist
-			ma.TotalDist += dist * float64(biCnt)
+			kp := KeyPair{uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2)}
+			kpDist := an.Layout.KeyPairDistances[kp]
+			ma.NGramDist[biStr] = kpDist.Distance
+			ma.TotalDist += kpDist.Distance * float64(biCnt)
+
+			if _, ok := ma.Custom[biStr]; !ok {
+				ma.Custom[biStr] = make(map[string]any)
+			}
+			ma.Custom[biStr]["Δcol"] = kpDist.ColDist
 		}
 	}
 
 	return ma
 }
 
-// SBDetails performs a detailed analysis of scissor bigrams, splitting into FSB (Full Scissor Bigrams, large vertical movement) and HSB (Half Scissor Bigrams, smaller vertical movement).
+// ScissBiDetails performs a detailed analysis of scissor bigrams, splitting into FSB (Full Scissor Bigrams, large vertical movement) and HSB (Half Scissor Bigrams, smaller vertical movement).
 // Returns both analyses, with row distance included for each.
-func (an *Analyser) SBDetails() (*MetricDetails, *MetricDetails) {
+func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalBigramsCount,
 		Metric:       "FSB",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 	ma2 := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalBigramsCount,
 		Metric:       "HSB",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
-	for _, sci := range an.Layout.Scissors {
+
+	for _, sci := range an.Layout.FScissors {
 		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
 			kp := KeyPair{uint8(sci.keyIdx1), uint8(sci.keyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].RowDist
-			if dist > 1.5 {
-				ma.NGramCount[biStr] = biCnt
-				ma.TotalNGrams += biCnt
-				ma.NGramDist[biStr] = dist
-				ma.TotalDist += dist * float64(biCnt)
-			} else {
-				ma2.NGramCount[biStr] = biCnt
-				ma2.TotalNGrams += biCnt
-				ma2.NGramDist[biStr] = dist
-				ma2.TotalDist += dist * float64(biCnt)
+			dist := an.Layout.KeyPairDistances[kp].Distance
+			ma.NGramCount[biStr] = biCnt
+			ma.TotalNGrams += biCnt
+			ma.NGramDist[biStr] = dist
+			ma.TotalDist += dist * float64(biCnt)
+
+			if _, ok := ma.Custom[biStr]; !ok {
+				ma.Custom[biStr] = make(map[string]any)
 			}
+			ma.Custom[biStr]["Δrow"] = sci.rowDist
+			ma.Custom[biStr]["Δcol"] = sci.colDist
+			ma.Custom[biStr]["Angle"] = sci.angle
 		}
 	}
+
+	for _, sci := range an.Layout.HScissors {
+		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
+			biStr := bi.String()
+			kp := KeyPair{uint8(sci.keyIdx1), uint8(sci.keyIdx2)}
+			dist := an.Layout.KeyPairDistances[kp].Distance
+			ma2.NGramCount[biStr] = biCnt
+			ma2.TotalNGrams += biCnt
+			ma2.NGramDist[biStr] = dist
+			ma2.TotalDist += dist * float64(biCnt)
+
+			if _, ok := ma.Custom[biStr]; !ok {
+				ma2.Custom[biStr] = make(map[string]any)
+			}
+			ma2.Custom[biStr]["Δrow"] = sci.rowDist
+			ma2.Custom[biStr]["Δcol"] = sci.colDist
+			ma2.Custom[biStr]["Angle"] = sci.angle
+		}
+	}
+
 	return ma, ma2
 }
 
-// SFSDetails performs a detailed Same Finger Skipgram (SFS) analysis.
+// SFSkpDetails performs a detailed Same Finger Skipgram (SFS) analysis.
 // All skipgrams typed with the same finger (but not the same key) are included, with unsupported skipgrams and Euclidean distances tracked.
-func (an *Analyser) SFSDetails() *MetricDetails {
+func (an *Analyser) SFSkpDetails() *MetricDetails {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalSkipgramsCount,
 		Metric:       "SFS",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
 	for skp, skpCnt := range an.Corpus.Skipgrams {
@@ -406,7 +454,7 @@ func (an *Analyser) SFSDetails() *MetricDetails {
 		key2, ok2 := an.Layout.RuneInfo[skp[1]]
 
 		if !ok1 || !ok2 {
-			ma.Unsupported[skpStr] += skpCnt
+			// ma.Unsupported[skpStr] += skpCnt
 			continue
 		}
 
@@ -414,82 +462,116 @@ func (an *Analyser) SFSDetails() *MetricDetails {
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
 			kp := KeyPair{key1.Index, key2.Index}
-			dist := an.Layout.KeyPairDistances[kp].Distance
-			ma.NGramDist[skpStr] = dist
-			ma.TotalDist += dist * float64(skpCnt)
+			kpDist := an.Layout.KeyPairDistances[kp]
+			ma.NGramDist[skpStr] = kpDist.Distance
+			ma.TotalDist += kpDist.Distance * float64(skpCnt)
+
+			if _, ok := ma.Custom[skpStr]; !ok {
+				ma.Custom[skpStr] = make(map[string]any)
+			}
+			ma.Custom[skpStr]["Δrow"] = kpDist.RowDist
 		}
 	}
 
 	return ma
 }
 
-// LSSDetails performs a detailed Lateral Stretch Skipgram (LSS) analysis.
+// LSSkpDetails performs a detailed Lateral Stretch Skipgram (LSS) analysis.
 // Evaluates all layout-defined lateral stretch skipgrams, reporting their frequency and column distance.
-func (an *Analyser) LSSDetails() *MetricDetails {
+func (an *Analyser) LSSkpDetails() *MetricDetails {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalSkipgramsCount,
 		Metric:       "LSS",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
 	for _, lsb := range an.Layout.LSBs {
-		skp := Skipgram{an.Layout.Runes[lsb.keyIdx1], an.Layout.Runes[lsb.keyIdx2]}
+		skp := Skipgram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
-			kp := KeyPair{uint8(lsb.keyIdx1), uint8(lsb.keyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].ColDist
-			ma.NGramDist[skpStr] = dist
-			ma.TotalDist += dist * float64(skpCnt)
+			kp := KeyPair{uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2)}
+			kpDist := an.Layout.KeyPairDistances[kp]
+			ma.NGramDist[skpStr] = kpDist.Distance
+			ma.TotalDist += kpDist.Distance * float64(skpCnt)
+
+			if _, ok := ma.Custom[skpStr]; !ok {
+				ma.Custom[skpStr] = make(map[string]any)
+			}
+			ma.Custom[skpStr]["Δcol"] = kpDist.ColDist
 		}
 	}
 
 	return ma
 }
 
-// SSDetails performs a detailed analysis of scissor skipgrams, splitting into FSS (Full Scissor Skipgrams, large vertical movement) and HSS (Half Scissor Skipgrams, smaller vertical movement).
+// ScissSkpDetails performs a detailed analysis of scissor skipgrams, splitting into FSS (Full Scissor Skipgrams, large vertical movement) and HSS (Half Scissor Skipgrams, smaller vertical movement).
 // Returns both analyses, including row distance for each skipgram.
-func (an *Analyser) SSDetails() (*MetricDetails, *MetricDetails) {
+func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalSkipgramsCount,
 		Metric:       "FSS",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 	ma2 := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalSkipgramsCount,
 		Metric:       "HSS",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
-	for _, sci := range an.Layout.Scissors {
+	for _, sci := range an.Layout.FScissors {
 		skp := Skipgram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
 			kp := KeyPair{uint8(sci.keyIdx1), uint8(sci.keyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].RowDist
-			if dist > 1.5 {
-				ma.NGramCount[skpStr] = skpCnt
-				ma.TotalNGrams += skpCnt
-				ma.NGramDist[skpStr] = dist
-				ma.TotalDist += dist * float64(skpCnt)
-			} else {
-				ma2.NGramCount[skpStr] = skpCnt
-				ma2.TotalNGrams += skpCnt
-				ma2.NGramDist[skpStr] = dist
-				ma2.TotalDist += dist * float64(skpCnt)
+			dist := an.Layout.KeyPairDistances[kp].Distance
+			ma.NGramCount[skpStr] = skpCnt
+			ma.TotalNGrams += skpCnt
+			ma.NGramDist[skpStr] = dist
+			ma.TotalDist += dist * float64(skpCnt)
+
+			if _, ok := ma.Custom[skpStr]; !ok {
+				ma.Custom[skpStr] = make(map[string]any)
 			}
+			ma.Custom[skpStr]["Δrow"] = sci.rowDist
+			ma.Custom[skpStr]["Δcol"] = sci.colDist
+			ma.Custom[skpStr]["Angle"] = sci.angle
+		}
+	}
+
+	for _, sci := range an.Layout.HScissors {
+		skp := Skipgram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
+			skpStr := skp.String()
+
+			kp := KeyPair{uint8(sci.keyIdx1), uint8(sci.keyIdx2)}
+			dist := an.Layout.KeyPairDistances[kp].Distance
+			ma2.NGramCount[skpStr] = skpCnt
+			ma2.TotalNGrams += skpCnt
+			ma2.NGramDist[skpStr] = dist
+			ma2.TotalDist += dist * float64(skpCnt)
+
+			if _, ok := ma.Custom[skpStr]; !ok {
+				ma2.Custom[skpStr] = make(map[string]any)
+			}
+			ma2.Custom[skpStr]["Δrow"] = sci.rowDist
+			ma2.Custom[skpStr]["Δcol"] = sci.colDist
+			ma2.Custom[skpStr]["Angle"] = sci.angle
 		}
 	}
 
@@ -508,37 +590,37 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalTrigramsCount,
 		Metric:       "ALT",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
-		Custom:       make(map[string]map[string]any),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 	rl2 := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalTrigramsCount,
 		Metric:       "2RL",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
-		Custom:       make(map[string]map[string]any),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 	rl3 := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalTrigramsCount,
 		Metric:       "3RL",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
-		Custom:       make(map[string]map[string]any),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 	red := &MetricDetails{
 		Corpus:       an.Corpus,
 		CorpusNGramC: an.Corpus.TotalTrigramsCount,
 		Metric:       "RED",
-		Unsupported:  make(map[string]uint64),
-		NGramCount:   make(map[string]uint64),
-		NGramDist:    make(map[string]float64),
-		Custom:       make(map[string]map[string]any),
+		// Unsupported:  make(map[string]uint64),
+		NGramCount: make(map[string]uint64),
+		NGramDist:  make(map[string]float64),
+		Custom:     make(map[string]map[string]any),
 	}
 
 	for tri, cnt := range an.Corpus.Trigrams {

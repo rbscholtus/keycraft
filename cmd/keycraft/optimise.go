@@ -19,7 +19,7 @@ var optimiseCommand = &cli.Command{
 	Aliases:   []string{"o"},
 	Usage:     "Optimise a keyboard layout",
 	ArgsUsage: "<layout.klf>",
-	Flags:     flagsSlice("corpus", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse"),
+	Flags:     flagsSlice("corpus", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse", "rows"),
 	Action:    optimiseAction,
 }
 
@@ -89,7 +89,7 @@ func optimiseAction(c *cli.Context) error {
 	layoutsToCompare := []string{layoutFile, bestFilename}
 
 	// Call DoAnalysis with the layouts
-	if err := DoAnalysis(corpus, layoutsToCompare, false); err != nil {
+	if err := DoAnalysis(corpus, layoutsToCompare, false, c.Int("rows")); err != nil {
 		return fmt.Errorf("failed to perform layout analysis: %v", err)
 	}
 

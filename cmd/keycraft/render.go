@@ -21,6 +21,15 @@ const ( //\u00A0
    ╰───┴───┴───┼───┼───┼───┤  ├───┼───┼───┼───┴───┴───╯
                │%3s│%3s│%3s│  │%3s│%3s│%3s│            
                ╰───┴───┴───╯  ╰───┴───┴───╯            `
+	anglemodTempl = `╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮   
+│%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│   
+╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮ ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮  
+ │%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│  
+ ╰┬┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮
+  ╰┤%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│
+   ╰───┴───┴───┼───┼───┼───┤  ├───┼───┼───┼───┴───┴───╯
+               │%3s│%3s│%3s│  │%3s│%3s│%3s│            
+               ╰───┴───┴───╯  ╰───┴───┴───╯            `
 	orthoTempl = `╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮
 │%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│
 ├───┼───┼───┼───┼───┼───┤  ├───┼───┼───┼───┼───┼───┤
@@ -46,6 +55,8 @@ const ( //\u00A0
 // This is a cmd-level formatter (not a method on internal types).
 func SplitLayoutString(sl *kc.SplitLayout) string {
 	switch sl.LayoutType {
+	case kc.ANGLEMOD:
+		return genLayoutStringFor(sl, anglemodTempl, nil)
 	case kc.ORTHO:
 		return genLayoutStringFor(sl, orthoTempl, nil)
 	case kc.COLSTAG:
@@ -60,7 +71,7 @@ func SplitLayoutString(sl *kc.SplitLayout) string {
 			38, 39,
 		}
 		return genLayoutStringFor(sl, colstagTempl, mapper[:])
-	default:
+	default: // kc.ROWSTAG
 		return genLayoutStringFor(sl, rowstagTempl, nil)
 	}
 }
@@ -89,9 +100,8 @@ func genLayoutStringFor(sl *kc.SplitLayout, template string, mapper []int) strin
 
 // MetricDetailsString renders MetricDetails as a paginated pretty table and
 // returns the combined string output.
-func MetricDetailsString(ma *kc.MetricDetails) string {
+func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 	t := createSimpleTable()
-	t.SetStyle(table.StyleRounded)
 
 	// Collect unique custom keys
 	customKeys := []string{}
@@ -103,10 +113,11 @@ func MetricDetailsString(ma *kc.MetricDetails) string {
 				customKeys = append(customKeys, k)
 			}
 		}
+		break // we don't need to visit all rows - they all have the same custom fields
 	}
 
 	// Header
-	header := table.Row{"orderby", ma.Metric, "Dist", "Count", "%"}
+	header := table.Row{"orderby", ma.Metric, "Count", "%", "Dist"}
 	for _, ck := range customKeys {
 		header = append(header, ck)
 	}
@@ -117,9 +128,9 @@ func MetricDetailsString(ma *kc.MetricDetails) string {
 		row := []any{
 			ma.NGramCount[ngram],
 			ngram,
-			ma.NGramDist[ngram],
 			ma.NGramCount[ngram],
 			float64(ma.NGramCount[ngram]) / float64(ma.CorpusNGramC),
+			ma.NGramDist[ngram],
 		}
 		for _, ck := range customKeys {
 			if fields, ok := ma.Custom[ngram]; ok {
@@ -131,27 +142,32 @@ func MetricDetailsString(ma *kc.MetricDetails) string {
 		t.AppendRow(row)
 	}
 
-	footer := table.Row{"", "", "", ma.TotalNGrams, float64(ma.TotalNGrams) / float64(ma.CorpusNGramC)}
+	footer := table.Row{"", "", ma.TotalNGrams, float64(ma.TotalNGrams) / float64(ma.CorpusNGramC)}
 	for range customKeys {
 		footer = append(footer, "")
 	}
 	t.AppendFooter(footer)
 
-	return t.Pager(table.PageSize(15)).Render()
+	return t.Pager(table.PageSize(nrows)).Render()
 }
 
 func createSimpleTable() table.Writer {
 	tw := table.NewWriter()
 	tw.SetAutoIndex(true)
+	tw.SetStyle(table.StyleRounded)
 	tw.Style().Title.Align = text.AlignCenter
+	tw.Style().Box.PaddingLeft = ""
+	tw.Style().Box.PaddingRight = ""
 	tw.SetColumnConfigs([]table.ColumnConfig{
 		{Name: "orderby", Hidden: true},
 		{Name: "Distance", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Dist", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Row", Transformer: Fraction},
-		{Name: "Angle", Transformer: Fraction},
 		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
 		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
+		{Name: "Δrow", Transformer: Fraction, TransformerFooter: Fraction},
+		{Name: "Δcol", Transformer: Fraction, TransformerFooter: Fraction},
+		{Name: "Angle", Transformer: Angle, TransformerFooter: Angle},
 	})
 	tw.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
 	return tw
@@ -349,6 +365,19 @@ func Fraction(val any) string {
 		return fmt.Sprintf("%.2f", number)
 	}
 	return fmt.Sprintf("%v", val)
+}
+
+// Angle formats a numeric value as a degree string with one decimal for floats, or integer for ints.
+// Floats (float32, float64) are formatted as "%.1f°", ints as "%d°", others with fmt.Sprint.
+func Angle(val any) string {
+	switch v := val.(type) {
+	case float32, float64:
+		return fmt.Sprintf("%.1f°", v)
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprintf("%d°", v)
+	default:
+		return fmt.Sprint(val)
+	}
 }
 
 // Percentage formats a fractional value (0..1) as a percentage string with two decimals.

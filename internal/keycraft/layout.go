@@ -7,8 +7,10 @@ package keycraft
 import (
 	"bufio"
 	"fmt"
+	"maps"
 	"math"
 	"os"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -27,20 +29,36 @@ const (
 	RP
 )
 
-var colToFingerMap = [...]uint8{
+var keyToFinger = [...]uint8{
 	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
 	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
 	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
 	LT, LT, LT, RT, RT, RT,
 }
 
-type LayoutType string
+var angleModKeyToFinger = [...]uint8{
+	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
+	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
+	LP, LR, LM, LI, LI, LI, RI, RI, RM, RR, RP, RP,
+	LT, LT, LT, RT, RT, RT,
+}
+
+type LayoutType uint8
 
 const (
-	ROWSTAG LayoutType = "rowstag"
-	ORTHO   LayoutType = "ortho"
-	COLSTAG LayoutType = "colstag"
+	ROWSTAG LayoutType = iota
+	ANGLEMOD
+	ORTHO
+	COLSTAG
 )
+
+// Map from LayoutType to string
+var layoutTypeStrings = map[LayoutType]string{
+	ROWSTAG:  "rowstag",
+	ANGLEMOD: "anglemod",
+	ORTHO:    "ortho",
+	COLSTAG:  "colstag",
+}
 
 // Standard row-staggered keyboard column offsets
 var rowStagOffsets = [4]float64{
@@ -59,8 +77,7 @@ const (
 
 // KeyInfo represents a key's position on a keyboard
 type KeyInfo struct {
-	// Char   rune
-	Index  uint8
+	Index  uint8 // 0-41
 	Hand   uint8 // LEFT or RIGHT
 	Row    uint8 // 0-3
 	Column uint8 // 0-11 for Row=0-2, 0-5 for Row=3
@@ -68,8 +85,8 @@ type KeyInfo struct {
 }
 
 // NewKeyInfo returns a new KeyInfo struct with some fields derived from row and col.
-func NewKeyInfo(row, col uint8) KeyInfo {
-	if col >= uint8(len(colToFingerMap)) {
+func NewKeyInfo(row, col uint8, layoutType LayoutType) KeyInfo {
+	if col >= uint8(len(keyToFinger)) {
 		panic(fmt.Sprintf("col exceeds max value: %d", col))
 	}
 	if row > 3 {
@@ -88,7 +105,12 @@ func NewKeyInfo(row, col uint8) KeyInfo {
 		hand = LEFT
 	}
 
-	finger := colToFingerMap[index]
+	var finger uint8
+	if layoutType == ANGLEMOD {
+		finger = angleModKeyToFinger[index]
+	} else {
+		finger = keyToFinger[index]
+	}
 
 	return KeyInfo{
 		Index:  index,
@@ -123,8 +145,9 @@ type SplitLayout struct {
 	GetColDist       func(uint8, uint8, uint8, uint8) float64 // computes column distance between two keys
 	KeyPairDistances map[KeyPair]KeyPairDistance              // cache of distances between key index pairs
 	LSBs             []LSBInfo                                // notable lateral-stretch bigram key-pairs
-	Scissors         []ScissorInfo                            // notable scissor key-pairs (full/half)
-	optPinned        [42]bool                                 // flags indicating keys that must not be moved
+	FScissors        []ScissorInfo                            // notable full scissor key-pairs
+	HScissors        []ScissorInfo                            // notable half scissor key-pairs
+	optPinned        [42]bool                                 // optimisation: flags indicating keys that must not be moved
 	optCorpus        *Corpus                                  // optimisation: corpus used during layout optimisation (optional)
 	optWeights       *Weights                                 // optimisation: metric weights used (optional)
 	optMedians       map[string]float64                       // optimisation: median values per metric (optional)
@@ -134,12 +157,10 @@ type SplitLayout struct {
 // NewSplitLayout creates a new split layout
 func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
 	rowDistFunc := IfThen(layoutType == COLSTAG, AbsRowDistAdj, AbsRowDist)
-	colDistFunc := IfThen(layoutType == ROWSTAG, AbsColDistAdj, AbsColDist)
-	keyDistances := getKeyDistances(rowDistFunc, colDistFunc)
-	lsbs := calcLSBKeyPairs(runes, runeInfo, keyDistances, layoutType)
-	scissors := calcScissorKeyPairs(runes, keyDistances)
+	colDistFunc := IfThen(layoutType == ROWSTAG || layoutType == ANGLEMOD, AbsColDistAdj, AbsColDist)
+	keyDistances := getKeyDistances(rowDistFunc, colDistFunc, IfThen(layoutType == ANGLEMOD, angleModKeyToFinger, keyToFinger))
 
-	return &SplitLayout{
+	sl := &SplitLayout{
 		Name:             name,
 		LayoutType:       layoutType,
 		Runes:            runes,
@@ -147,9 +168,11 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 		GetRowDist:       rowDistFunc,
 		GetColDist:       colDistFunc,
 		KeyPairDistances: keyDistances,
-		LSBs:             lsbs,
-		Scissors:         scissors,
 	}
+	sl.initLSBs()
+	sl.initFScissors()
+	sl.initHScissors()
+	return sl
 }
 
 func (sl *SplitLayout) String() string {
@@ -164,25 +187,33 @@ func (sl *SplitLayout) String() string {
 		default:
 			sb.WriteRune(r)
 		}
+		sb.WriteRune(' ')
 	}
 
 	sb.WriteRune('\n')
 	for row := range 3 {
+		if sl.LayoutType == ANGLEMOD && row == 2 {
+			sb.WriteRune(' ')
+		}
 		for col := range 12 {
 			idx := row*12 + col
 			writeRune(sl.Runes[idx])
 			if col == 5 {
 				sb.WriteRune(' ')
+				if sl.LayoutType != ANGLEMOD || row != 2 {
+					sb.WriteRune(' ')
+				}
 			}
 		}
 		sb.WriteRune('\n')
 	}
 
-	sb.WriteString("   ")
+	sb.WriteString("      ")
 	for col := range 6 {
 		idx := 36 + col
 		writeRune(sl.Runes[idx])
 		if col == 2 {
+			sb.WriteRune(' ')
 			sb.WriteRune(' ')
 		}
 	}
@@ -232,16 +263,19 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 
 	var layoutType LayoutType
 	layoutTypeStr = strings.ToLower(layoutTypeStr)
-	switch {
+	switch { // must include all of layoutTypeStrings
 	case strings.HasPrefix(layoutTypeStr, "rowstag"):
 		layoutType = ROWSTAG
+	case strings.HasPrefix(layoutTypeStr, "anglemod"):
+		layoutType = ANGLEMOD
 	case strings.HasPrefix(layoutTypeStr, "ortho"):
 		layoutType = ORTHO
 	case strings.HasPrefix(layoutTypeStr, "colstag"):
 		layoutType = COLSTAG
 	default:
-		types := []LayoutType{ROWSTAG, ORTHO, COLSTAG}
-		return nil, fmt.Errorf("invalid layout type in %s: %s. Must start with one of: %v", path, layoutTypeStr, types)
+		types := slices.Collect(maps.Values(layoutTypeStrings))
+		return nil, fmt.Errorf("invalid layout type in %s: %s. Must start with one of: %v",
+			path, layoutTypeStr, types)
 	}
 
 	var runeArray [42]rune
@@ -256,7 +290,8 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 		}
 		keys := strings.Fields(line)
 		if len(keys) != expectedKeyCount {
-			return nil, fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", path, row+1, len(keys), expectedKeyCount)
+			return nil, fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d",
+				path, row+1, len(keys), expectedKeyCount)
 		}
 
 		for col, key := range keys {
@@ -271,7 +306,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 			runeArray[index] = r
 			index++
 			if r != rune(0) {
-				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col))
+				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col), layoutType)
 			}
 		}
 	}
@@ -311,13 +346,19 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 	}
 
 	// Write layout type
-	_, _ = fmt.Fprintln(writer, strings.ToLower(string(sl.LayoutType)))
+	_, _ = fmt.Fprintln(writer, layoutTypeStrings[sl.LayoutType])
 
 	// Write main keys
 	for row := range 3 {
+		if sl.LayoutType == ANGLEMOD && row == 2 {
+			_, _ = fmt.Fprint(writer, " ")
+		}
 		for col := range 12 {
 			if col == 6 {
 				_, _ = fmt.Fprint(writer, " ")
+				if sl.LayoutType != ANGLEMOD || row != 2 {
+					_, _ = fmt.Fprint(writer, " ")
+				}
 			}
 			writeRune(sl.Runes[row*12+col])
 			if col < 11 {
@@ -331,7 +372,7 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 	_, _ = fmt.Fprint(writer, "      ")
 	for col := range 6 {
 		if col == 3 {
-			_, _ = fmt.Fprint(writer, " ")
+			_, _ = fmt.Fprint(writer, "  ")
 		}
 		writeRune(sl.Runes[36+col])
 		if col < 5 {
@@ -468,7 +509,11 @@ func readLine(scanner *bufio.Scanner) (string, error) {
 }
 
 // There is a minor error in the calcs for the thumb keys!
-func getKeyDistances(rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64, colDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64) map[KeyPair]KeyPairDistance {
+func getKeyDistances(
+	rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
+	colDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
+	keyToFinger [42]uint8,
+) map[KeyPair]KeyPairDistance {
 	keyDistances := make(map[KeyPair]KeyPairDistance)
 
 	sqrt := func(mul float64) float64 {
@@ -517,7 +562,7 @@ func getKeyDistances(rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 u
 			keyDistances[KeyPair{k1, k2}] = KeyPairDistance{
 				RowDist:    dy,
 				ColDist:    dx,
-				FingerDist: absDist(colToFingerMap[k1], colToFingerMap[k2]),
+				FingerDist: absDist(keyToFinger[k1], keyToFinger[k2]),
 				Distance:   dist,
 			}
 		}
@@ -546,12 +591,13 @@ func AbsColDistAdj(row1, col1, row2, col2 uint8) float64 {
 
 // LSBInfo holds information about a lateral-stretch bigram candidate on the layout.
 type LSBInfo struct {
-	keyIdx1     int
-	keyIdx2     int
-	colDistance float64
+	KeyIdx1     int
+	KeyIdx2     int
+	ColDistance float64
 }
 
-func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map[KeyPair]KeyPairDistance, layoutType LayoutType) []LSBInfo {
+// Initialize LSB key-pairs
+func (sl *SplitLayout) initLSBs() {
 	// Which two fingers (nrs 0..9) may form pairs,
 	// and what it the minimum distance (2.0 or 3.5) to note them
 	// Each pair is noted in both directions
@@ -564,23 +610,22 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map
 		{RP, RR}: 2.0, {RR, RP}: 2.0,
 	}
 
-	// LSBs we're going to find and track
-	LSBs := []LSBInfo{}
+	sl.LSBs = make([]LSBInfo, 0)
 
-	for key1, rune1 := range runes {
+	for key1, rune1 := range sl.Runes {
 		if rune1 == 0 {
 			continue
 		}
-		ri1, ok1 := runeInfo[rune1]
+		ri1, ok1 := sl.RuneInfo[rune1]
 		if !ok1 {
 			continue
 		}
 
-		for key2, rune2 := range runes {
+		for key2, rune2 := range sl.Runes {
 			if rune2 == 0 || key1 == key2 {
 				continue
 			}
-			ri2, ok2 := runeInfo[rune2]
+			ri2, ok2 := sl.RuneInfo[rune2]
 			if !ok2 {
 				continue
 			}
@@ -593,22 +638,24 @@ func calcLSBKeyPairs(runes [42]rune, runeInfo map[rune]KeyInfo, keyPairDists map
 			}
 
 			// Get horizontal distance and add
-			dx := keyPairDists[KeyPair{uint8(key1), uint8(key2)}].ColDist
+			dx := sl.KeyPairDistances[KeyPair{uint8(key1), uint8(key2)}].ColDist
 			if dx >= minHorDistance {
-				LSBs = append(LSBs, LSBInfo{key1, key2, dx})
+				sl.LSBs = append(sl.LSBs, LSBInfo{key1, key2, dx})
 			}
 		}
 	}
 
-	// As per Keyboard Layout Doc, section 7.4.2
+	// As per Keyboard Layouts Doc, section 7.4.2
 	// Add a few more notable LSBs on row-staggered
-	if layoutType == ROWSTAG {
-		LSBs = append(LSBs, LSBInfo{1, 26, 1.75})
-		LSBs = append(LSBs, LSBInfo{2, 27, 1.75})
-		LSBs = append(LSBs, LSBInfo{3, 28, 1.75})
+	switch sl.LayoutType {
+	case ROWSTAG:
+		sl.LSBs = append(sl.LSBs, LSBInfo{1, 26, 1.75})
+		sl.LSBs = append(sl.LSBs, LSBInfo{2, 27, 1.75})
+		sl.LSBs = append(sl.LSBs, LSBInfo{3, 28, 1.75})
+	case ANGLEMOD:
+		// only the middle - index situation is a stretch with anglemod
+		sl.LSBs = append(sl.LSBs, LSBInfo{3, 28, 1.75})
 	}
-
-	return LSBs
 }
 
 // ScissorInfo describes a scissor key-pair (full or half) including finger distance, row distance and angle.
@@ -617,109 +664,124 @@ type ScissorInfo struct {
 	keyIdx2    uint8
 	fingerDist uint8
 	rowDist    float64
+	colDist    float64
 	angle      float64
 }
 
-func calcScissorKeyPairs(runes [42]rune, keyPairDists map[KeyPair]KeyPairDistance) []ScissorInfo {
-	var indexPairs = []KeyPair{
-		// Full Scissors
-		// left-hand side
-		{26, 1},
-		{27, 2},
-		{27, 4},
-		{27, 5},
-		{26, 4},
-		{26, 5},
-		{27, 1},
-		// right-hand side
-		{33, 10},
-		{32, 9},
-		{32, 7},
-		{32, 6},
-		{33, 7},
-		{33, 6},
-		{32, 10},
-		// pinky is lower than the ring
-		{25, 2},
-		{26, 3},
-		{34, 9},
-		{33, 8},
-		// Half Scissors
-		// left-hand side, row 0/1
-		{14, 1},
-		{15, 2},
-		{15, 4},
-		{15, 5},
-		{14, 4},
-		{14, 5},
-		{15, 1},
-		// left-hand, row 1/2
-		{26, 13},
-		{27, 14},
-		{27, 16},
-		{27, 17},
-		{26, 16},
-		{26, 17},
-		{27, 13},
-		// right-hand side, row 0/1
-		{21, 10},
-		{20, 9},
-		{20, 7},
-		{20, 6},
-		{21, 7},
-		{21, 6},
-		{20, 10},
-		// right-hand, row 1/2
-		{33, 22},
-		{32, 21},
-		{32, 19},
-		{32, 18},
-		{33, 19},
-		{33, 18},
-		{32, 22},
-		// // pinky is lower than the ring, row 0/1
-		// {13, 2},
-		// {14, 3},
-		// {22, 9},
-		// {21, 8},
-		// // pinky is lower than the ring, row 1/2
-		// {25, 14},
-		// {26, 15},
-		// {34, 21},
-		// {33, 20},
+// Helper to make map from slice of pairs
+func makePairs(pairs [][2]uint8) map[[2]uint8]bool {
+	m := make(map[[2]uint8]bool, len(pairs))
+	for _, p := range pairs {
+		m[p] = true
 	}
+	return m
+}
 
-	// Scissors we're going to find and track
-	var scissors []ScissorInfo
-	for _, idxPair := range indexPairs {
-		r0, r1 := runes[idxPair[0]], runes[idxPair[1]]
-		if r0 == 0 || r1 == 0 {
-			// key on layout has no character
-			continue
+// A config holds index ranges and the valid finger pair map
+type scissorConfig struct {
+	i1Start, i1End uint8
+	i2Start, i2End uint8
+	fingerPairs    map[[2]uint8]bool
+}
+
+// Helper to initialize scissor pairs
+func (sl *SplitLayout) initScissorPairs(configs []scissorConfig, out *[]ScissorInfo) {
+	var i1, i2 uint8
+	for _, cfg := range configs {
+		for i1 = cfg.i1Start; i1 <= cfg.i1End; i1++ {
+			r1 := sl.Runes[i1]
+			if r1 == 0 {
+				continue
+			}
+			ki1 := sl.RuneInfo[r1]
+
+			for i2 = cfg.i2Start; i2 <= cfg.i2End; i2++ {
+				r2 := sl.Runes[i2]
+				if r2 == 0 {
+					continue
+				}
+				ki2 := sl.RuneInfo[r2]
+
+				if cfg.fingerPairs[[2]uint8{ki1.Finger, ki2.Finger}] {
+					kp := sl.KeyPairDistances[KeyPair{uint8(i1), uint8(i2)}]
+					angle := math.Atan2(kp.RowDist, kp.ColDist) * 180 / math.Pi
+
+					*out = append(*out,
+						ScissorInfo{uint8(i1), uint8(i2), kp.FingerDist, kp.RowDist, kp.ColDist, angle},
+						ScissorInfo{uint8(i2), uint8(i1), kp.FingerDist, kp.RowDist, kp.ColDist, angle},
+					)
+				}
+			}
 		}
-
-		kp := keyPairDists[idxPair]
-		dx := kp.ColDist
-		dy := kp.RowDist
-		angle := math.Atan2(dy, dx) * 180 / math.Pi
-
-		// Add the new pair (bi-directional)
-		scissors = append(scissors, ScissorInfo{
-			keyIdx1:    idxPair[0],
-			keyIdx2:    idxPair[1],
-			fingerDist: kp.FingerDist,
-			rowDist:    dy,
-			angle:      angle,
-		}, ScissorInfo{
-			keyIdx1:    idxPair[1],
-			keyIdx2:    idxPair[0],
-			fingerDist: kp.FingerDist,
-			rowDist:    dy,
-			angle:      angle,
-		})
 	}
+}
 
-	// godump.Dump(scissors)
+// Initializes full scissors
+func (sl *SplitLayout) initFScissors() {
+	configs := []scissorConfig{
+		{
+			i1Start: 24, i1End: 29, // left-hand indices
+			i2Start: 0, i2End: 5,
+			fingerPairs: makePairs([][2]uint8{
+				{LM, LP}, {LM, LR}, {LM, LI}, // LM with anything else
+				{LR, LP}, {LR, LI}, // LR with LP and LI
+				{LP, LR}, {LR, LM}, // LP is lower than LR, LR is lower than LM
+			}),
+		},
+		{
+			i1Start: 30, i1End: 35, // right-hand indices
+			i2Start: 6, i2End: 11,
+			fingerPairs: makePairs([][2]uint8{
+				{RM, RI}, {RM, RR}, {RM, RP},
+				{RR, RP}, {RR, RI},
+				{RP, RR}, {RR, RM},
+			}),
+		},
+	}
+	sl.FScissors = make([]ScissorInfo, 0, 48)
+	sl.initScissorPairs(configs, &sl.FScissors)
+}
 
-	return scissors
+// Initializes half scissors
+func (sl *SplitLayout) initHScissors() {
+	configs := []scissorConfig{
+		{
+			i1Start: 12, i1End: 17, // left-hand indices
+			i2Start: 0, i2End: 5,
+			fingerPairs: makePairs([][2]uint8{
+				{LM, LP}, {LM, LR}, {LM, LI}, // LM with anything else
+				{LR, LP}, {LR, LI}, // LR with LP and LI
+				// {LP, LR}, {LR, LM}, // LP is lower than LR, LR is lower than LM
+			}),
+		},
+		{
+			i1Start: 24, i1End: 29,
+			i2Start: 12, i2End: 17,
+			fingerPairs: makePairs([][2]uint8{
+				{LM, LP}, {LM, LR}, {LM, LI},
+				{LR, LP}, {LR, LI},
+				// {LP, LR}, {LR, LM},
+			}),
+		},
+		{
+			i1Start: 18, i1End: 23,
+			i2Start: 6, i2End: 11,
+			fingerPairs: makePairs([][2]uint8{
+				{RM, RI}, {RM, RR}, {RM, RP},
+				{RR, RP}, {RR, RI},
+				// {RP, RR}, {RR, RM},
+			}),
+		},
+		{
+			i1Start: 30, i1End: 35,
+			i2Start: 18, i2End: 23,
+			fingerPairs: makePairs([][2]uint8{
+				{RM, RI}, {RM, RR}, {RM, RP},
+				{RR, RP}, {RR, RI},
+				// {RP, RR}, {RR, RM},
+			}),
+		},
+	}
+	sl.HScissors = make([]ScissorInfo, 0, 72)
+	sl.initScissorPairs(configs, &sl.HScissors)
 }

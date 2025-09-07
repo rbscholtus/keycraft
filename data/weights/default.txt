@@ -1,36 +1,43 @@
 # just some reasonable default weights
+# Docs: https://github.com/rbscholtus/keycraft
 
 SFB = -6.0
 LSB = -4.0
 FSB = -3.0
 HSB = -3.0
+
 SFS = -1.5
 LSS = -1.0
 FSS = -0.75
 HSS = -0.75
 
-ALT-SFS = -1.0
-ALT-OTH = 2
-#sum: ALT = 2
+#ALT = ALT-SFS + ALT-OTH
+#ALT-SFS = -1.0
+ALT-OTH = 4
+#ALT = 0
 
-2RL-SFB = -0.5
-#2RL-IN
-#2RL-OUT
-2RL = 2
+#2RL = 2RL-IN + 2RL-OUT
+2RL = 3
+#2RL-SFB = -0.5
+#2RL-IN = 0
+#2RL-OUT = 0
 
-3RL-SFS = -0.5
-#3RL-IN
-#3RL-OUT
+#3RL = 3RL-IN + 3RL-OUT
 3RL = 1
+#3RL-SFS = -0.5
+#3RL-IN = 0
+#3RL-OUT = 0
 
+#RED = RED-WEAK + RED-SFS + RED-OTH
+RED = -0.001
 RED-WEAK = -2
 #RED-SFS = -2
-#RED-OTH = -2
-RED = -2
+RED-OTH = -2
 
 #IN:OUT
-FBL = -3.0
-POH = -3.0
+FBL = -2.0
+POH = -2.0
+
 
 #F0 = -0.5
 #F1 = -0.5
