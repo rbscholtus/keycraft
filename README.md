@@ -90,7 +90,7 @@ keycraft optimise --pins qwerty qwerty.klf
 
 ### Core Features
 
-- View layouts, with 30+ built-in layouts
+- View layouts, with 140+ built-in layouts
 - Visualize hand, finger, row, and column usage
 - Compare layouts side by side
 - Analyse detailed layout metrics in tables
