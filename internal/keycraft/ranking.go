@@ -5,10 +5,12 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -142,26 +144,44 @@ type LayoutScore struct {
 
 // LoadAnalysers loads and analyses all .klf layout files from a directory.
 func LoadAnalysers(layoutsDir string, corpus *Corpus) ([]*Analyser, error) {
-	var analysers []*Analyser
-
 	layoutFiles, err := os.ReadDir(layoutsDir)
 	if err != nil {
 		return nil, fmt.Errorf("error reading layout files from %v: %v", layoutsDir, err)
 	}
 
+	var (
+		analysers []*Analyser
+		mu        sync.Mutex
+		wg        sync.WaitGroup
+		sem       = make(chan struct{}, runtime.GOMAXPROCS(0)) // bound concurrency
+	)
+
 	for _, file := range layoutFiles {
 		if !strings.HasSuffix(strings.ToLower(file.Name()), ".klf") {
 			continue
 		}
-		layoutPath := filepath.Join(layoutsDir, file.Name())
-		layout, err := NewLayoutFromFile(file.Name(), layoutPath)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		analyser := NewAnalyser(layout, corpus)
-		analysers = append(analysers, analyser)
+
+		wg.Add(1)
+		sem <- struct{}{} // acquire
+		go func(f os.DirEntry) {
+			defer wg.Done()
+			defer func() { <-sem }() // release
+
+			layoutPath := filepath.Join(layoutsDir, f.Name())
+			layout, err := NewLayoutFromFile(f.Name(), layoutPath)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			analyser := NewAnalyser(layout, corpus)
+
+			mu.Lock()
+			analysers = append(analysers, analyser)
+			mu.Unlock()
+		}(file)
 	}
+
+	wg.Wait()
 
 	return analysers, nil
 }
