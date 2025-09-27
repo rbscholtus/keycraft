@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
@@ -42,6 +44,24 @@ var appFlagsMap = map[string]cli.Flag{
 		Aliases: []string{"c"},
 		Usage:   "corpus file to calculate keyboard metrics",
 		Value:   "default.txt",
+	},
+	"finger-load": &cli.StringFlag{
+		Name:    "finger-load",
+		Aliases: []string{"fl"},
+		Value:   "8.0,11.0,16.0,15.0", // default 4-values mirrored
+		Usage:   "ideal finger load: 4 or 8 floats for F0..F3[,F6..F9]. 4 values are mirrored to F9..F6. F4/F5 are 0.0",
+	},
+	"rows": &cli.IntFlag{
+		Name:    "rows",
+		Aliases: []string{"r"},
+		Usage:   "number of rows to show in data tables",
+		Value:   10,
+		Action: func(c *cli.Context, value int) error {
+			if value < 1 {
+				return fmt.Errorf("--rows must be at least 1 (got %d)", value)
+			}
+			return nil
+		},
 	},
 	"weights-file": &cli.StringFlag{
 		Name:    "weights-file",
@@ -92,18 +112,6 @@ var appFlagsMap = map[string]cli.Flag{
 		Aliases: []string{"aw"},
 		Usage:   fmt.Sprintf("accept-worse function (how likely is it a worse layout is accepted): %v", validAcceptFuncs),
 		Value:   "drop-slow",
-	},
-	"rows": &cli.IntFlag{
-		Name:    "rows",
-		Aliases: []string{"r"},
-		Usage:   "number of rows to show in data tables",
-		Value:   10,
-		Action: func(c *cli.Context, value int) error {
-			if value < 1 {
-				return fmt.Errorf("--rows must be at least 1 (got %d)", value)
-			}
-			return nil
-		},
 	},
 }
 
@@ -172,4 +180,47 @@ func loadLayout(filename string) (*kc.SplitLayout, error) {
 		return nil, fmt.Errorf("layout file %s does not exist", path)
 	}
 	return kc.NewLayoutFromFile(layoutName, path)
+}
+
+// parseFingerLoad parses a compact CLI representation of "ideal" finger loads.
+//
+// Accepted forms:
+//   - 4 comma-separated floats: interpreted as F0,F1,F2,F3 and mirrored to F9..F6
+//   - 8 comma-separated floats: interpreted as F0,F1,F2,F3,F6,F7,F8,F9
+//
+// The function injects zeros for the thumb indices F4 and F5 and returns a pointer
+// to a fixed-size [10]float64 array mapping directly to F0..F9. Returning a pointer
+// avoids copying the array value on return (arrays are value types in Go).
+func parseFingerLoad(s string) (*[10]float64, error) {
+	parts := strings.Split(s, ",")
+	if len(parts) != 4 && len(parts) != 8 {
+		return nil, fmt.Errorf("finger-load must have 4 or 8 comma-separated values")
+	}
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+
+	// If user provided 4 values, mirror them to create the 8-value representation.
+	// We append reversed order so after inserting thumb zeros the indices map to F0..F9.
+	if len(parts) == 4 {
+		for i := len(parts) - 1; i >= 0; i-- {
+			parts = append(parts, parts[i])
+		}
+	}
+	parts = slices.Insert(parts, 4, "0.0", "0.0")
+
+	var vals [10]float64
+	for i, p := range parts {
+		var v float64
+		if p == "" {
+			return nil, fmt.Errorf("empty value in finger-load")
+		}
+		v, err := strconv.ParseFloat(p, 64)
+		if err != nil || v < 0.0 {
+			return nil, fmt.Errorf("invalid float in finger-load: %v", err)
+		}
+		vals[i] = v
+	}
+
+	return &vals, nil
 }

@@ -18,7 +18,7 @@ var experimentCommand = &cli.Command{
 	Aliases:   []string{"x"},
 	Usage:     "Run experiments (for the developer)",
 	ArgsUsage: "<layout.klf>",
-	Flags:     flagsSlice("corpus", "weights-file", "weights", "free", "generations", "accept-worse"),
+	Flags:     flagsSlice("corpus", "finger-load", "weights-file", "weights", "free", "generations", "accept-worse"),
 	Action:    DoExperiment3,
 }
 
@@ -233,6 +233,12 @@ func ExperimentAction2(c *cli.Context) error {
 		return err
 	}
 
+	fbStr := c.String("finger-load")
+	fingerBal, err := parseFingerLoad(fbStr)
+	if err != nil {
+		return err
+	}
+
 	weightsPath := c.String("weights-file")
 	if weightsPath != "" {
 		weightsPath = filepath.Join(weightsDir, weightsPath)
@@ -275,7 +281,7 @@ func ExperimentAction2(c *cli.Context) error {
 			return err
 		}
 
-		best := layout.Optimise(corpus, weights, numGenerations, acceptFunction)
+		best := layout.Optimise(corpus, fingerBal, weights, numGenerations, acceptFunction)
 
 		// Save best layout to file
 		name := filepath.Base(layout.Name)

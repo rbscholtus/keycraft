@@ -5,18 +5,34 @@ import (
 	"strconv"
 )
 
-// idealFingerLoad specifies the target distribution of load (in percentages) across fingers for ergonomic balance.
-var idealFingerLoad = map[string]float64{
-	"F0": 8.0,
-	"F1": 11.0,
-	"F2": 16.0,
-	"F3": 15.0,
-	"F4": 0.0,
-	"F5": 0.0,
-	"F6": 15.0,
-	"F7": 16.0,
-	"F8": 11.0,
-	"F9": 8.0,
+// DefaultIdealFingerLoad returns the default ideal loads for F0..F9.
+// F4 and F5 are 0.0; F6..F9 are mirrored from F3..F0.
+func DefaultIdealFingerLoad() *[10]float64 {
+	return &[10]float64{
+		8.0,  // F0
+		11.0, // F1
+		16.0, // F2
+		15.0, // F3
+		0.0,  // F4
+		0.0,  // F5
+		15.0, // F6 (mirror of F3)
+		16.0, // F7 (mirror of F2)
+		11.0, // F8 (mirror of F1)
+		8.0,  // F9 (mirror of F0)
+	}
+}
+
+// MetricDetails contains detailed results for a single metric, including counts of relevant n-grams, unsupported n-grams, weighted distance values (row, column, or Euclidean), and totals.
+type MetricDetails struct {
+	Corpus       *Corpus
+	CorpusNGramC uint64
+	Metric       string
+	// Unsupported  map[string]uint64
+	NGramCount  map[string]uint64
+	NGramDist   map[string]float64
+	TotalNGrams uint64
+	TotalDist   float64
+	Custom      map[string]map[string]any
 }
 
 // Analyser performs ergonomic analysis on a given layout using a corpus. It computes both quick percentage-based metrics and detailed breakdowns of relevant n-grams and distances.
@@ -25,24 +41,35 @@ type Analyser struct {
 	Layout *SplitLayout
 	// Reference to the Corpus used to analyse the layout.
 	Corpus *Corpus
+	// IdealfgrLoad holds the ideal percentages for fingers 0..9.
+	// Use [10]float64 with keys 0..9 (F0..F9). F4/F5 normally 0.
+	IdealfgrLoad *[10]float64
 	// Metrics holds all metrics about the layout.
 	Metrics map[string]float64
 }
 
-// NewAnalyser constructs an Analyser for the given layout and corpus, runs a quick analysis, and initializes core metrics.
-func NewAnalyser(layout *SplitLayout, corpus *Corpus) *Analyser {
-	an := &Analyser{
-		Layout:  layout,
-		Corpus:  corpus,
-		Metrics: make(map[string]float64),
+// NewAnalyser constructs an Analyser for the given layout and corpus.
+// Pass an ideal map[uint8]float64 (keys 0..9). If ideal is nil, defaults are used.
+func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealfgrLoad *[10]float64) *Analyser {
+	if idealfgrLoad == nil {
+		idealfgrLoad = DefaultIdealFingerLoad()
 	}
-	an.quickHandAnalysis()
-	an.quickMetricAnalysis()
+	an := &Analyser{
+		Layout:       layout,
+		Corpus:       corpus,
+		IdealfgrLoad: idealfgrLoad,
+		Metrics:      make(map[string]float64),
+	}
+	an.analyseHand()
+	an.analyseBigrams()
+	an.analyseSkipgrams()
+	an.analyseTrigrams()
 	return an
 }
 
-// quickHandAnalysis computes hand, finger, column, and row usage metrics from unigrams. Same-finger balance (FBL) is also calculated as the cumulative deviation from the idealFingerLoad distribution.
-func (an *Analyser) quickHandAnalysis() {
+// analyseHand computes hand, finger, column, and row usage metrics from unigrams.
+// Finger balance (FBL) is calculated as the cumulative deviation from the idealFingerLoad distribution.
+func (an *Analyser) analyseHand() {
 	var totalUnigramCount uint64
 	var pinkyOffHomeCount uint64
 	var handCount [2]uint64
@@ -97,15 +124,8 @@ func (an *Analyser) quickHandAnalysis() {
 		}
 		fi := "F" + strconv.Itoa(i)
 		an.Metrics[fi] = float64(c) * fingerFactor
-		an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - idealFingerLoad[fi])
+		an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - an.IdealfgrLoad[uint8(i)])
 	}
-}
-
-// quickMetricAnalysis computes a core set of ergonomic motion metrics, grouped as bigram, skipgram, and trigram features.
-func (an *Analyser) quickMetricAnalysis() {
-	an.analyseBigrams()
-	an.analyseSkipgrams()
-	an.analyseTrigrams()
 }
 
 // analyseBigrams computes bigram-based metrics: SFB, LSB, FSB, and HSB.
@@ -275,19 +295,6 @@ func (an *Analyser) analyseTrigrams() {
 
 	an.Metrics["IN:OUT"] = (an.Metrics["2RL-IN"] + an.Metrics["3RL-IN"]) / (an.Metrics["2RL-OUT"] + an.Metrics["3RL-OUT"])
 	an.Metrics["FLW"] = an.Metrics["2RL"] + an.Metrics["3RL"] + an.Metrics["ALT-OTH"]
-}
-
-// MetricDetails contains detailed results for a single metric, including counts of relevant n-grams, unsupported n-grams, weighted distance values (row, column, or Euclidean), and totals.
-type MetricDetails struct {
-	Corpus       *Corpus
-	CorpusNGramC uint64
-	Metric       string
-	// Unsupported  map[string]uint64
-	NGramCount  map[string]uint64
-	NGramDist   map[string]float64 // todo: change to a map for any ngram info
-	TotalNGrams uint64
-	TotalDist   float64 // todo: do we need it?
-	Custom      map[string]map[string]any
 }
 
 // AllMetricsDetails runs detailed analyses for multiple metrics, returning results for bigrams, skipgrams, and trigrams. Includes: SFB, LSB, FSB, HSB, SFS, LSS, FSS, HSS, ALT, 2RL, 3RL, and RED.

@@ -32,7 +32,7 @@ func Benchmark_Rankings(b *testing.B) {
 
 	// Load all analysers for layouts in the directory
 	for b.Loop() {
-		analysers, err := kc.LoadAnalysers(layoutDir, corpus)
+		analysers, err := kc.LoadAnalysers(layoutDir, corpus, kc.DefaultIdealFingerLoad())
 		if err != nil {
 			panic(err)
 		}

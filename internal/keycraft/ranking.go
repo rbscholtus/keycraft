@@ -143,7 +143,7 @@ type LayoutScore struct {
 }
 
 // LoadAnalysers loads and analyses all .klf layout files from a directory.
-func LoadAnalysers(layoutsDir string, corpus *Corpus) ([]*Analyser, error) {
+func LoadAnalysers(layoutsDir string, corpus *Corpus, idealfgrLoad *[10]float64) ([]*Analyser, error) {
 	layoutFiles, err := os.ReadDir(layoutsDir)
 	if err != nil {
 		return nil, fmt.Errorf("error reading layout files from %v: %v", layoutsDir, err)
@@ -173,7 +173,7 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus) ([]*Analyser, error) {
 				fmt.Println(err)
 				return
 			}
-			analyser := NewAnalyser(layout, corpus)
+			analyser := NewAnalyser(layout, corpus, idealfgrLoad)
 
 			mu.Lock()
 			analysers = append(analysers, analyser)
@@ -365,7 +365,7 @@ func formatDelta(metric string, delta float64, weights *Weights) string {
 // - weights: metric weights to apply during scoring.
 // - metricsSet: string indicating which metric set to use ("basic", "extended", or "fingers").
 // - deltas: whether to show delta rows between layouts in the output.
-func DoLayoutRankings(corpus *Corpus, layoutsDir string, layouts []string, weights *Weights, metricsSet string, deltas string) error {
+func DoLayoutRankings(layoutsDir string, layouts []string, corpus *Corpus, idealfgrLoad *[10]float64, weights *Weights, metricsSet string, deltas string) error {
 	// Choose metric list based on metricsMode flag
 	metrics, ok := MetricsMap[metricsSet]
 	if !ok {
@@ -374,7 +374,7 @@ func DoLayoutRankings(corpus *Corpus, layoutsDir string, layouts []string, weigh
 	}
 
 	// Load all analysers for layouts in the directory
-	analysers, err := LoadAnalysers(layoutsDir, corpus)
+	analysers, err := LoadAnalysers(layoutsDir, corpus, idealfgrLoad)
 	if err != nil {
 		return err
 	}

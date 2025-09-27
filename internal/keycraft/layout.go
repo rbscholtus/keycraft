@@ -149,9 +149,10 @@ type SplitLayout struct {
 	HScissors        []ScissorInfo                            // notable half scissor key-pairs
 	optPinned        [42]bool                                 // optimisation: flags indicating keys that must not be moved
 	optCorpus        *Corpus                                  // optimisation: corpus used during layout optimisation (optional)
-	optWeights       *Weights                                 // optimisation: metric weights used (optional)
-	optMedians       map[string]float64                       // optimisation: median values per metric (optional)
-	optIqrs          map[string]float64                       // optimisation: IQR values per metric (optional)
+	optIdealfgrLoad  *[10]float64
+	optWeights       *Weights           // optimisation: metric weights used (optional)
+	optMedians       map[string]float64 // optimisation: median values per metric (optional)
+	optIqrs          map[string]float64 // optimisation: IQR values per metric (optional)
 }
 
 // NewSplitLayout creates a new split layout

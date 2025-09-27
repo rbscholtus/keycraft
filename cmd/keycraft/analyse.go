@@ -16,7 +16,7 @@ var analyseCommand = &cli.Command{
 	Aliases:   []string{"a"},
 	Usage:     "Analyse one or more keyboard layouts in detail",
 	ArgsUsage: "<layout1.klf> <layout2.klf> ...",
-	Flags:     flagsSlice("corpus", "rows"),
+	Flags:     flagsSlice("corpus", "finger-load", "rows"),
 	Action:    analyseAction,
 }
 
@@ -28,11 +28,17 @@ func analyseAction(c *cli.Context) error {
 		return err
 	}
 
+	fbStr := c.String("finger-load")
+	fingerBal, err := parseFingerLoad(fbStr)
+	if err != nil {
+		return err
+	}
+
 	if c.NArg() < 1 {
 		return fmt.Errorf("need at least 1 layout")
 	}
 
-	if err := DoAnalysis(corp, c.Args().Slice(), true, c.Int("rows")); err != nil {
+	if err := DoAnalysis(c.Args().Slice(), corp, fingerBal, true, c.Int("rows")); err != nil {
 		return err
 	}
 	return nil
@@ -41,7 +47,7 @@ func analyseAction(c *cli.Context) error {
 // DoAnalysis loads analysers for the provided layouts, produces overview
 // rows (board, hand, row, stats) and optionally appends detailed metric
 // tables. The rendered table output is printed to stdout.
-func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool, nRows int) error {
+func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, fgrLoad *[10]float64, dataTables bool, nRows int) error {
 	// load an analyser for each layout
 	analysers := make([]*kc.Analyser, 0, len(layoutFilenames))
 	for _, fn := range layoutFilenames {
@@ -49,7 +55,7 @@ func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool, nR
 		if err != nil {
 			return err
 		}
-		an := kc.NewAnalyser(lay, corpus)
+		an := kc.NewAnalyser(lay, corpus, fgrLoad)
 		analysers = append(analysers, an)
 	}
 

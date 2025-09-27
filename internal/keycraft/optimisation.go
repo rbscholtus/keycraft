@@ -37,10 +37,11 @@ func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 
 }
 
 // Optimise optimizes a keyboard layout using simulated annealing.
-func (sl *SplitLayout) Optimise(corp *Corpus, weights *Weights, generations uint, acceptWorse string) *SplitLayout {
+func (sl *SplitLayout) Optimise(corp *Corpus, idealfgrLoad *[10]float64, weights *Weights, generations uint, acceptWorse string) *SplitLayout {
 	sl.optCorpus = corp
 	sl.optWeights = weights
-	analysers := Must(LoadAnalysers("data/layouts/", corp))
+	sl.optIdealfgrLoad = idealfgrLoad
+	analysers := Must(LoadAnalysers("data/layouts/", corp, idealfgrLoad))
 	sl.optMedians, sl.optIqrs = computeMediansAndIQR(analysers)
 
 	// Configure the simulated annealing algorithm.
@@ -83,8 +84,7 @@ func (sl *SplitLayout) Optimise(corp *Corpus, weights *Weights, generations uint
 
 // Evaluate evaluates the fitness of the current layout.
 func (sl *SplitLayout) Evaluate() (float64, error) {
-	analyser := NewAnalyser(sl, sl.optCorpus)
-	// return 5*sl.SimpleSfbs(sl.optCorpus) + sl.SimpleLsbs(sl.optCorpus), nil
+	analyser := NewAnalyser(sl, sl.optCorpus, sl.optIdealfgrLoad)
 
 	score := 0.0
 	for metric, value := range analyser.Metrics {
@@ -147,6 +147,7 @@ func (sl *SplitLayout) Clone() eaopt.Genome {
 		HScissors:        sl.HScissors,
 		optPinned:        sl.optPinned,
 		optCorpus:        sl.optCorpus,
+		optIdealfgrLoad:  sl.optIdealfgrLoad,
 		optWeights:       sl.optWeights,
 		optMedians:       sl.optMedians,
 		optIqrs:          sl.optIqrs,

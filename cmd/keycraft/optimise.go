@@ -19,7 +19,7 @@ var optimiseCommand = &cli.Command{
 	Aliases:   []string{"o"},
 	Usage:     "Optimise a keyboard layout",
 	ArgsUsage: "<layout.klf>",
-	Flags:     flagsSlice("corpus", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse"),
+	Flags:     flagsSlice("corpus", "finger-load", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse"),
 	Action:    optimiseAction,
 }
 
@@ -31,6 +31,12 @@ var optimiseCommand = &cli.Command{
 func optimiseAction(c *cli.Context) error {
 	// Load the corpus used for analysing layouts.
 	corpus, err := loadCorpus(c.String("corpus"))
+	if err != nil {
+		return err
+	}
+
+	fbStr := c.String("finger-load")
+	fingerBal, err := parseFingerLoad(fbStr)
 	if err != nil {
 		return err
 	}
@@ -71,7 +77,7 @@ func optimiseAction(c *cli.Context) error {
 		return err
 	}
 
-	best := layout.Optimise(corpus, weights, numGenerations, acceptFunction)
+	best := layout.Optimise(corpus, fingerBal, weights, numGenerations, acceptFunction)
 
 	// Save best layout to file
 	name := filepath.Base(layout.Name)
@@ -89,12 +95,12 @@ func optimiseAction(c *cli.Context) error {
 	layoutsToCompare := []string{layoutFile, bestFilename}
 
 	// Call DoAnalysis with the layouts
-	if err := DoAnalysis(corpus, layoutsToCompare, false, 10); err != nil {
+	if err := DoAnalysis(layoutsToCompare, corpus, fingerBal, false, 0); err != nil {
 		return fmt.Errorf("failed to perform layout analysis: %v", err)
 	}
 
 	// Call DoLayoutRankings with the layouts
-	if err := kc.DoLayoutRankings(corpus, layoutDir, layoutsToCompare, weights, "basic", "rows"); err != nil {
+	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, fingerBal, weights, "basic", "rows"); err != nil {
 		return fmt.Errorf("failed to perform layout rankings: %v", err)
 	}
 

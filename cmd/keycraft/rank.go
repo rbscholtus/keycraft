@@ -30,7 +30,7 @@ var rankCommand = &cli.Command{
 	Name:    "rank",
 	Aliases: []string{"r"},
 	Usage:   "Rank keyboard layouts and optionally view deltas",
-	Flags:   flagsSlice("corpus", "deltas", "metrics", "weights-file", "weights"),
+	Flags:   flagsSlice("corpus", "finger-load", "deltas", "metrics", "weights-file", "weights"),
 	Action:  rankAction,
 }
 
@@ -40,6 +40,12 @@ var rankCommand = &cli.Command{
 func rankAction(c *cli.Context) error {
 	// Load the corpus used for analysing layouts.
 	corpus, err := loadCorpus(c.String("corpus"))
+	if err != nil {
+		return err
+	}
+
+	fbStr := c.String("finger-load")
+	fingerBal, err := parseFingerLoad(fbStr)
 	if err != nil {
 		return err
 	}
@@ -86,7 +92,7 @@ func rankAction(c *cli.Context) error {
 	}
 
 	// Perform the layout comparison and display results,
-	return kc.DoLayoutRankings(corpus, layoutDir, layoutsToCmp, weights, c.String("metrics"), deltas)
+	return kc.DoLayoutRankings(layoutDir, layoutsToCmp, corpus, fingerBal, weights, c.String("metrics"), deltas)
 }
 
 // filesExist checks that all specified layout files exist in the layoutDir.
