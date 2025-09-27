@@ -22,7 +22,7 @@ var MetricsMap = map[string][]string{
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS", "LSS", "FSS", "HSS",
 		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
-		"IN:OUT", "FBL", "POH",
+		"IN:OUT", "FBL", "POH", "FLW",
 	},
 	"extended": {
 		"SFB", "LSB", "FSB", "HSB",
@@ -31,7 +31,7 @@ var MetricsMap = map[string][]string{
 		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
 		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFS",
 		"RED", "RED-WEAK", "RED-SFS", "RED-OTH",
-		"IN:OUT", "FBL", "POH",
+		"IN:OUT", "FBL", "POH", "FLW",
 	},
 	"fingers": {
 		"H0", "F0", "F1", "F2", "F3", "F4",

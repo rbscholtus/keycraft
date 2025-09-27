@@ -275,16 +275,16 @@ func MetricsString(an *kc.Analyser) string {
 			fmt.Sprintf("HSS: %.2f%%", an.Metrics["HSS"]),
 		},
 		{
-			fmt.Sprintf("ALT: %.2f%%", an.Metrics["ALT"]),
-			fmt.Sprintf("2RL: %.2f%%", an.Metrics["2RL"]),
-			fmt.Sprintf("3RL: %.2f%%", an.Metrics["3RL"]),
-			fmt.Sprintf("RED: %.2f%%", an.Metrics["RED"]),
+			fmt.Sprintf("ALT: %.2f%%\nSFS: %.2f%%", an.Metrics["ALT"], an.Metrics["ALT-SFS"]),
+			fmt.Sprintf("2RL: %.2f%%\nSFB: %.2f%%", an.Metrics["2RL"], an.Metrics["2RL-SFB"]),
+			fmt.Sprintf("3RL: %.2f%%\nSFS: %.2f%%", an.Metrics["3RL"], an.Metrics["3RL-SFS"]),
+			fmt.Sprintf("RED: %.2f%%\nWEAK %.2f%%", an.Metrics["RED"], an.Metrics["RED-WEAK"]),
 		},
 		{
 			fmt.Sprintf("I:O: %.2f", an.Metrics["IN:OUT"]),
 			fmt.Sprintf("FBL: %.2f%%", an.Metrics["FBL"]),
 			fmt.Sprintf("POH: %.2f%%", an.Metrics["POH"]),
-			fmt.Sprintf("WEAK %.2f%%", an.Metrics["RED-WEAK"]),
+			fmt.Sprintf("FLW: %.2f%%", an.Metrics["FLW"]),
 		},
 	}
 	tw.AppendRows(data)

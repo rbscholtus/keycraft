@@ -274,6 +274,7 @@ func (an *Analyser) analyseTrigrams() {
 	an.Metrics["RED"] = an.Metrics["RED-OTH"] + an.Metrics["RED-SFS"] + an.Metrics["RED-WEAK"]
 
 	an.Metrics["IN:OUT"] = (an.Metrics["2RL-IN"] + an.Metrics["3RL-IN"]) / (an.Metrics["2RL-OUT"] + an.Metrics["3RL-OUT"])
+	an.Metrics["FLW"] = an.Metrics["2RL"] + an.Metrics["3RL"] + an.Metrics["ALT-OTH"]
 }
 
 // MetricDetails contains detailed results for a single metric, including counts of relevant n-grams, unsupported n-grams, weighted distance values (row, column, or Euclidean), and totals.
