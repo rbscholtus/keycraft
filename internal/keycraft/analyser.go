@@ -275,8 +275,8 @@ func (an *Analyser) analyseTrigrams() {
 
 	factor := 100 / float64(an.Corpus.TotalTrigramsCount)
 	an.Metrics["ALT-SFS"] = float64(altSFS) * factor
-	an.Metrics["ALT-OTH"] = float64(altOth) * factor
-	an.Metrics["ALT"] = an.Metrics["ALT-OTH"] + an.Metrics["ALT-SFS"]
+	an.Metrics["ALT-NML"] = float64(altOth) * factor
+	an.Metrics["ALT"] = an.Metrics["ALT-NML"] + an.Metrics["ALT-SFS"]
 
 	an.Metrics["2RL-SFB"] = float64(rl2SFB) * factor
 	an.Metrics["2RL-IN"] = float64(rl2In) * factor
@@ -290,11 +290,11 @@ func (an *Analyser) analyseTrigrams() {
 
 	an.Metrics["RED-WEAK"] = float64(redWeak) * factor
 	an.Metrics["RED-SFS"] = float64(redSFS) * factor
-	an.Metrics["RED-OTH"] = float64(redOth) * factor
-	an.Metrics["RED"] = an.Metrics["RED-OTH"] + an.Metrics["RED-SFS"] + an.Metrics["RED-WEAK"]
+	an.Metrics["RED-NML"] = float64(redOth) * factor
+	an.Metrics["RED"] = an.Metrics["RED-NML"] + an.Metrics["RED-SFS"] + an.Metrics["RED-WEAK"]
 
 	an.Metrics["IN:OUT"] = (an.Metrics["2RL-IN"] + an.Metrics["3RL-IN"]) / (an.Metrics["2RL-OUT"] + an.Metrics["3RL-OUT"])
-	an.Metrics["FLW"] = an.Metrics["2RL"] + an.Metrics["3RL"] + an.Metrics["ALT-OTH"]
+	an.Metrics["FLW"] = an.Metrics["2RL"] + an.Metrics["3RL"] + an.Metrics["ALT-NML"]
 }
 
 // AllMetricsDetails runs detailed analyses for multiple metrics, returning results for bigrams, skipgrams, and trigrams. Includes: SFB, LSB, FSB, HSB, SFS, LSS, FSS, HSS, ALT, 2RL, 3RL, and RED.
@@ -604,7 +604,7 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 //   - ALT: Alternations between hands (including ALT-SFS for same-finger alternations)
 //   - 2RL: Two-key rolls (inward/outward) between adjacent fingers on one hand
 //   - 3RL: Three-key rolls (inward/outward) on one hand
-//   - RED: Redirections—direction changes on one hand, split into RED-OTH (general), RED-SFS (same-finger skipgram), and RED-WEAK (without index involvement)
+//   - RED: Redirections—direction changes on one hand, split into RED-NML (general), RED-SFS (same-finger skipgram), and RED-WEAK (without index involvement)
 //
 // Each returned MetricAnalysis includes frequency counts and can be used to compute derived totals and ratios.
 func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDetails, *MetricDetails) {
@@ -691,7 +691,7 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 				if f0 == f2 && diffIdx02 {
 					alt.Custom[triStr]["Kind"] = "SFS"
 				} else {
-					alt.Custom[triStr]["Kind"] = "OTH"
+					alt.Custom[triStr]["Kind"] = "NML"
 				}
 			} else {
 				if f0 == f1 || f1 == f2 {
@@ -725,7 +725,7 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 					} else if f0 == f2 && diffIdx02 {
 						red.Custom[triStr]["Kind"] = "SFS"
 					} else {
-						red.Custom[triStr]["Kind"] = "OTH"
+						red.Custom[triStr]["Kind"] = "NML"
 					}
 				}
 			}

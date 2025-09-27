@@ -75,7 +75,7 @@ keycraft optimise --pins qwerty qwerty.klf
 
 ### Installing without Golang on your system
 
-- Download the latest release for your system from https://github.com/rbscholtus/keycraft/releases
+- Download the latest release for your system from <https://github.com/rbscholtus/keycraft/releases>
 - Download the `data` archive as well.
 - Unpack both downloads to a new directory, for example `Downloads/keycraft`
 - Open the new directory in a terminal window
@@ -133,7 +133,7 @@ The following metrics are currently supported by Keycraft. Spaces in the corpus 
 | HSS      | Half Scissor Skipgram               | "sit", "rus"        |
 | ALT      | Alternation total                   |                     |
 | ALT-SFS  | Alternation — Same Finger Skipgram  | "for", "men"        |
-| ALT-OTH  | Alternation — Other                 | "and", "ent", "iti" |
+| ALT-NML  | Alternation — Other                 | "and", "ent", "iti" |
 | 2RL      | 2-key Rolls In + Out                |                     |
 | 2RL-IN   | 2-key Rolls — Inward                | "ing", "hat"        |
 | 2RL-OUT  | 2-key Rolls — Outward               | "tio", "thi"        |
@@ -145,22 +145,24 @@ The following metrics are currently supported by Keycraft. Spaces in the corpus 
 | RED      | Redirections total                  |                     |
 | RED-WEAK | Redirections — Weak                 | "was", "ese"        |
 | RED-SFS  | Redirections — Same Finger Skipgram | "you", "ter"        |
-| RED-OTH  | Redirections — Other                | "ion", "ate", "ere" |
+| RED-NML  | Redirections — Other                | "ion", "ate", "ere" |
 | IN:OUT   | Inward:Outward ratio                |          |
 | FBL      | Finger Balance                      |          |
 | POH      | Pinky Off Home                      |          |
 
 ### Metric details
 
-Keycraft aims to follow the Keyboard Layouts Doc (KLD). 
+Keycraft aims to follow the Keyboard Layouts Doc (KLD).
 
 #### Bigrams
+
 - SFB - percentage of bigrams typed using the same finger (excluding identical-key repeats)
 - LSB - percentage of bigrams that map to pre-defined lateral-stretch finger pairs
 - FSB - percentage of bigrams forming pre-defined full-scissor patterns (>1.5U vertical separation)
 - HSB - percentage of bigrams forming pre-defined half-scissor patterns (<=1.5U vertical separation)
 
 #### Skipgrams
+
 - SFS - percentage of skipgrams typed using the same finger (excluding identical-key skips)
 - LSS - percentage of skipgrams that map to lateral-stretch pairs
 - FSS - percentage of skipgrams forming full-scissor patterns
@@ -169,29 +171,34 @@ Keycraft aims to follow the Keyboard Layouts Doc (KLD).
 #### Trigrams
 
 Alternations - First key on one hand, the second key on the other, the last key on the first hand again
-- ALT - total percentage of hand alternations (ALT-OTH + ALT-SFS)
+
+- ALT - total percentage of hand alternations (ALT-NML + ALT-SFS)
 - ALT-SFS - portion of cross-hand trigram alternations that are same‑finger alternations (excluding identical-key skips)
-- ALT-OTH - portion of cross-hand trigram alternations not classified as SFS (normal alts)
+- ALT-NML - portion of cross-hand trigram alternations not classified as SFS (normal alts)
 
 Two-rolls - Two keys on one hand (rolling in- or outward), and one on the other (or vv)
+
 - 2RL - total percentage for two-key in- and out-rolls (2RL-IN + 2RL-OUT)
 - 2RL-IN - two-key roll trigrams classified as inward rolls
 - 2RL-OUT - two-key roll trigrams classified as outward rolls
 - 2RL-SFB - two-key roll trigrams where both keys use the same finger (any key). Argueably, identical-key repeats are not uncomfortable and should be separated out.
 
 Three-rolls - All three keys are typed on one hand
+
 - 3RL - total percentage for three-key in- and out-rolls (3RL-IN + 3RL-OUT)
 - 3RL-IN - three-key roll trigrams classified as inward sequences
 - 3RL-OUT - three-key roll trigrams classified as outward sequences
 - 3RL-SFS - three-key roll trigrams where the first and last keys use the same finger (any key). Argueably, identical-key skips are not uncomfortable and should be separated out.
 
 Redirections - All three keys on one hand
+
 - RED - total percentage of redirections
 - RED-WEAK - all redirections on one hand with no index involvement (weaker/bad redirections)
 - RED-SFS - redirections on one hand that are same finger skipgrams (excluding identical-key skips)
-- RED-OTH - other (normal) redirections on one hand
+- RED-NML - other (normal) redirections on one hand
 
 #### Other Metrics
+
 - IN:OUT  - ratio of inward rolls to outward rolls computed as (2RL-IN + 3RL-IN) / (2RL-OUT + 3RL-OUT)
 - FBL - cumulative absolute deviation (percentage points) from the ideal finger-load distribution
 - POH - percentage of unigram frequency typed with a pinky while that pinky is off its home row
@@ -206,7 +213,7 @@ Redirections - All three keys on one hand
 
 This does not include space because n-grams with spaces are discarded from the corpus.
 
-- H0, H1 (Hand usage) - percentage of total keystrokes by each hand (H0 = left, H1 = right). 
+- H0, H1 (Hand usage) - percentage of total keystrokes by each hand (H0 = left, H1 = right).
 - F0–F9 (Finger usage) - percentage of total keystrokes by each finger (F0 = left pinky … F4 = left thumb, F5 = right thumb … F9 = right pinky).
 - C0–C11 (Column usage) - percentage of total keystrokes per physical column on the layout.
 - R0–R3 (Row usage) - percentage of total keystrokes per physical row on the layout.
@@ -263,7 +270,7 @@ keycraft view -c monkeyracer.txt focal.klf gallium-v2.klf
 
 - The layouts must be located in `./data/layouts`. To view your own layout, add the `.klf` file for your layout there.
 - The corpus that is used to generate the stats is `./data/corpus/default.txt`. At the moment this is Shai's Cleaned iweb (90m words), available from:
-  https://colemak.com/pub/corpus/iweb-corpus-samples-cleaned.txt.xz
+  <https://colemak.com/pub/corpus/iweb-corpus-samples-cleaned.txt.xz>
 - The first time a corpus is used (or after a corpus has changed), a cache is generated that will make loading it faster next time.
 
 ### Analysing and comparing one or more layouts
@@ -432,18 +439,21 @@ More information will be provided.
 ### Specifying weights (for ranking and optimising)
 
 - Describe config locations, file format (YAML/JSON), and common options.
-	layoutDir  = "data/layouts/"
-	corpusDir  = "data/corpus/"
-	weightsDir = "data/weights/"
-	pinsDir    = "data/pins/"
+ layoutDir  = "data/layouts/"
+ corpusDir  = "data/corpus/"
+ weightsDir = "data/weights/"
+ pinsDir    = "data/pins/"
 
 ## Contributing
+
 - Questions, suggestions, and feedback are super welcome! Just open a New Issue and I'll get back to you as soon as I can.
 - I probably cannot take PRs until I feel a solid base implementation is in place.
 
 ## License
+
 BSD-3-Clause license. See LICENSE file for details.
 
 ## Contact
+
 - Author: Barend Scholtus <barend.scholtus@gmail.com>
-- Issue tracker: https://github.com/rbscholtus/keycraft/issues
+- Issue tracker: <https://github.com/rbscholtus/keycraft/issues>
