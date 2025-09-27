@@ -1,4 +1,7 @@
 # Enigmak (StronglyTyped)
+# on enigmak, the w is pressed with index, and the g is pressed with middle
+# so, i think it might be mislabeled in the doc
+# it's its own unique fingermap
 anglemod
 ~ b l c g v   j f o u ' ~
 ~ n r s t d   y h e i a ,
