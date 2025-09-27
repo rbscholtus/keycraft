@@ -66,24 +66,38 @@ func (an *Analyser) quickHandAnalysis() {
 		rowCount[key.Row] += uniCnt
 	}
 
-	var factor float64
+	// total-based factor for metrics that relate to whole-corpus percentages
+	var totFactor float64
 	if totalUnigramCount > 0 {
-		factor = 100 / float64(totalUnigramCount)
+		totFactor = 100 / float64(totalUnigramCount)
 	}
-	an.Metrics["POH"] = float64(pinkyOffHomeCount) * factor
+
+	an.Metrics["POH"] = float64(pinkyOffHomeCount) * totFactor
 	for i, c := range handCount {
-		an.Metrics["H"+strconv.Itoa(i)] = float64(c) * factor
-	}
-	for i, c := range fingerCount {
-		fi := "F" + strconv.Itoa(i)
-		an.Metrics[fi] = float64(c) * factor
-		an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - idealFingerLoad[fi])
+		an.Metrics["H"+strconv.Itoa(i)] = float64(c) * totFactor
 	}
 	for i, c := range columnCount {
-		an.Metrics["C"+strconv.Itoa(i)] = float64(c) * factor
+		an.Metrics["C"+strconv.Itoa(i)] = float64(c) * totFactor
 	}
 	for i, c := range rowCount {
-		an.Metrics["R"+strconv.Itoa(i)] = float64(c) * factor
+		an.Metrics["R"+strconv.Itoa(i)] = float64(c) * totFactor
+	}
+
+	// compute total for non-thumb fingers and factor to scale those 8 fingers to 100%
+	nonThumbTotal := float64(totalUnigramCount - fingerCount[LT] - fingerCount[RT])
+	var fingerFactor float64
+	if nonThumbTotal > 0 {
+		fingerFactor = 100 / float64(nonThumbTotal)
+	}
+
+	// scale the 8 non-thumb fingers to sum to 100%
+	for i, c := range fingerCount {
+		if i == int(LT) || i == int(RT) {
+			continue
+		}
+		fi := "F" + strconv.Itoa(i)
+		an.Metrics[fi] = float64(c) * fingerFactor
+		an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - idealFingerLoad[fi])
 	}
 }
 
