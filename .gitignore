@@ -37,3 +37,6 @@ vendor/
 authors.json
 likes.json
 .gitignore
+data/pins/hieamtsrn.pin
+/*.prof
+_cleanuipman
