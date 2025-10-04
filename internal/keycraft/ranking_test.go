@@ -1,17 +1,15 @@
-package tests
+package keycraft
 
 import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 )
 
 const (
-	layoutDir  = "../data/layouts/"
-	corpusDir  = "../data/corpus/"
-	weightsDir = "../data/weights/"
+	layoutDir = "../data/layouts/"
+	corpusDir = "../data/corpus/"
+	// weightsDir = "../data/weights/"
 )
 
 func Benchmark_Rankings(b *testing.B) {
@@ -19,7 +17,7 @@ func Benchmark_Rankings(b *testing.B) {
 	filename := "default.txt"
 	corpusName := strings.TrimSuffix(filename, filepath.Ext(filename))
 	path := filepath.Join(corpusDir, filename)
-	corpus, err := kc.NewCorpusFromFile(corpusName, path)
+	corpus, err := NewCorpusFromFile(corpusName, path)
 	if err != nil {
 		panic(err)
 	}
@@ -32,7 +30,7 @@ func Benchmark_Rankings(b *testing.B) {
 
 	// Load all analysers for layouts in the directory
 	for b.Loop() {
-		analysers, err := kc.LoadAnalysers(layoutDir, corpus, kc.DefaultIdealFingerLoad())
+		analysers, err := LoadAnalysers(layoutDir, corpus, DefaultIdealFingerLoad())
 		if err != nil {
 			panic(err)
 		}
