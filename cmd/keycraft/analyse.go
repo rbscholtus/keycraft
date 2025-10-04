@@ -15,32 +15,40 @@ var analyseCommand = &cli.Command{
 	Name:      "analyse",
 	Aliases:   []string{"a"},
 	Usage:     "Analyse one or more keyboard layouts in detail",
-	ArgsUsage: "<layout1.klf> <layout2.klf> ...",
-	Flags:     flagsSlice("corpus", "finger-load", "rows"),
+	Flags:     flagsSlice("rows", "corpus", "finger-load"),
+	ArgsUsage: "<layout1> <layout2> ...",
+	Before:    validateAnalyseFlags,
 	Action:    analyseAction,
 }
 
-// analyseAction loads the requested corpus and layouts, then runs DoAnalysis.
-// Returns an error if corpus or layouts cannot be loaded.
-func analyseAction(c *cli.Context) error {
-	corp, err := loadCorpus(c.String("corpus"))
-	if err != nil {
-		return err
-	}
-
-	fbStr := c.String("finger-load")
-	fingerBal, err := parseFingerLoad(fbStr)
-	if err != nil {
-		return err
-	}
-
+// validateViewFlags validates CLI flags before running the view command.
+func validateAnalyseFlags(c *cli.Context) error {
 	if c.NArg() < 1 {
 		return fmt.Errorf("need at least 1 layout")
 	}
+	return nil
+}
 
-	if err := DoAnalysis(c.Args().Slice(), corp, fingerBal, true, c.Int("rows")); err != nil {
+// analyseAction loads the specified corpus, finger load, and layouts,
+// then executes the analysis process. Returns an error if loading fails.
+func analyseAction(c *cli.Context) error {
+	corpus, err := getCorpusFromFlag(c)
+	if err != nil {
 		return err
 	}
+
+	fingerBal, err := getFingerLoadFromFlag(c)
+	if err != nil {
+		return err
+	}
+
+	layouts := getLayoutArgs(c)
+
+	// Run detailed analysis on all specified layouts with the given corpus and finger load.
+	if err := DoAnalysis(layouts, corpus, fingerBal, true, c.Int("rows")); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -51,11 +59,11 @@ func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, fgrLoad *[10]float6
 	// load an analyser for each layout
 	analysers := make([]*kc.Analyser, 0, len(layoutFilenames))
 	for _, fn := range layoutFilenames {
-		lay, err := loadLayout(fn)
+		layout, err := loadLayout(fn)
 		if err != nil {
 			return err
 		}
-		an := kc.NewAnalyser(lay, corpus, fgrLoad)
+		an := kc.NewAnalyser(layout, corpus, fgrLoad)
 		analysers = append(analysers, an)
 	}
 

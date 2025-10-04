@@ -2,19 +2,14 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
-
-// validMetricSets defines the accepted values for the --metrics flag.
-// These presets control which set of layout metrics are displayed
-// when ranking layouts (e.g., "basic" for common metrics, "extended" for more detailed ones).
-var validMetricSets = []string{"basic", "extended", "fingers"}
 
 // rankCommand defines the "rank" CLI command for the kb tool.
 // It lists keyboard layouts from a specified directory, optionally filtered by filename.
@@ -27,100 +22,126 @@ var validMetricSets = []string{"basic", "extended", "fingers"}
 // By default, layouts are shown in CLI-specified order unless `--show-deltas` is enabled,
 // in which case the default order switches to 'rank'.
 var rankCommand = &cli.Command{
-	Name:    "rank",
-	Aliases: []string{"r"},
-	Usage:   "Rank keyboard layouts and optionally view deltas",
-	Flags:   flagsSlice("corpus", "finger-load", "deltas", "metrics", "weights-file", "weights"),
-	Action:  rankAction,
+	Name:      "rank",
+	Aliases:   []string{"r"},
+	Usage:     "Rank keyboard layouts and optionally view deltas",
+	Flags:     flagsSlice("metrics", "deltas", "corpus", "finger-load", "weights-file", "weights"),
+	ArgsUsage: "<layout1> <layout2> ...",
+	Action:    rankAction,
 }
 
 // rankAction is the CLI action handler for the "rank" command.
 // It processes user inputs, loads layouts and weights, validates flags,
 // and executes the layout ranking display.
 func rankAction(c *cli.Context) error {
-	// Load the corpus used for analysing layouts.
-	corpus, err := loadCorpus(c.String("corpus"))
+	metrics, err := getMetricsFromFlag(c)
 	if err != nil {
 		return err
 	}
 
-	fbStr := c.String("finger-load")
-	fingerBal, err := parseFingerLoad(fbStr)
+	deltas, baseLayout, err := getDeltasFromFlag(c)
 	if err != nil {
 		return err
 	}
 
-	weightsPath := c.String("weights-file")
-	if weightsPath != "" {
-		weightsPath = filepath.Join(weightsDir, weightsPath)
-	}
-	weights, err := kc.NewWeightsFromParams(weightsPath, c.String("weights"))
+	corpus, err := getCorpusFromFlag(c)
 	if err != nil {
 		return err
 	}
 
-	// Validate the --deltas flag; must be 'none', 'rows', 'median', or a KLF filename.
-	deltas := c.String("deltas")
-	deltasLow := strings.ToLower(deltas)
-	baseFile := ""
-	if strings.HasSuffix(deltasLow, ".klf") {
-		baseFile = deltas
+	fingerBal, err := getFingerLoadFromFlag(c)
+	if err != nil {
+		return err
 	}
 
-	valid := deltasLow == "none" || deltasLow == "rows" || deltasLow == "median" || baseFile != ""
-	if !valid {
-		return fmt.Errorf("invalid deltas %q; must be none, rows, median, or a .klf filename", deltas)
+	weights, err := loadWeightsFromFlags(c)
+	if err != nil {
+		return err
 	}
 
-	// Determine which layouts to compare.
-	// If no CLI args, gather all layouts plus baseFile if specified.
-	// Otherwise, use provided layout filenames and ensure baseFile is included.
-	var layoutsToCmp []string
+	layouts, err := getLayoutsFromArgs(c, baseLayout)
+	if err != nil {
+		return err
+	}
+
+	// Perform the layout comparison and display results
+	return kc.DoLayoutRankings(layoutDir, layouts, corpus, fingerBal, weights, metrics, deltas)
+}
+
+// getMetricsFromFlag validates the --metrics flag against allowed sets
+// Returns the validated metric mode in lowercase or an error if invalid.
+func getMetricsFromFlag(c *cli.Context) (string, error) {
+	m := strings.ToLower(c.String("metrics"))
+
+	if _, ok := kc.MetricsMap[m]; !ok {
+		opts := slices.Collect(maps.Keys(kc.MetricsMap))
+		return "", fmt.Errorf("invalid metrics mode %q; must be one of %v", m, opts)
+	}
+
+	return m, nil
+}
+
+// getDeltasFromFlag validates the --deltas flag.
+// It must be one of "none", "rows", "median", or else is treated as a layout name (without .klf).
+func getDeltasFromFlag(c *cli.Context) (deltas string, baseLayout string, err error) {
+	val := c.String("deltas")
+	lower := strings.ToLower(val)
+
+	switch lower {
+	case "none", "rows", "median":
+		deltas = lower
+	default:
+		// treat as layout name (case preserved for filesystem lookup)
+		deltas = ensureNoKlf(val)
+		baseLayout = deltas
+	}
+
+	return
+}
+
+func getLayoutsFromArgs(c *cli.Context, baseLayout string) ([]string, error) {
+	var layouts []string
 	if c.Args().Len() == 0 {
-		layoutsToCmp, err = allLayoutsAnd(baseFile)
+		var err error
+		layouts, err = allLayoutFiles()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else {
-		layoutsToCmp = c.Args().Slice()
-		if baseFile != "" && !slices.Contains(layoutsToCmp, baseFile) {
-			layoutsToCmp = append(layoutsToCmp, baseFile)
-		}
-		if err := filesExist(layoutsToCmp); err != nil {
-			return err
+		layouts = c.Args().Slice()
+		for i := range layouts {
+			layouts[i] = ensureKlf(layouts[i])
 		}
 	}
 
-	// Perform the layout comparison and display results,
-	return kc.DoLayoutRankings(layoutDir, layoutsToCmp, corpus, fingerBal, weights, c.String("metrics"), deltas)
+	if baseLayout != "" {
+		baseLayout = ensureKlf(baseLayout)
+		if !slices.Contains(layouts, baseLayout) {
+			layouts = append(layouts, baseLayout)
+		}
+	}
+
+	return layouts, nil
 }
 
 // filesExist checks that all specified layout files exist in the layoutDir.
 // This ensures that user-specified layouts are valid before processing.
-func filesExist(layoutsToCmp []string) error {
-	for _, layoutName := range layoutsToCmp {
-		path := filepath.Join(layoutDir, layoutName)
-		if _, err := os.Stat(path); err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("layout file %s does not exist in %s", layoutName, layoutDir)
-			}
-			return fmt.Errorf("error checking layout file %s: %v", layoutName, err)
-		}
-	}
-	return nil
-}
+// func filesExist(layouts []string) error {
+// 	for _, layoutFile := range layouts {
+// 		path := filepath.Join(layoutDir, layoutFile)
+// 		if _, err := os.Stat(path); err != nil {
+// 			if os.IsNotExist(err) {
+// 				return fmt.Errorf("layout file %s does not exist in %s", layoutFile, layoutDir)
+// 			}
+// 			return fmt.Errorf("error checking layout file %s: %v", layoutFile, err)
+// 		}
+// 	}
+// 	return nil
+// }
 
-// allLayoutsAnd gathers all .klf layout files from layoutDir,
-// optionally including a specified base layout file at the start.
-func allLayoutsAnd(baseFile string) ([]string, error) {
+// allLayoutFiles returns all `.klf` files in layoutDir.
+func allLayoutFiles() ([]string, error) {
 	var layoutsToCmp []string
-
-	// Include baseFile first if specified and validate it exists.
-	if baseFile != "" {
-		if err := filesExist([]string{baseFile}); err != nil {
-			return nil, err
-		}
-	}
 
 	// Append all .klf files found in layoutDir.
 	entries, err := os.ReadDir(layoutDir)
@@ -128,13 +149,10 @@ func allLayoutsAnd(baseFile string) ([]string, error) {
 		return nil, fmt.Errorf("failed to read layout directory %s: %v", layoutDir, err)
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".klf") {
-			layoutsToCmp = append(layoutsToCmp, entry.Name())
+		entryName := entry.Name()
+		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entryName), ".klf") {
+			layoutsToCmp = append(layoutsToCmp, entryName)
 		}
-	}
-
-	if baseFile != "" && !slices.Contains(layoutsToCmp, baseFile) {
-		layoutsToCmp = append(layoutsToCmp, baseFile)
 	}
 
 	return layoutsToCmp, nil

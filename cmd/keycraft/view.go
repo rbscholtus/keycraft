@@ -12,32 +12,38 @@ var viewCommand = &cli.Command{
 	Name:      "view",
 	Aliases:   []string{"v"},
 	Usage:     "Analyse and display one or more keyboard layouts",
-	ArgsUsage: "<layout1.klf> <layout2.klf> ...",
-	Action:    viewAction,
 	Flags:     flagsSlice("corpus", "finger-load"),
+	ArgsUsage: "<layout1> <layout2> ...",
+	Before:    validateViewFlags,
+	Action:    viewAction,
 }
 
-// viewAction implements the view command's functionality: loading corpus,
-// validating layouts, and performing analysis.
-func viewAction(c *cli.Context) error {
-	corp, err := loadCorpus(c.String("corpus"))
-	if err != nil {
-		return err
-	}
-
-	fbStr := c.String("finger-load")
-	fingerBal, err := parseFingerLoad(fbStr)
-	if err != nil {
-		return err
-	}
-
+// validateViewFlags validates CLI flags before running the view command.
+func validateViewFlags(c *cli.Context) error {
 	if c.NArg() < 1 {
 		return fmt.Errorf("need at least 1 layout")
 	}
+	return nil
+}
+
+// viewAction loads the corpus and finger load, retrieves the layouts,
+// and performs the analysis.
+func viewAction(c *cli.Context) error {
+	corpus, err := getCorpusFromFlag(c)
+	if err != nil {
+		return err
+	}
+
+	fingerLoad, err := getFingerLoadFromFlag(c)
+	if err != nil {
+		return err
+	}
+
+	layouts := getLayoutArgs(c)
 
 	// Analyse all provided layouts using given corpus.
 	// The 'false' parameter indicates not to include detailed metrics.
-	if err := DoAnalysis(c.Args().Slice(), corp, fingerBal, false, 0); err != nil {
+	if err := DoAnalysis(layouts, corpus, fingerLoad, false, 0); err != nil {
 		return err
 	}
 

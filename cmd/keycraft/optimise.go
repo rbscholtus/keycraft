@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/urfave/cli/v2"
@@ -17,10 +16,19 @@ var validAcceptFuncs = []string{"always", "drop-slow", "linear", "drop-fast", "n
 var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Aliases:   []string{"o"},
-	Usage:     "Optimise a keyboard layout",
-	ArgsUsage: "<layout.klf>",
+	Usage:     "Optimise a keyboard layout using simulated annealing",
 	Flags:     flagsSlice("corpus", "finger-load", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse"),
+	ArgsUsage: "<layout>",
+	Before:    validateOptFlags,
 	Action:    optimiseAction,
+}
+
+// validateViewFlags validates CLI flags before running the view command.
+func validateOptFlags(c *cli.Context) error {
+	if c.Args().Len() != 1 {
+		return fmt.Errorf("expected exactly 1 layout, got %d", c.Args().Len())
+	}
+	return nil
 }
 
 // optimiseAction performs optimisation for a single layout file:
@@ -29,23 +37,17 @@ var optimiseCommand = &cli.Command{
 //   - runs optimisation and persists the best layout
 //   - runs analysis and ranking on original vs optimized layouts
 func optimiseAction(c *cli.Context) error {
-	// Load the corpus used for analysing layouts.
-	corpus, err := loadCorpus(c.String("corpus"))
+	corpus, err := getCorpusFromFlag(c)
 	if err != nil {
 		return err
 	}
 
-	fbStr := c.String("finger-load")
-	fingerBal, err := parseFingerLoad(fbStr)
+	fingerBal, err := getFingerLoadFromFlag(c)
 	if err != nil {
 		return err
 	}
 
-	weightsPath := c.String("weights-file")
-	if weightsPath != "" {
-		weightsPath = filepath.Join(weightsDir, weightsPath)
-	}
-	weights, err := kc.NewWeightsFromParams(weightsPath, c.String("weights"))
+	weights, err := loadWeightsFromFlags(c)
 	if err != nil {
 		return err
 	}
@@ -60,9 +62,6 @@ func optimiseAction(c *cli.Context) error {
 		return fmt.Errorf("number of generations must be above 0. Got: %d", numGenerations)
 	}
 
-	if c.Args().Len() != 1 {
-		return fmt.Errorf("expected exactly 1 layout file, got %d", c.Args().Len())
-	}
 	layoutFile := c.Args().First()
 	layout, err := loadLayout(layoutFile)
 	if err != nil {
@@ -80,11 +79,7 @@ func optimiseAction(c *cli.Context) error {
 	best := layout.Optimise(corpus, fingerBal, weights, numGenerations, acceptFunction)
 
 	// Save best layout to file
-	name := filepath.Base(layout.Name)
-	ext := strings.ToLower(filepath.Ext(name))
-	if ext == ".klf" {
-		name = name[:len(name)-len(ext)]
-	}
+	name := ensureNoKlf(filepath.Base(layout.Name))
 	bestFilename := fmt.Sprintf("%s-opt.klf", name)
 	bestPath := filepath.Join(layoutDir, bestFilename)
 	if err := best.SaveToFile(bestPath); err != nil {
