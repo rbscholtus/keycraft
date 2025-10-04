@@ -277,7 +277,7 @@ func MetricsString(an *kc.Analyser) string {
 		{
 			fmt.Sprintf("ALT: %.2f%%\nSFS: %.2f%%", an.Metrics["ALT"], an.Metrics["ALT-SFS"]),
 			fmt.Sprintf("2RL: %.2f%%\nSFB: %.2f%%", an.Metrics["2RL"], an.Metrics["2RL-SFB"]),
-			fmt.Sprintf("3RL: %.2f%%\nSFS: %.2f%%", an.Metrics["3RL"], an.Metrics["3RL-SFS"]),
+			fmt.Sprintf("3RL: %.2f%%\nSFB: %.2f%%", an.Metrics["3RL"], an.Metrics["3RL-SFB"]),
 			fmt.Sprintf("RED: %.2f%%\nWEAK %.2f%%", an.Metrics["RED"], an.Metrics["RED-WEAK"]),
 		},
 		{
