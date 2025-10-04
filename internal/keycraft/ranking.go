@@ -20,7 +20,7 @@ import (
 var MetricsMap = map[string][]string{
 	"basic": {
 		"SFB", "LSB", "FSB", "HSB",
-		"SFS", "LSS", "FSS", "HSS",
+		"SFS", // "LSS", "FSS", "HSS",
 		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
 		"IN:OUT", "FBL", "POH", "FLW",
 	},
@@ -29,7 +29,7 @@ var MetricsMap = map[string][]string{
 		"SFS", "LSS", "FSS", "HSS",
 		"ALT", "ALT-NML", "ALT-SFS",
 		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
-		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFS",
+		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
 		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
 		"IN:OUT", "FBL", "POH", "FLW",
 	},
@@ -167,8 +167,9 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, idealfgrLoad *[10]float64)
 			defer wg.Done()
 			defer func() { <-sem }() // release
 
+			layoutName := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
 			layoutPath := filepath.Join(layoutsDir, f.Name())
-			layout, err := NewLayoutFromFile(f.Name(), layoutPath)
+			layout, err := NewLayoutFromFile(layoutName, layoutPath)
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -235,7 +236,7 @@ func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weigh
 }
 
 // renderTable formats and prints the ranking table including optional delta rows.
-func renderTable(scores []LayoutScore, metrics []string, weights *Weights, deltas string, base *LayoutScore) {
+func renderTable(scores []LayoutScore, metrics []string, weights *Weights, showWeights bool, deltas string, base *LayoutScore) {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
 	tw.Style().Box.PaddingLeft = ""
@@ -270,12 +271,14 @@ func renderTable(scores []LayoutScore, metrics []string, weights *Weights, delta
 	tw.AppendHeader(header)
 
 	// Weight row displayed after header with blank index and score columns
-	weightRow := table.Row{"", "Weight", ""}
-	for _, metric := range metrics {
-		weight := weights.Get(metric)
-		weightRow = append(weightRow, fmt.Sprintf("%.2f", weight))
+	if showWeights {
+		weightRow := table.Row{"", "Weight", ""}
+		for _, metric := range metrics {
+			weight := weights.Get(metric)
+			weightRow = append(weightRow, fmt.Sprintf("%.2f", weight))
+		}
+		tw.AppendHeader(weightRow)
 	}
-	tw.AppendHeader(weightRow)
 
 	rowIdx := 1
 	if base != nil {
@@ -361,11 +364,11 @@ func formatDelta(metric string, delta float64, weights *Weights) string {
 // Parameters:
 // - corpus: text corpus used for layout analysis.
 // - layoutsDir: directory containing keyboard layout files (.klf).
-// - layouts: list of layout names to include; if empty, no filtering is applied.
+// - layouts: list of layout files to include; if empty, no filtering is applied.
 // - weights: metric weights to apply during scoring.
 // - metricsSet: string indicating which metric set to use ("basic", "extended", or "fingers").
 // - deltas: whether to show delta rows between layouts in the output.
-func DoLayoutRankings(layoutsDir string, layouts []string, corpus *Corpus, idealfgrLoad *[10]float64, weights *Weights, metricsSet string, deltas string) error {
+func DoLayoutRankings(layoutsDir string, layoutFiles []string, corpus *Corpus, idealfgrLoad *[10]float64, weights *Weights, metricsSet string, deltas string) error {
 	// Choose metric list based on metricsMode flag
 	metrics, ok := MetricsMap[metricsSet]
 	if !ok {
@@ -374,10 +377,12 @@ func DoLayoutRankings(layoutsDir string, layouts []string, corpus *Corpus, ideal
 	}
 
 	// Load all analysers for layouts in the directory
+	// Compute median and IQR for each metric for normalization
 	analysers, err := LoadAnalysers(layoutsDir, corpus, idealfgrLoad)
 	if err != nil {
 		return err
 	}
+	medians, iqrs := computeMediansAndIQR(analysers)
 
 	// Map analysers by layout name for fast lookup
 	analyserMap := make(map[string]*Analyser, len(analysers))
@@ -386,16 +391,15 @@ func DoLayoutRankings(layoutsDir string, layouts []string, corpus *Corpus, ideal
 	}
 
 	// Filter analysers to only include specified layouts (if any)
-	filteredAnalysers := make([]*Analyser, 0, len(layouts))
-	for _, name := range layouts {
-		if analyser, ok := analyserMap[name]; ok {
-			filteredAnalysers = append(filteredAnalysers, analyser)
+	filteredAnalysers := make([]*Analyser, 0, len(layoutFiles))
+	for _, fname := range layoutFiles {
+		layoutName := strings.TrimSuffix(fname, filepath.Ext(fname))
+		analyser, ok := analyserMap[layoutName]
+		if !ok {
+			return fmt.Errorf("layout file %s was not found", fname)
 		}
+		filteredAnalysers = append(filteredAnalysers, analyser)
 	}
-
-	// Compute median and IQR for each metric for normalization
-	medians, iqrs := computeMediansAndIQR(analysers)
-	// maps.Copy(medians, idealFingerLoad)
 
 	// Compute weighted scores for filtered layouts
 	layoutScores := computeScores(filteredAnalysers, medians, iqrs, weights)
@@ -415,14 +419,14 @@ func DoLayoutRankings(layoutsDir string, layouts []string, corpus *Corpus, ideal
 	// get a ptr to the layout we compare to if relevant
 	if deltas != "none" && deltas != "rows" {
 		if i := slices.IndexFunc(layoutScores, func(ls LayoutScore) bool { return ls.Name == deltas }); i < 0 {
-			panic(fmt.Sprintf("can't find %s", deltas))
+			return fmt.Errorf("can't find %s", deltas)
 		} else {
 			base = &layoutScores[i]
 		}
 	}
 
 	// Render results in a formatted table
-	renderTable(layoutScores, metrics, weights, deltas, base)
+	renderTable(layoutScores, metrics, weights, metricsSet == "extended", deltas, base)
 
 	return nil
 }
