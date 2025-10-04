@@ -3,38 +3,38 @@
 
 SFB = -6.0
 LSB = -4.0
-FSB = -4.0
-HSB = -3.0
+FSB = -2.666
+HSB = -1.333
 
 SFS = -1.5
 LSS = -1.0
-FSS = -1.0
-HSS = -0.75
+FSS = -0.666
+HSS = -0.333
 
 #ALT = ALT-SFS + ALT-NML
+ALT     = 0
 ALT-SFS = -0.001
 ALT-NML = 4
-#ALT = 0
 
-#2RL = 2RL-IN + 2RL-OUT
-2RL = 3
+#2RL = 2RL-IN + 2RL-OUT + 2RL-SFB
+2RL     = 0
 2RL-SFB = -0.001
-#2RL-IN = 0
-#2RL-OUT = 0
+2RL-IN  = 2
+2RL-OUT = 2
 
-#3RL = 3RL-IN + 3RL-OUT
-3RL = 1
-3RL-SFS = -0.001
-#3RL-IN = 0
-#3RL-OUT = 0
+#3RL = 3RL-IN + 3RL-OUT + 3RL-SFB
+3RL     = 0
+3RL-SFB = -0.001
+3RL-IN  = 0.25
+3RL-OUT = 0.25
 
 #RED = RED-WEAK + RED-SFS + RED-NML
-RED = -0.001
+RED      = -0.001
 RED-WEAK = -2
-RED-SFS = -0.001
-RED-NML = -2
+RED-SFS  = -0.001
+RED-NML  = -2
 
-#IN:OUT
-FBL = -2.0
-POH = -2.0
-#FLW = 0
+IN:OUT = 0
+FBL    = -2.0
+POH    = -2.0
+FLW    = 0
