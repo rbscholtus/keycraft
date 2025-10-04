@@ -205,7 +205,7 @@ func ExperimentAction(c *cli.Context) error {
 			if (ki.Finger == kc.LM && ki2.Finger == kc.LI) ||
 				(ki.Finger == kc.RM && ki2.Finger == kc.RI) {
 				bi := string(r) + string(r2)
-				dist := layout.KeyPairDistances[kc.KeyPair{ki.Index, ki2.Index}]
+				dist := layout.Distance(ki.Index, ki2.Index)
 				if dist.Distance >= 2.0 {
 					tw.AppendRow(table.Row{ki.Index, ki2.Index, bi, dist.ColDist, dist.RowDist, dist.FingerDist, dist.Distance})
 				}
@@ -399,7 +399,8 @@ func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 		f0, f1, f2 := r0.Finger, r1.Finger, r2.Finger
 		diffIdx02 := r0.Index != r2.Index
 
-		if h0 == h2 {
+		switch h0 {
+		case h2:
 			if h0 != h1 {
 				// ALT or ALT-SFS
 				if f0 == f2 && diffIdx02 {
@@ -411,7 +412,7 @@ func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 				// One-hand trigrams
 				switch {
 				case f0 == f1 || f1 == f2:
-					stats["3RL-SFS"] += cnt
+					stats["3RL-SFB"] += cnt
 				case (f0 < f1) == (f1 < f2):
 					if (f0 < f1) == (h0 == kc.LEFT) {
 						stats["3RL-I"] += cnt
@@ -430,9 +431,9 @@ func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 					}
 				}
 			}
-		} else if h0 == h1 {
+		case h1:
 			add2Roll(h0, f0, f1)
-		} else { // h1 == h2
+		default: // h1 == h2
 			add2Roll(h1, f1, f2)
 		}
 	}
