@@ -139,8 +139,6 @@ func (sl *SplitLayout) Clone() eaopt.Genome {
 		LayoutType:       sl.LayoutType,
 		Runes:            sl.Runes,
 		RuneInfo:         make(map[rune]KeyInfo),
-		GetRowDist:       sl.GetRowDist,
-		GetColDist:       sl.GetColDist,
 		KeyPairDistances: sl.KeyPairDistances,
 		LSBs:             sl.LSBs,
 		FScissors:        sl.FScissors,

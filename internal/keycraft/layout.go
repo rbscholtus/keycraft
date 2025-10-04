@@ -60,6 +60,30 @@ var layoutTypeStrings = map[LayoutType]string{
 	COLSTAG:  "colstag",
 }
 
+// KeyPair represents an ordered pair of key indices.
+type KeyPair [2]uint8
+
+// KeyPairDistance contains precomputed distance metrics between two key indices.
+type KeyPairDistance struct {
+	RowDist    float64 // vertical (row) distance in layout units
+	ColDist    float64 // horizontal (column) distance in layout units
+	FingerDist uint8   // absolute difference between the two keys' finger indices
+	Distance   float64 // Euclidean distance (sqrt(RowDist^2 + ColDist^2))
+}
+
+// keyDistances contains precomputed key pair distances for each LayoutType.
+// The combinations of row/column distance functions are chosen as follows:
+//  1. ROWSTAG: AbsRowDist, AbsColDistAdj (accounts for row-staggered columns)
+//  2. ANGLEMOD: AbsRowDist, AbsColDistAdj (angle-modified layouts use similar logic)
+//  3. ORTHO: AbsRowDist, AbsColDist (ortholinear layouts use simple absolute distances; this is intentional)
+//  4. COLSTAG: AbsRowDistAdj, AbsColDist (column-staggered layouts adjust row distance only)
+var keyDistances = []map[KeyPair]KeyPairDistance{
+	calcKeyDistances(AbsRowDist, AbsColDistAdj, &keyToFinger),         // ROWSTAG
+	calcKeyDistances(AbsRowDist, AbsColDistAdj, &angleModKeyToFinger), // ANGLEMOD
+	calcKeyDistances(AbsRowDist, AbsColDist, &keyToFinger),            // ORTHO
+	calcKeyDistances(AbsRowDistAdj, AbsColDist, &keyToFinger),         // COLSTAG
+}
+
 // Standard row-staggered keyboard column offsets
 var rowStagOffsets = [4]float64{
 	0, 0.25, 0.75, 0,
@@ -121,54 +145,35 @@ func NewKeyInfo(row, col uint8, layoutType LayoutType) KeyInfo {
 	}
 }
 
-// KeyPair represents an ordered pair of key indices.
-type KeyPair [2]uint8
-
-// KeyPairDistance contains precomputed distance metrics between two key indices.
-type KeyPairDistance struct {
-	RowDist    float64 // vertical (row) distance in layout units
-	ColDist    float64 // horizontal (column) distance in layout units
-	FingerDist uint8   // absolute difference between the two keys' finger indices
-	Distance   float64 // Euclidean distance (sqrt(RowDist^2 + ColDist^2))
-}
-
 // SplitLayout represents a split keyboard layout and associated analysis metadata.
 // It contains rune placement, per-rune key information, precomputed pairwise distances,
 // notable lateral-stretch and scissor pairs, pinned-key flags, and optional fields used
 // during optimisation.
 type SplitLayout struct {
-	Name             string                                   // layout identifier (filename or user-provided)
-	LayoutType       LayoutType                               // geometry type (ROWSTAG, ORTHO, COLSTAG)
-	Runes            [42]rune                                 // runes mapped to physical key positions (42 positions)
-	RuneInfo         map[rune]KeyInfo                         // map from rune to KeyInfo for quick lookup
-	GetRowDist       func(uint8, uint8, uint8, uint8) float64 // computes row distance between two keys
-	GetColDist       func(uint8, uint8, uint8, uint8) float64 // computes column distance between two keys
-	KeyPairDistances map[KeyPair]KeyPairDistance              // cache of distances between key index pairs
-	LSBs             []LSBInfo                                // notable lateral-stretch bigram key-pairs
-	FScissors        []ScissorInfo                            // notable full scissor key-pairs
-	HScissors        []ScissorInfo                            // notable half scissor key-pairs
-	optPinned        [42]bool                                 // optimisation: flags indicating keys that must not be moved
-	optCorpus        *Corpus                                  // optimisation: corpus used during layout optimisation (optional)
-	optIdealfgrLoad  *[10]float64
-	optWeights       *Weights           // optimisation: metric weights used (optional)
-	optMedians       map[string]float64 // optimisation: median values per metric (optional)
-	optIqrs          map[string]float64 // optimisation: IQR values per metric (optional)
+	Name             string                       // layout identifier (filename or user-provided)
+	LayoutType       LayoutType                   // geometry type (ROWSTAG, ORTHO, COLSTAG)
+	Runes            [42]rune                     // runes mapped to physical key positions (42 positions)
+	RuneInfo         map[rune]KeyInfo             // map from rune to KeyInfo for quick lookup
+	KeyPairDistances *map[KeyPair]KeyPairDistance // cache of distances between key index pairs
+	LSBs             []LSBInfo                    // notable lateral-stretch bigram key-pairs
+	FScissors        []ScissorInfo                // notable full scissor key-pairs
+	HScissors        []ScissorInfo                // notable half scissor key-pairs
+	optPinned        [42]bool                     // optimisation: flags indicating keys that must not be moved
+	optCorpus        *Corpus                      // optimisation: corpus used during layout optimisation (optional)
+	optIdealfgrLoad  *[10]float64                 // optimisation:
+	optWeights       *Weights                     // optimisation: metric weights used (optional)
+	optMedians       map[string]float64           // optimisation: median values per metric (optional)
+	optIqrs          map[string]float64           // optimisation: IQR values per metric (optional)
 }
 
 // NewSplitLayout creates a new split layout
 func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
-	rowDistFunc := IfThen(layoutType == COLSTAG, AbsRowDistAdj, AbsRowDist)
-	colDistFunc := IfThen(layoutType == ROWSTAG || layoutType == ANGLEMOD, AbsColDistAdj, AbsColDist)
-	keyDistances := getKeyDistances(rowDistFunc, colDistFunc, IfThen(layoutType == ANGLEMOD, angleModKeyToFinger, keyToFinger))
-
 	sl := &SplitLayout{
 		Name:             name,
 		LayoutType:       layoutType,
 		Runes:            runes,
 		RuneInfo:         runeInfo,
-		GetRowDist:       rowDistFunc,
-		GetColDist:       colDistFunc,
-		KeyPairDistances: keyDistances,
+		KeyPairDistances: &keyDistances[layoutType],
 	}
 	sl.initLSBs()
 	sl.initFScissors()
@@ -509,13 +514,23 @@ func readLine(scanner *bufio.Scanner) (string, error) {
 	return "", fmt.Errorf("unexpected end of file")
 }
 
+// Distance returns the precomputed distance between two key indices.
+// If the key pair is not found, it returns nil.
+func (sl *SplitLayout) Distance(k1, k2 uint8) *KeyPairDistance {
+	kpd, ok := (*sl.KeyPairDistances)[KeyPair{k1, k2}]
+	if !ok {
+		return nil
+	}
+	return &kpd
+}
+
 // There is a minor error in the calcs for the thumb keys!
-func getKeyDistances(
+func calcKeyDistances(
 	rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
 	colDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
-	keyToFinger [42]uint8,
+	keyToFinger *[42]uint8,
 ) map[KeyPair]KeyPairDistance {
-	keyDistances := make(map[KeyPair]KeyPairDistance)
+	keyDistances := make(map[KeyPair]KeyPairDistance, 624)
 
 	sqrt := func(mul float64) float64 {
 		switch mul {
@@ -592,8 +607,8 @@ func AbsColDistAdj(row1, col1, row2, col2 uint8) float64 {
 
 // LSBInfo holds information about a lateral-stretch bigram candidate on the layout.
 type LSBInfo struct {
-	KeyIdx1     int
-	KeyIdx2     int
+	KeyIdx1     uint8
+	KeyIdx2     uint8
 	ColDistance float64
 }
 
@@ -611,7 +626,7 @@ func (sl *SplitLayout) initLSBs() {
 		{RP, RR}: 2.0, {RR, RP}: 2.0,
 	}
 
-	sl.LSBs = make([]LSBInfo, 0)
+	sl.LSBs = make([]LSBInfo, 0, 72)
 
 	for key1, rune1 := range sl.Runes {
 		if rune1 == 0 {
@@ -639,9 +654,9 @@ func (sl *SplitLayout) initLSBs() {
 			}
 
 			// Get horizontal distance and add
-			dx := sl.KeyPairDistances[KeyPair{uint8(key1), uint8(key2)}].ColDist
+			dx := sl.Distance(uint8(key1), uint8(key2)).ColDist
 			if dx >= minHorDistance {
-				sl.LSBs = append(sl.LSBs, LSBInfo{key1, key2, dx})
+				sl.LSBs = append(sl.LSBs, LSBInfo{uint8(key1), uint8(key2), dx})
 			}
 		}
 	}
@@ -704,12 +719,12 @@ func (sl *SplitLayout) initScissorPairs(configs []scissorConfig, out *[]ScissorI
 				ki2 := sl.RuneInfo[r2]
 
 				if cfg.fingerPairs[[2]uint8{ki1.Finger, ki2.Finger}] {
-					kp := sl.KeyPairDistances[KeyPair{uint8(i1), uint8(i2)}]
+					kp := sl.Distance(i1, i2)
 					angle := math.Atan2(kp.RowDist, kp.ColDist) * 180 / math.Pi
 
 					*out = append(*out,
-						ScissorInfo{uint8(i1), uint8(i2), kp.FingerDist, kp.RowDist, kp.ColDist, angle},
-						ScissorInfo{uint8(i2), uint8(i1), kp.FingerDist, kp.RowDist, kp.ColDist, angle},
+						ScissorInfo{i1, i2, kp.FingerDist, kp.RowDist, kp.ColDist, angle},
+						ScissorInfo{i2, i1, kp.FingerDist, kp.RowDist, kp.ColDist, angle},
 					)
 				}
 			}
