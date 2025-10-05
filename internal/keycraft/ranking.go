@@ -343,9 +343,9 @@ func formatDelta(metric string, delta float64, weights *Weights) string {
 	var c text.Color
 
 	switch {
-	case delta >= 0.01:
+	case delta >= 0.005:
 		c = IfThen(positive, text.FgGreen, text.FgRed)
-	case delta <= -0.01:
+	case delta <= -0.005:
 		c = IfThen(positive, text.FgRed, text.FgGreen)
 	default:
 		c = text.Reset
