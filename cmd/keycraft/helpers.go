@@ -27,7 +27,7 @@ var appFlagsMap = map[string]cli.Flag{
 		Name:    "finger-load",
 		Aliases: []string{"fl"},
 		Usage:   "ideal finger load: 4 or 8 floats for F0..F3[,F6..F9]. 4 values are mirrored to F9..F6. F4/F5 are 0.0. Values are scaled to add up to 100%",
-		Value:   "8,11,16,15", // default 4-values mirrored
+		Value:   "7.5,11,16,15.5", // default 4-values mirrored
 	},
 	"rows": &cli.IntFlag{
 		Name:    "rows",

@@ -9,16 +9,16 @@ import (
 // F4 and F5 are 0.0; F6..F9 are mirrored from F3..F0.
 func DefaultIdealFingerLoad() *[10]float64 {
 	return &[10]float64{
-		8.0,  // F0
+		7.5,  // F0
 		11.0, // F1
 		16.0, // F2
-		15.0, // F3
+		15.5, // F3
 		0.0,  // F4
 		0.0,  // F5
-		15.0, // F6 (mirror of F3)
+		15.5, // F6 (mirror of F3)
 		16.0, // F7 (mirror of F2)
 		11.0, // F8 (mirror of F1)
-		8.0,  // F9 (mirror of F0)
+		7.5,  // F9 (mirror of F0)
 	}
 }
 
@@ -110,7 +110,15 @@ func (an *Analyser) analyseHand() {
 	for i, c := range fingerCount {
 		fi := "F" + strconv.Itoa(i)
 		an.Metrics[fi] = float64(c) * totFactor
-		an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - an.IdealfgrLoad[uint8(i)])
+		// For pinkies (LP and RP), only add positive deviations to FBL
+		if i == int(LP) || i == int(RP) {
+			diff := an.Metrics[fi] - an.IdealfgrLoad[i]
+			if diff > 0 {
+				an.Metrics["FBL"] += diff
+			}
+		} else {
+			an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - an.IdealfgrLoad[i])
+		}
 	}
 	for i, c := range columnCount {
 		an.Metrics["C"+strconv.Itoa(i)] = float64(c) * totFactor
@@ -657,17 +665,17 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 				if _, ok := rl2.Custom[triStr]; !ok {
 					rl2.Custom[triStr] = make(map[string]any)
 				}
-				rl2.Custom[triStr]["Kind"] = "SFB"
+				rl2.Custom[triStr]["Dir"] = "SFB"
 			case (fA < fB) == (h1 == LEFT):
 				if _, ok := rl2.Custom[triStr]; !ok {
 					rl2.Custom[triStr] = make(map[string]any)
 				}
-				rl2.Custom[triStr]["Kind"] = "IN"
+				rl2.Custom[triStr]["Dir"] = "IN"
 			default:
 				if _, ok := rl2.Custom[triStr]; !ok {
 					rl2.Custom[triStr] = make(map[string]any)
 				}
-				rl2.Custom[triStr]["Kind"] = "OUT"
+				rl2.Custom[triStr]["Dir"] = "OUT"
 			}
 		}
 
@@ -680,9 +688,9 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 					alt.Custom[triStr] = make(map[string]any)
 				}
 				if f0 == f2 && r0.Index != r2.Index {
-					alt.Custom[triStr]["Kind"] = "SFS"
+					alt.Custom[triStr]["Dir"] = "SFS"
 				} else {
-					alt.Custom[triStr]["Kind"] = "NML"
+					alt.Custom[triStr]["Dir"] = "NML"
 				}
 			} else { // it's a One-Hand pattern
 				if f0 == f1 || f1 == f2 {
@@ -691,7 +699,7 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 					if _, ok := rl3.Custom[triStr]; !ok {
 						rl3.Custom[triStr] = make(map[string]any)
 					}
-					rl3.Custom[triStr]["Kind"] = "SFB"
+					rl3.Custom[triStr]["Dir"] = "SFB"
 				} else if (f0 < f1) == (f1 < f2) {
 					rl3.NGramCount[triStr] = cnt
 					rl3.TotalNGrams += cnt
@@ -699,9 +707,9 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 						rl3.Custom[triStr] = make(map[string]any)
 					}
 					if (f0 < f1) == (h0 == LEFT) {
-						rl3.Custom[triStr]["Kind"] = "IN"
+						rl3.Custom[triStr]["Dir"] = "IN"
 					} else {
-						rl3.Custom[triStr]["Kind"] = "OUT"
+						rl3.Custom[triStr]["Dir"] = "OUT"
 					}
 				} else {
 					red.NGramCount[triStr] = cnt
@@ -712,11 +720,11 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 					if f0 != LI && f0 != RI &&
 						f1 != LI && f1 != RI &&
 						f2 != LI && f2 != RI {
-						red.Custom[triStr]["Kind"] = "WEAK"
+						red.Custom[triStr]["Dir"] = "WEAK"
 					} else if f0 == f2 && r0.Index != r2.Index {
-						red.Custom[triStr]["Kind"] = "SFS"
+						red.Custom[triStr]["Dir"] = "SFS"
 					} else {
-						red.Custom[triStr]["Kind"] = "NML"
+						red.Custom[triStr]["Dir"] = "NML"
 					}
 				}
 			}
