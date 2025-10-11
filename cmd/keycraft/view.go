@@ -29,7 +29,7 @@ func validateViewFlags(c *cli.Context) error {
 // viewAction loads the corpus and finger load, retrieves the layouts,
 // and performs the analysis.
 func viewAction(c *cli.Context) error {
-	corpus, err := getCorpusFromFlag(c)
+	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return err
 	}

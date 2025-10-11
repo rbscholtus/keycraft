@@ -37,7 +37,7 @@ func validateOptFlags(c *cli.Context) error {
 //   - runs optimisation and persists the best layout
 //   - runs analysis and ranking on original vs optimized layouts
 func optimiseAction(c *cli.Context) error {
-	corpus, err := getCorpusFromFlag(c)
+	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return err
 	}

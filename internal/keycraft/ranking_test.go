@@ -17,7 +17,7 @@ func Benchmark_Rankings(b *testing.B) {
 	filename := "default.txt"
 	corpusName := strings.TrimSuffix(filename, filepath.Ext(filename))
 	path := filepath.Join(corpusDir, filename)
-	corpus, err := NewCorpusFromFile(corpusName, path)
+	corpus, err := NewCorpusFromFile(corpusName, path, false, 98)
 	if err != nil {
 		panic(err)
 	}

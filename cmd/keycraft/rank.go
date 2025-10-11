@@ -44,7 +44,7 @@ func rankAction(c *cli.Context) error {
 		return err
 	}
 
-	corpus, err := getCorpusFromFlag(c)
+	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return err
 	}

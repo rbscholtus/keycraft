@@ -183,7 +183,7 @@ func DoExperiment3(c *cli.Context) (err error) {
 }
 
 func ExperimentAction(c *cli.Context) error {
-	_, err := loadCorpus(c.String("corpus"))
+	_, err := loadCorpus(c.String("corpus"), false, 98)
 	layout, err2 := loadLayout(c.Args().First())
 	if err != nil || err2 != nil {
 		return fmt.Errorf("sorry / %v / %v", err, err2)
@@ -228,7 +228,7 @@ func ExperimentAction2(c *cli.Context) error {
 	fmt.Println("Running experiment...")
 
 	// Load the corpus used for analysing layouts.
-	corpus, err := loadCorpus(c.String("corpus"))
+	corpus, err := loadCorpus(c.String("corpus"), false, 98)
 	if err != nil {
 		return err
 	}
