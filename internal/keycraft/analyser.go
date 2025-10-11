@@ -356,6 +356,8 @@ func (an *Analyser) SFBiDetails() *MetricDetails {
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma.Custom[biStr] = make(map[string]any)
 			}
+			ma.Custom[biStr]["Hd"] = key1.Hand + 1
+			ma.Custom[biStr]["Fgr"] = key1.Finger + 1
 			ma.Custom[biStr]["Δrow"] = kpDist.RowDist
 		}
 	}
@@ -377,7 +379,8 @@ func (an *Analyser) LSBiDetails() *MetricDetails {
 	}
 
 	for _, lsb := range an.Layout.LSBs {
-		bi := Bigram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
+		rune1 := an.Layout.Runes[lsb.KeyIdx1]
+		bi := Bigram{rune1, an.Layout.Runes[lsb.KeyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
 
@@ -390,6 +393,8 @@ func (an *Analyser) LSBiDetails() *MetricDetails {
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma.Custom[biStr] = make(map[string]any)
 			}
+			key1 := an.Layout.RuneInfo[rune1]
+			ma.Custom[biStr]["Hd"] = key1.Hand + 1
 			ma.Custom[biStr]["Δcol"] = kpDist.ColDist
 		}
 	}
@@ -420,7 +425,8 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 	}
 
 	for _, sci := range an.Layout.FScissors {
-		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		rune1 := an.Layout.Runes[sci.keyIdx1]
+		bi := Bigram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
 			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
@@ -432,6 +438,8 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma.Custom[biStr] = make(map[string]any)
 			}
+			key1 := an.Layout.RuneInfo[rune1]
+			ma.Custom[biStr]["Hd"] = key1.Hand + 1
 			ma.Custom[biStr]["Δrow"] = sci.rowDist
 			ma.Custom[biStr]["Δcol"] = sci.colDist
 			ma.Custom[biStr]["Angle"] = sci.angle
@@ -439,7 +447,8 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 	}
 
 	for _, sci := range an.Layout.HScissors {
-		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		rune1 := an.Layout.Runes[sci.keyIdx1]
+		bi := Bigram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
 			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
@@ -451,6 +460,8 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma2.Custom[biStr] = make(map[string]any)
 			}
+			key1 := an.Layout.RuneInfo[rune1]
+			ma2.Custom[biStr]["Hd"] = key1.Hand + 1
 			ma2.Custom[biStr]["Δrow"] = sci.rowDist
 			ma2.Custom[biStr]["Δcol"] = sci.colDist
 			ma2.Custom[biStr]["Angle"] = sci.angle
@@ -493,6 +504,8 @@ func (an *Analyser) SFSkpDetails() *MetricDetails {
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma.Custom[skpStr] = make(map[string]any)
 			}
+			ma.Custom[skpStr]["Hd"] = key1.Hand + 1
+			ma.Custom[skpStr]["Fgr"] = key1.Finger + 1
 			ma.Custom[skpStr]["Δrow"] = kpDist.RowDist
 		}
 	}
@@ -514,7 +527,8 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 	}
 
 	for _, lsb := range an.Layout.LSBs {
-		skp := Skipgram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
+		rune1 := an.Layout.Runes[lsb.KeyIdx1]
+		skp := Skipgram{rune1, an.Layout.Runes[lsb.KeyIdx2]}
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
@@ -527,6 +541,8 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma.Custom[skpStr] = make(map[string]any)
 			}
+			key1 := an.Layout.RuneInfo[rune1]
+			ma.Custom[skpStr]["Hd"] = key1.Hand + 1
 			ma.Custom[skpStr]["Δcol"] = kpDist.ColDist
 		}
 	}
@@ -557,7 +573,8 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 	}
 
 	for _, sci := range an.Layout.FScissors {
-		skp := Skipgram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		rune1 := an.Layout.Runes[sci.keyIdx1]
+		skp := Skipgram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
@@ -570,6 +587,8 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma.Custom[skpStr] = make(map[string]any)
 			}
+			key1 := an.Layout.RuneInfo[rune1]
+			ma.Custom[skpStr]["Hd"] = key1.Hand + 1
 			ma.Custom[skpStr]["Δrow"] = sci.rowDist
 			ma.Custom[skpStr]["Δcol"] = sci.colDist
 			ma.Custom[skpStr]["Angle"] = sci.angle
@@ -577,7 +596,8 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 	}
 
 	for _, sci := range an.Layout.HScissors {
-		skp := Skipgram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		rune1 := an.Layout.Runes[sci.keyIdx1]
+		skp := Skipgram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
@@ -590,6 +610,8 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma2.Custom[skpStr] = make(map[string]any)
 			}
+			key1 := an.Layout.RuneInfo[rune1]
+			ma2.Custom[skpStr]["Hd"] = key1.Hand + 1
 			ma2.Custom[skpStr]["Δrow"] = sci.rowDist
 			ma2.Custom[skpStr]["Δcol"] = sci.colDist
 			ma2.Custom[skpStr]["Angle"] = sci.angle
