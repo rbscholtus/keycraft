@@ -21,7 +21,7 @@ var analyseCommand = &cli.Command{
 	Action:    analyseAction,
 }
 
-// validateViewFlags validates CLI flags before running the view command.
+// validateAnalyseFlags validates CLI flags before running the view command.
 func validateAnalyseFlags(c *cli.Context) error {
 	if c.NArg() < 1 {
 		return fmt.Errorf("need at least 1 layout")
@@ -32,7 +32,7 @@ func validateAnalyseFlags(c *cli.Context) error {
 // analyseAction loads the specified corpus, finger load, and layouts,
 // then executes the analysis process. Returns an error if loading fails.
 func analyseAction(c *cli.Context) error {
-	corpus, err := getCorpusFromFlag(c)
+	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return err
 	}
