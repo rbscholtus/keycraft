@@ -78,6 +78,7 @@ func (sl *SplitLayout) Optimise(corp *Corpus, idealfgrLoad *[10]float64, weights
 	// Return the best encountered solution.
 	hof0 := ga.HallOfFame[0]
 	best := hof0.Genome.(*SplitLayout)
+	best.Name = best.Name + "-opt"
 
 	return best
 }

@@ -79,15 +79,13 @@ func optimiseAction(c *cli.Context) error {
 	best := layout.Optimise(corpus, fingerBal, weights, numGenerations, acceptFunction)
 
 	// Save best layout to file
-	name := ensureNoKlf(filepath.Base(layout.Name))
-	bestFilename := fmt.Sprintf("%s-opt.klf", name)
-	bestPath := filepath.Join(layoutDir, bestFilename)
+	bestPath := filepath.Join(layoutDir, best.Name+".klf")
 	if err := best.SaveToFile(bestPath); err != nil {
 		return fmt.Errorf("failed to save best layout to %s: %v", bestPath, err)
 	}
 
 	// Prepare layouts for ranking
-	layoutsToCompare := []string{layoutFile, bestFilename}
+	layoutsToCompare := []string{layout.Name, best.Name}
 
 	// Call DoAnalysis with the layouts
 	if err := DoAnalysis(layoutsToCompare, corpus, fingerBal, false, 0); err != nil {
@@ -95,7 +93,7 @@ func optimiseAction(c *cli.Context) error {
 	}
 
 	// Call DoLayoutRankings with the layouts
-	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, fingerBal, weights, "basic", "rows"); err != nil {
+	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, fingerBal, weights, "extended", layout.Name); err != nil {
 		return fmt.Errorf("failed to perform layout rankings: %v", err)
 	}
 
