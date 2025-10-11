@@ -168,6 +168,7 @@ func createSimpleTable() table.Writer {
 		{Name: "Δrow", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Δcol", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Angle", Transformer: Angle, TransformerFooter: Angle},
+		{Name: "Length", Align: text.AlignRight},
 	})
 	tw.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
 	return tw

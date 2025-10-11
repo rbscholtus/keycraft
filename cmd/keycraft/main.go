@@ -38,6 +38,7 @@ func main() {
 		Name:  "keycraft",
 		Usage: "A CLI tool for crafting better keyboard layouts",
 		Commands: []*cli.Command{
+			corpusCommand,
 			viewCommand,
 			analyseCommand,
 			rankCommand,
