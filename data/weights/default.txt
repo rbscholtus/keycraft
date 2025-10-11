@@ -1,12 +1,12 @@
 # just some reasonable default weights
 # Docs: https://github.com/rbscholtus/keycraft
 
-SFB = -6.0
+SFB = -8.0
 LSB = -4.0
 FSB = -2.666
 HSB = -1.333
 
-SFS = -1.5
+SFS = -2.0
 LSS = -1.0
 FSS = -0.666
 HSS = -0.333
