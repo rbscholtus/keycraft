@@ -286,6 +286,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 
 	var runeArray [42]rune
 	runeInfoMap := make(map[rune]KeyInfo, 42)
+	seenRunes := make(map[rune]struct{})
 	expectedKeys := []int{12, 12, 12, 6}
 
 	index := 0
@@ -309,11 +310,18 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 				r = rune(key[0])
 			}
 
-			runeArray[index] = r
-			index++
+			// Check for duplicate runes (skip rune(0) as it represents empty/null positions)
 			if r != rune(0) {
+				if _, exists := seenRunes[r]; exists {
+					return nil, fmt.Errorf("invalid file format in %s: duplicate rune '%c' found at row %d, col %d",
+						path, r, row+1, col+1)
+				}
+				seenRunes[r] = struct{}{}
 				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col), layoutType)
 			}
+
+			runeArray[index] = r
+			index++
 		}
 	}
 
