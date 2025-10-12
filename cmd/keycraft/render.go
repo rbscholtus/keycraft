@@ -10,9 +10,9 @@ import (
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 )
 
-// ASCII templates used to render keyboard layouts in the terminal.
-const ( //\u00A0
-	rowstagTempl = `╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮   
+// ASCII templates for rendering keyboard layouts in the terminal.
+const (
+	rowstagTempl = `╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮
 │%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│   
 ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮ ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮  
  │%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│  
@@ -51,8 +51,7 @@ const ( //\u00A0
                     ╰───╯  ╰───╯                    `
 )
 
-// SplitLayoutString returns a pretty-printed representation of the SplitLayout.
-// This is a cmd-level formatter (not a method on internal types).
+// SplitLayoutString returns a formatted ASCII representation of a keyboard layout.
 func SplitLayoutString(sl *kc.SplitLayout) string {
 	switch sl.LayoutType {
 	case kc.ANGLEMOD:
@@ -76,7 +75,7 @@ func SplitLayoutString(sl *kc.SplitLayout) string {
 	}
 }
 
-// genLayoutStringFor maps runes (optionally via mapper) into the provided ASCII template and returns the formatted string.
+// genLayoutStringFor applies runes to an ASCII template, optionally reordering via mapper.
 func genLayoutStringFor(sl *kc.SplitLayout, template string, mapper []int) string {
 	args := make([]any, len(sl.Runes))
 	for i, r := range sl.Runes {
@@ -98,8 +97,7 @@ func genLayoutStringFor(sl *kc.SplitLayout, template string, mapper []int) strin
 	return fmt.Sprintf(strings.ReplaceAll(template, " ", "\u00A0"), args...)
 }
 
-// MetricDetailsString renders MetricDetails as a paginated pretty table and
-// returns the combined string output.
+// MetricDetailsString renders metric details as a paginated table.
 func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 	t := createSimpleTable()
 
@@ -151,6 +149,7 @@ func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 	return t.Pager(table.PageSize(nrows)).Render()
 }
 
+// createSimpleTable returns a configured table writer with rounded style and common settings.
 func createSimpleTable() table.Writer {
 	tw := table.NewWriter()
 	tw.SetAutoIndex(true)
@@ -174,9 +173,7 @@ func createSimpleTable() table.Writer {
 	return tw
 }
 
-// HandUsageString returns a rendered table showing per-column, per-finger and
-// per-hand usage for the provided analyser. The returned string is suitable
-// for printing in the outer comparison table.
+// HandUsageString renders column, finger, and hand usage percentages as a table.
 func HandUsageString(an *kc.Analyser) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
@@ -223,9 +220,7 @@ func HandUsageString(an *kc.Analyser) string {
 	return tw.Render()
 }
 
-// RowUsageString returns a rendered table with usage percentages per row
-// (Top, Home, Bottom, Thumb) for the analyser. The string is printed in the
-// outer comparison table.
+// RowUsageString renders row usage percentages (Top, Home, Bottom, Thumb) as a table.
 func RowUsageString(an *kc.Analyser) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
@@ -246,9 +241,7 @@ func RowUsageString(an *kc.Analyser) string {
 	return tw.Render()
 }
 
-// MetricsString returns a compact rendered table summarizing key metrics
-// (SFB, LSB, FSB, HSB, etc.) for the analyser. The result is intended for the
-// overview "Stats" column in the comparison table.
+// MetricsString renders a summary of key layout metrics (SFB, LSB, rolls, etc.) as a table.
 func MetricsString(an *kc.Analyser) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
@@ -293,8 +286,7 @@ func MetricsString(an *kc.Analyser) string {
 	return tw.Render()
 }
 
-// EmptyStyle returns a table.Style configured to render rows without visible
-// vertical separators (used to present multiple layout columns compactly).
+// EmptyStyle returns a table style with minimal separators for compact layout display.
 func EmptyStyle() table.Style {
 	s := table.StyleDefault
 	s.Box = table.StyleBoxRounded
@@ -317,7 +309,7 @@ func EmptyStyle() table.Style {
 	return s
 }
 
-// Comma returns a string with thousand separators for a uint64 value.
+// Comma formats a uint64 with thousand separators.
 func Comma(v uint64) string {
 	// Calculate the number of digits and commas needed.
 	var count byte
@@ -350,8 +342,7 @@ func Comma(v uint64) string {
 	return string(output)
 }
 
-// Thousands formats a uint64 count using comma separators via Comma().
-// For non-uint64 values it falls back to the generic %v formatting.
+// Thousands formats a uint64 count using comma separators, or falls back to %v for other types.
 func Thousands(val any) string {
 	if number, ok := val.(uint64); ok {
 		return Comma(number)
@@ -359,8 +350,7 @@ func Thousands(val any) string {
 	return fmt.Sprintf("%v", val)
 }
 
-// Fraction formats a numeric value as a fixed two-decimal string.
-// If the value is a float64 it prints with two decimals, otherwise it falls back to %v.
+// Fraction formats a float64 with two decimals, or falls back to %v for other types.
 func Fraction(val any) string {
 	if number, ok := val.(float64); ok {
 		return fmt.Sprintf("%.2f", number)
@@ -368,8 +358,7 @@ func Fraction(val any) string {
 	return fmt.Sprintf("%v", val)
 }
 
-// Angle formats a numeric value as a degree string with one decimal for floats, or integer for ints.
-// Floats (float32, float64) are formatted as "%.1f°", ints as "%d°", others with fmt.Sprint.
+// Angle formats numeric values as degree strings.
 func Angle(val any) string {
 	switch v := val.(type) {
 	case float32, float64:
@@ -381,8 +370,7 @@ func Angle(val any) string {
 	}
 }
 
-// Percentage formats a fractional value (0..1) as a percentage string with two decimals.
-// If the value is a float64 it multiplies by 100 and appends '%' otherwise it falls back to %v.
+// Percentage formats a fractional value (0..1) as a percentage with two decimals.
 func Percentage(val any) string {
 	if number, ok := val.(float64); ok {
 		return fmt.Sprintf("%.2f%%", 100*number)

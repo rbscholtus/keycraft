@@ -9,10 +9,11 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// validAcceptFuncs lists supported strategies for the accept-worse decision
-// used during optimisation passes.
+// validAcceptFuncs lists supported acceptance strategies for simulated annealing.
 var validAcceptFuncs = []string{"always", "drop-slow", "linear", "drop-fast", "never"}
 
+// optimiseCommand defines the "optimise" CLI command for running simulated annealing
+// optimization on a keyboard layout.
 var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Aliases:   []string{"o"},
@@ -23,7 +24,7 @@ var optimiseCommand = &cli.Command{
 	Action:    optimiseAction,
 }
 
-// validateViewFlags validates CLI flags before running the view command.
+// validateOptFlags validates CLI flags before running the optimise command.
 func validateOptFlags(c *cli.Context) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected exactly 1 layout, got %d", c.Args().Len())
@@ -31,11 +32,8 @@ func validateOptFlags(c *cli.Context) error {
 	return nil
 }
 
-// optimiseAction performs optimisation for a single layout file:
-//   - loads corpus, weights and pins
-//   - validates accept-function and generation count
-//   - runs optimisation and persists the best layout
-//   - runs analysis and ranking on original vs optimized layouts
+// optimiseAction performs layout optimization using simulated annealing,
+// then analyzes and ranks the original vs optimized layouts.
 func optimiseAction(c *cli.Context) error {
 	corpus, err := getCorpusFromFlags(c)
 	if err != nil {

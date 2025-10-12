@@ -1,4 +1,3 @@
-// corpus.go implements the "corpus" command for viewing corpus statistics
 package main
 
 import (
@@ -13,7 +12,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// corpusCommand defines the CLI command for viewing corpus statistics
+// corpusCommand defines the CLI command for displaying corpus statistics.
 var corpusCommand = &cli.Command{
 	Name:    "corpus",
 	Aliases: []string{"c"},
@@ -22,7 +21,8 @@ var corpusCommand = &cli.Command{
 	Action:  corpusAction,
 }
 
-// corpusAction loads the corpus and displays statistics
+// corpusAction loads the specified corpus and displays its statistics.
+// It returns an error if the corpus cannot be loaded.
 func corpusAction(c *cli.Context) error {
 	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
@@ -33,37 +33,49 @@ func corpusAction(c *cli.Context) error {
 
 	fmt.Printf("Corpus: %s\n\n", corpus.Name)
 
-	// // Print word frequency distribution
-	// fmt.Println(corpusWordFrequencyString(corpus))
-	// fmt.Println()
-
-	// Print word length distribution
 	fmt.Println(corpusWordLengthString(corpus))
 	fmt.Println()
 
-	// Print unigrams
 	fmt.Println(corpusUnigramsString(corpus, nrows))
 	fmt.Println()
 
-	// Print bigrams
 	fmt.Println(corpusBigramsString(corpus, nrows))
 	fmt.Println()
 
-	// Print trigrams
 	fmt.Println(corpusTrigramsString(corpus, nrows))
 	fmt.Println()
 
-	// Print skipgrams
 	fmt.Println(corpusSkipgramsString(corpus, nrows))
 	fmt.Println()
 
-	// Print words
 	fmt.Println(corpusWordsString(corpus, nrows))
 
 	return nil
 }
 
-// corpusWordLengthString renders word length distribution as a table
+// renderOuterCorpusTable renders the outer table layout, including pagination and title,
+// for displaying corpus statistics.
+func renderOuterCorpusTable(inner table.Writer, title string, rowsPerTable int, numTables int) string {
+	tables := make(table.Row, 0, numTables)
+	p := inner.Pager(table.PageSize(rowsPerTable))
+	tables = append(tables, p.Render())
+	for p.Location() < numTables {
+		tables = append(tables, strings.TrimSpace(p.Next()))
+	}
+
+	outer := table.NewWriter()
+	outer.SetStyle(table.Style{
+		Box:     table.BoxStyle{MiddleVertical: " ", MiddleHorizontal: ""},
+		Options: table.OptionsNoBorders,
+	})
+	outer.Style().Title.Align = text.AlignCenter
+	outer.SetTitle(title)
+	outer.AppendRow(tables)
+
+	return outer.Render()
+}
+
+// corpusWordLengthString renders the word length distribution as a formatted table.
 func corpusWordLengthString(corpus *kc.Corpus) string {
 	lengthCounts := make(map[int]uint64)
 
@@ -77,7 +89,6 @@ func corpusWordLengthString(corpus *kc.Corpus) string {
 
 	t.AppendHeader(table.Row{"orderby", "Length", "Count", "%"})
 
-	// Find max length to iterate through
 	maxLength := 0
 	for length := range lengthCounts {
 		if length > maxLength {
@@ -85,7 +96,6 @@ func corpusWordLengthString(corpus *kc.Corpus) string {
 		}
 	}
 
-	// Add rows for each length
 	for length := 1; length <= maxLength; length++ {
 		if count, exists := lengthCounts[length]; exists {
 			pct := float64(count) / float64(corpus.TotalWordsCount)
@@ -98,12 +108,13 @@ func corpusWordLengthString(corpus *kc.Corpus) string {
 	return t.Render()
 }
 
-// corpusWordFrequencyString renders word frequency distribution as a table
-// Shows how many words occur N times (e.g., "100 words appear exactly 5 times")
+// corpusWordFrequencyString renders the word frequency distribution as a formatted table.
+// It shows how many unique words occur N times (e.g., "100 words appear exactly 5 times").
+//
+//nolint:unused // reserved for future corpus analysis features
 func corpusWordFrequencyString(corpus *kc.Corpus) string {
 	freqCounts := make(map[uint64]uint64)
 
-	// Count how many words have each frequency
 	for _, count := range corpus.Words {
 		freqCounts[count]++
 	}
@@ -113,7 +124,6 @@ func corpusWordFrequencyString(corpus *kc.Corpus) string {
 
 	t.AppendHeader(table.Row{"orderby", "Occurrences", "# of Words", "%"})
 
-	// Sort frequencies to display in order
 	type freqPair struct {
 		freq  uint64
 		count uint64
@@ -123,17 +133,15 @@ func corpusWordFrequencyString(corpus *kc.Corpus) string {
 		pairs = append(pairs, freqPair{freq, count})
 	}
 
-	// Sort by count (number of words), descending
 	sort.Slice(pairs, func(i, j int) bool {
 		if pairs[i].count == pairs[j].count {
-			return pairs[i].freq < pairs[j].freq // optional tie-breaker
+			return pairs[i].freq < pairs[j].freq
 		}
-		return pairs[i].count > pairs[j].count // descending by count
+		return pairs[i].count > pairs[j].count
 	})
 
 	uniqueWords := uint64(len(corpus.Words))
 
-	// Add rows
 	for _, pair := range pairs {
 		pct := float64(pair.count) / float64(uniqueWords)
 		label := fmt.Sprintf("%d times", pair.freq)
@@ -148,7 +156,29 @@ func corpusWordFrequencyString(corpus *kc.Corpus) string {
 	return t.Render()
 }
 
-// corpusUnigramsString renders top unigrams as paginated tables
+// displayChar returns a printable string representation of a given rune.
+// Special characters like space, tab, newline, and carriage return are
+// represented by symbols (e.g., '_', '\t', '\n', '\r'). Non-printable
+// characters are shown as Unicode code points (e.g., 'U+004X').
+func displayChar(r rune) string {
+	switch r {
+	case ' ':
+		return "_"
+	case '\t':
+		return "\\t"
+	case '\n':
+		return "\\n"
+	case '\r':
+		return "\\r"
+	default:
+		if unicode.IsPrint(r) {
+			return fmt.Sprintf("%c", r)
+		}
+		return fmt.Sprintf("U+%04X", r)
+	}
+}
+
+// corpusUnigramsString renders the top unigrams as paginated tables.
 func corpusUnigramsString(corpus *kc.Corpus, nrows int) string {
 	rowsPerTable, numTables := 10, (nrows+9)/10
 	if nrows > 50 {
@@ -166,7 +196,7 @@ func corpusUnigramsString(corpus *kc.Corpus, nrows int) string {
 	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
 }
 
-// corpusBigramsString renders top bigrams as paginated tables
+// corpusBigramsString renders the top bigrams as paginated tables.
 func corpusBigramsString(corpus *kc.Corpus, nrows int) string {
 	rowsPerTable, numTables := 10, (nrows+9)/10
 	if nrows > 50 {
@@ -183,7 +213,7 @@ func corpusBigramsString(corpus *kc.Corpus, nrows int) string {
 	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
 }
 
-// corpusTrigramsString renders top trigrams as paginated tables
+// corpusTrigramsString renders the top trigrams as paginated tables.
 func corpusTrigramsString(corpus *kc.Corpus, nrows int) string {
 	rowsPerTable, numTables := 10, (nrows+9)/10
 	if nrows > 50 {
@@ -200,7 +230,7 @@ func corpusTrigramsString(corpus *kc.Corpus, nrows int) string {
 	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
 }
 
-// corpusSkipgramsString renders top skipgrams as paginated tables
+// corpusSkipgramsString renders the top skipgrams as paginated tables.
 func corpusSkipgramsString(corpus *kc.Corpus, nrows int) string {
 	rowsPerTable, numTables := 10, (nrows+9)/10
 	if nrows > 50 {
@@ -217,28 +247,7 @@ func corpusSkipgramsString(corpus *kc.Corpus, nrows int) string {
 	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
 }
 
-// renderOuterCorpusTable renders the outer table layout with pagination and title.
-func renderOuterCorpusTable(inner table.Writer, title string, rowsPerTable int, numTables int) string {
-	tables := make(table.Row, 0, numTables)
-	p := inner.Pager(table.PageSize(rowsPerTable))
-	tables = append(tables, p.Render())
-	for p.Location() < numTables {
-		tables = append(tables, strings.TrimSpace(p.Next()))
-	}
-
-	outer := table.NewWriter()
-	outer.SetStyle(table.Style{
-		Box:     table.BoxStyle{MiddleVertical: " "},
-		Options: table.OptionsDefault,
-	})
-	outer.Style().Title.Align = text.AlignCenter
-	outer.SetTitle(title)
-	outer.AppendRow(tables)
-
-	return outer.Render()
-}
-
-// corpusWordsString renders top words as a table using helper functions.
+// corpusWordsString renders the top words as a paginated table.
 func corpusWordsString(corpus *kc.Corpus, nrows int) string {
 	rowsPerTable, numTables := 10, (nrows+9)/10
 	if nrows > 50 {
@@ -253,23 +262,4 @@ func corpusWordsString(corpus *kc.Corpus, nrows int) string {
 	}
 	title := fmt.Sprintf("Top Words (Total %s)", Comma(corpus.TotalWordsCount))
 	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
-}
-
-// displayChar returns a printable representation of a rune
-func displayChar(r rune) string {
-	switch r {
-	case ' ':
-		return "_"
-	case '\t':
-		return "\\t"
-	case '\n':
-		return "\\n"
-	case '\r':
-		return "\\r"
-	default:
-		if unicode.IsPrint(r) {
-			return fmt.Sprintf("%c", r)
-		}
-		return fmt.Sprintf("U+%04X", r)
-	}
 }

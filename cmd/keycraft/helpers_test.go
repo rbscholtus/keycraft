@@ -8,7 +8,8 @@ import (
 	"testing"
 )
 
-// helper: write a minimal layout file for testing
+// writeTestLayout creates a layout file with the given content for testing.
+// Returns the full path. Calls t.Fatalf on write error.
 func writeTestLayout(t *testing.T, dir, name string, content string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
@@ -87,7 +88,8 @@ func TestLoadLayout(t *testing.T) {
 	}
 }
 
-// go test -timeout 30s -v -run ^TestParseFingerLoad$ github.com/rbscholtus/keycraft/cmd/keycraft
+// TestParseFingerLoad verifies parsing of 4-value (mirrored) and 8-value formats,
+// plus error handling for invalid inputs (wrong count, empty values, non-numeric, negative).
 func TestParseFingerLoad(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -167,8 +169,7 @@ func TestParseFingerLoad(t *testing.T) {
 	}
 }
 
-// BenchmarkParseFingerLoad runs parseFingerLoad repeatedly to measure performance.
-// go test ./cmd/keycraft -bench . -benchmem
+// BenchmarkParseFingerLoad benchmarks parsing performance for 4-value and 8-value inputs.
 func BenchmarkParseFingerLoad(b *testing.B) {
 	benchmarks := []struct {
 		name  string
@@ -190,29 +191,81 @@ func BenchmarkParseFingerLoad(b *testing.B) {
 	}
 }
 
+// TestScaleFingerLoad verifies in-place scaling to sum 100.0, non-negative validation,
+// and edge cases (zero sum, negative values, epsilon threshold).
 func TestScaleFingerLoad(t *testing.T) {
-	// Test normal scaling
-	vals := &[10]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	scaled, err := scaleFingerLoad(vals)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	var sum float64
-	for _, v := range scaled {
-		sum += v
-	}
-	if sum < 99.99 || sum > 100.01 {
-		t.Errorf("scaled sum not 100, got %v", sum)
+	tests := []struct {
+		name    string
+		input   [10]float64
+		wantErr bool
+		checkFn func(*testing.T, *[10]float64)
+	}{
+		{
+			name:    "normal scaling",
+			input:   [10]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+			wantErr: false,
+			checkFn: func(t *testing.T, vals *[10]float64) {
+				var sum float64
+				for _, v := range vals {
+					sum += v
+				}
+				if sum < 99.99 || sum > 100.01 {
+					t.Errorf("scaled sum not 100, got %v", sum)
+				}
+			},
+		},
+		{
+			name:    "all equal values",
+			input:   [10]float64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+			wantErr: false,
+			checkFn: func(t *testing.T, vals *[10]float64) {
+				expected := 10.0
+				for i, v := range vals {
+					if v < expected-0.01 || v > expected+0.01 {
+						t.Errorf("vals[%d] = %v, want ~%v", i, v, expected)
+					}
+				}
+			},
+		},
+		{
+			name:    "zero sum error",
+			input:   [10]float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			wantErr: true,
+		},
+		{
+			name:    "negative value error",
+			input:   [10]float64{1, 2, -3, 4, 5, 6, 7, 8, 9, 10},
+			wantErr: true,
+		},
+		{
+			name:    "all negative values error",
+			input:   [10]float64{-1, -2, -3, -4, -5, -6, -7, -8, -9, -10},
+			wantErr: true,
+		},
+		{
+			name:    "very small sum error",
+			input:   [10]float64{1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10, 1e-10},
+			wantErr: true,
+		},
 	}
 
-	// Test zero-sum scaling
-	zeroVals := &[10]float64{}
-	_, err = scaleFingerLoad(zeroVals)
-	if err == nil {
-		t.Error("expected error for zero sum, got nil")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vals := tt.input
+			err := scaleFingerLoad(&vals)
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("expected error=%v, got err=%v", tt.wantErr, err)
+			}
+
+			if !tt.wantErr && tt.checkFn != nil {
+				tt.checkFn(t, &vals)
+			}
+		})
 	}
 }
 
+// TestEnsureKlf verifies .klf extension handling (case-insensitive check, append if missing).
 func TestEnsureKlf(t *testing.T) {
 	tests := []struct {
 		in  string
@@ -235,6 +288,7 @@ func TestEnsureKlf(t *testing.T) {
 	}
 }
 
+// TestEnsureNoKlf verifies .klf extension removal (case-insensitive check).
 func TestEnsureNoKlf(t *testing.T) {
 	tests := []struct {
 		in  string

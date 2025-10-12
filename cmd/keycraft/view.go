@@ -6,8 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// viewCommand defines the CLI command for viewing and analysing keyboard layouts.
-// It supports analysing one or more layouts using a specified corpus of text.
+// viewCommand defines the CLI command for viewing keyboard layout analysis.
 var viewCommand = &cli.Command{
 	Name:      "view",
 	Aliases:   []string{"v"},
@@ -26,8 +25,7 @@ func validateViewFlags(c *cli.Context) error {
 	return nil
 }
 
-// viewAction loads the corpus and finger load, retrieves the layouts,
-// and performs the analysis.
+// viewAction loads data and performs layout analysis.
 func viewAction(c *cli.Context) error {
 	corpus, err := getCorpusFromFlags(c)
 	if err != nil {

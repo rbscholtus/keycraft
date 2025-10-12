@@ -11,19 +11,20 @@ import (
 
 var validMetricSets []string = slices.Collect(maps.Keys(kc.MetricsMap))
 
-// Centralized map of CLI flags used across commands.
-// Keeps flag definitions in one place so commands can select only the flags they need.
+// appFlagsMap is a centralized map of CLI flags used across various commands.
+// It keeps flag definitions in one place, allowing commands to select only the flags they need,
+// promoting reusability and consistency.
 var appFlagsMap = map[string]cli.Flag{
 	"corpus": &cli.StringFlag{
 		Name:    "corpus",
 		Aliases: []string{"c"},
-		Usage:   "corpus file to calculate keyboard metrics",
+		Usage:   "The corpus file used for calculating keyboard metrics.",
 		Value:   "default.txt",
 	},
 	"coverage-threshold": &cli.Float64Flag{
 		Name:    "coverage-threshold",
 		Aliases: []string{"ct"},
-		Usage:   "word coverage threshold percentage for corpus analysis. Low frequency words beyond the threshold are discarded. Applies to the word list only. Specifying this forces rebuilding the cache",
+		Usage:   "Percentage threshold (0.1-100.0) for corpus word coverage. Used to filter out low frequency words. The words kept in memory cover this %% of the corpus, and low frequency words beyond the threshold are discarded. This applies only to the word list, and forces a cache rebuild if specified.",
 		Value:   98.0,
 		Action: func(c *cli.Context, value float64) error {
 			if value < 0.1 || value > 100.0 {
@@ -35,13 +36,13 @@ var appFlagsMap = map[string]cli.Flag{
 	"finger-load": &cli.StringFlag{
 		Name:    "finger-load",
 		Aliases: []string{"fl"},
-		Usage:   "ideal finger load: 4 or 8 floats for F0..F3[,F6..F9]. 4 values are mirrored to F9..F6. F4/F5 are 0.0. Values are scaled to add up to 100%",
+		Usage:   "Define ideal finger load percentages. Provide 4 comma-separated floats (F0-F3, mirrored to F9-F6) or 8 floats (F0-F3, F6-F9). Thumbs (F4/F5) are always 0.0. Values are scaled to sum to 100%.",
 		Value:   "7.5,11,16,15.5", // default 4-values mirrored
 	},
 	"rows": &cli.IntFlag{
 		Name:    "rows",
 		Aliases: []string{"r"},
-		Usage:   "number of rows to show in data tables",
+		Usage:   "Specify the maximum number of rows to display in data tables (must be at least 1).",
 		Value:   10,
 		Action: func(c *cli.Context, value int) error {
 			if value < 1 {
@@ -53,57 +54,56 @@ var appFlagsMap = map[string]cli.Flag{
 	"weights-file": &cli.StringFlag{
 		Name:    "weights-file",
 		Aliases: []string{"wf"},
-		Usage:   "text file containing weights for scoring layouts; weights flag overrides these values",
+		Usage:   "The text file containing custom weights for scoring layouts. Values provided via the '--weights' flag will override these file-based weights.",
 		Value:   "default.txt",
 	},
 	"weights": &cli.StringFlag{
 		Name:    "weights",
 		Aliases: []string{"w"},
-		Usage:   "weights for scoring layouts, eg: sfb=-3.0,lsb=-2.0",
+		Usage:   "Custom weights for scoring layouts, provided as a comma-separated string (e.g., 'sfb=-3.0,lsb=-2.0'). These values override any weights specified in a weights file.",
 	},
 	"metrics": &cli.StringFlag{
 		Name:    "metrics",
 		Aliases: []string{"m"},
-		Usage:   fmt.Sprintf("metrics to show: %v", validMetricSets),
+		Usage:   fmt.Sprintf("Specify which set of metrics to display. Available options: %v.", validMetricSets),
 		Value:   "basic",
 	},
 	"deltas": &cli.StringFlag{
 		Name:    "deltas",
 		Aliases: []string{"d"},
-		Usage:   "deltas to show: none, rows, median, or <layout>",
+		Usage:   "Control how metric deltas are displayed: 'none' (no deltas), 'rows' (row-by-row differences), 'median' (difference relative to the median), or provide a '<layout>' name to compare against a specific base layout.",
 		Value:   "none",
 	},
 	"pins-file": &cli.StringFlag{
 		Name:    "pins-file",
 		Aliases: []string{"pf"},
-		Usage:   "text file containing keys to pin to their current position; if no file is specified, ~ keys and _ are pinned",
+		Usage:   "The text file specifying keys to pin (keep in their current position) during optimization. If no file is provided, default keys ('~' and '_') are pinned.",
 	},
 	"pins": &cli.StringFlag{
 		Name:    "pins",
 		Aliases: []string{"p"},
-		Usage:   "additional characters to pin, eg: aeiouy",
+		Usage:   "Additional characters to pin to their current positions during optimization (e.g., 'aeiouy'). These are added to any keys specified in a pins file.",
 	},
 	"free": &cli.StringFlag{
 		Name:    "free",
 		Aliases: []string{"f"},
-		Usage:   "characters free to be moved (all others pinned), eg: zqjx",
+		Usage:   "Specify characters that are free to be moved during optimization. All other characters not explicitly listed here will be pinned.",
 	},
 	"generations": &cli.UintFlag{
 		Name:    "generations",
 		Aliases: []string{"gens", "g"},
-		Usage:   "number of generations",
+		Usage:   "The number of generations (iterations) to run the optimization algorithm.",
 		Value:   250,
 	},
 	"accept-worse": &cli.StringFlag{
 		Name:    "accept-worse",
 		Aliases: []string{"aw"},
-		Usage:   fmt.Sprintf("accept-worse function (how likely is it a worse layout is accepted): %v", validAcceptFuncs),
+		Usage:   fmt.Sprintf("Define the acceptance function for worse layouts during optimization. This controls the likelihood of accepting a less optimal layout to explore the search space. Available options: %v.", validAcceptFuncs),
 		Value:   "drop-slow",
 	},
 }
 
-// flagsSlice returns a slice of cli.Flag corresponding to the given keys from appFlagsMap.
-// Useful for commands that only need a subset of globally defined CLI flags.
+// flagsSlice returns a slice of cli.Flag pointers for the given keys from appFlagsMap.
 func flagsSlice(keys ...string) []cli.Flag {
 	flags := make([]cli.Flag, 0, len(keys))
 	for _, k := range keys {
@@ -114,8 +114,8 @@ func flagsSlice(keys ...string) []cli.Flag {
 	return flags
 }
 
-// getLayoutArgs returns the list of layout arguments passed to the command,
-// normalizing each layout name with ensureKlf.
+// getLayoutArgs retrieves the list of layout arguments passed to the CLI command.
+// Each layout name is normalized by ensuring it has the ".klf" extension.
 func getLayoutArgs(c *cli.Context) []string {
 	layouts := c.Args().Slice()
 	for i := range layouts {

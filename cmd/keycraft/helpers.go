@@ -11,26 +11,29 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// getCorpusFromFlags loads the corpus specified by --corpus
+// getCorpusFromFlags loads the corpus specified by the --corpus flag,
+// considering the --coverage-threshold flag if set.
 func getCorpusFromFlags(c *cli.Context) (*kc.Corpus, error) {
 	return loadCorpus(c.String("corpus"), c.IsSet("coverage-threshold"), c.Float64("coverage-threshold"))
 }
 
-// getFingerLoadFromFlag parses the --finger-load string into a [10]float64
+// getFingerLoadFromFlag parses and scales the --finger-load flag into percentages.
+// Accepts 4 values (mirrored for both hands) or 8 values (F0-F3, F6-F9).
+// Thumbs (F4, F5) are always set to 0. Values are validated and scaled to sum to 100.
 func getFingerLoadFromFlag(c *cli.Context) (*[10]float64, error) {
 	fbStr := c.String("finger-load")
 	vals, err := parseFingerLoad(fbStr)
 	if err != nil {
 		return nil, err
 	}
-	scaled, err := scaleFingerLoad(vals)
-	if err != nil {
+	if err := scaleFingerLoad(vals); err != nil {
 		return nil, err
 	}
-	return scaled, nil
+	return vals, nil
 }
 
-// loadWeightsFromFlags loads weights from --weights-file and --weights
+// loadWeightsFromFlags loads weights from the --weights-file and --weights flags.
+// Weights specified via --weights take precedence over file-based weights.
 func loadWeightsFromFlags(c *cli.Context) (*kc.Weights, error) {
 	weightsPath := c.String("weights-file")
 	if weightsPath != "" {
@@ -39,8 +42,8 @@ func loadWeightsFromFlags(c *cli.Context) (*kc.Weights, error) {
 	return kc.NewWeightsFromParams(weightsPath, c.String("weights"))
 }
 
-// loadCorpus loads a corpus by filename from the corpusDir and returns a Corpus.
-// It trims the extension to produce a corpus name and delegates loading to kc.NewCorpusFromFile.
+// loadCorpus loads a corpus from corpusDir.
+// forceReload bypasses cache, and coverageThreshold filters low-frequency words.
 func loadCorpus(filename string, forceReload bool, coverageThreshold float64) (*kc.Corpus, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("corpus file is required")
@@ -50,9 +53,7 @@ func loadCorpus(filename string, forceReload bool, coverageThreshold float64) (*
 	return kc.NewCorpusFromFile(corpusName, path, forceReload, coverageThreshold)
 }
 
-// loadLayout resolves a layout filename relative to the layoutDir directory,
-// appends the ".klf" extension if it is missing (case-insensitive), and
-// then delegates parsing to kc.NewLayoutFromFile to construct and return a SplitLayout.
+// loadLayout loads a layout from layoutDir, automatically appending .klf if needed.
 func loadLayout(filename string) (*kc.SplitLayout, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("layout is required")
@@ -71,15 +72,9 @@ func loadLayout(filename string) (*kc.SplitLayout, error) {
 	return kc.NewLayoutFromFile(layoutName, path)
 }
 
-// parseFingerLoad parses a compact CLI representation of "ideal" finger loads.
-//
-// Accepted forms:
-//   - 4 comma-separated floats: interpreted as F0,F1,F2,F3 and mirrored to F9..F6
-//   - 8 comma-separated floats: interpreted as F0,F1,F2,F3,F6,F7,F8,F9
-//
-// The function injects zeros for the thumb indices F4 and F5 and returns a pointer
-// to a fixed-size [10]float64 array mapping directly to F0..F9. Returning a pointer
-// avoids copying the array value on return (arrays are value types in Go).
+// parseFingerLoad parses finger load values from a comma-separated string.
+// Accepts 4 values (mirrored to 8) or 8 values directly for F0-F3,F6-F9.
+// Thumbs (F4, F5) are set to 0.0.
 func parseFingerLoad(s string) (*[10]float64, error) {
 	parts := strings.Split(s, ",")
 	if len(parts) != 4 && len(parts) != 8 {
@@ -89,7 +84,7 @@ func parseFingerLoad(s string) (*[10]float64, error) {
 		parts[i] = strings.TrimSpace(parts[i])
 	}
 
-	// If user provided 4 values, mirror them to create the 8-value representation.
+	// If the user provided 4 values, mirror them to create the 8-value representation.
 	// We append reversed order so after inserting thumb zeros the indices map to F0..F9.
 	if len(parts) == 4 {
 		for i := len(parts) - 1; i >= 0; i-- {
@@ -115,27 +110,29 @@ func parseFingerLoad(s string) (*[10]float64, error) {
 	return &fingerVals, nil
 }
 
-// scaleFingerLoad scales the finger load values so their sum is 100.0.
-// Returns an error if the sum is zero.
-func scaleFingerLoad(vals *[10]float64) (*[10]float64, error) {
+// scaleFingerLoad scales finger load values in-place so their sum equals 100.0.
+// Validates all values are non-negative and sum is above epsilon threshold.
+// Returns an error if any value is negative or if the sum is too small to scale safely.
+func scaleFingerLoad(vals *[10]float64) error {
 	var sum float64
 	for _, v := range vals {
+		if v < 0.0 {
+			return fmt.Errorf("cannot scale finger load: negative value %f", v)
+		}
 		sum += v
 	}
-	if sum == 0.0 {
-		return nil, fmt.Errorf("cannot scale finger load: sum is zero")
+	const epsilon = 1e-9
+	if sum < epsilon {
+		return fmt.Errorf("cannot scale finger load: sum is zero or too small")
 	}
 	scale := 100.0 / sum
-	var scaled [10]float64
-	for i, v := range vals {
-		scaled[i] = v * scale
+	for i := range vals {
+		vals[i] *= scale
 	}
-	return &scaled, nil
+	return nil
 }
 
-// ensureKlf appends the ".klf" extension to the given name if it does not already have it.
-// The check is case-insensitive to handle filenames with uppercase or mixed-case extensions,
-// ensuring consistent file naming regardless of how the extension was originally cased.
+// ensureKlf appends .klf extension if not present (case-insensitive check).
 func ensureKlf(name string) string {
 	if !strings.HasSuffix(strings.ToLower(name), ".klf") {
 		return name + ".klf"
@@ -143,9 +140,7 @@ func ensureKlf(name string) string {
 	return name
 }
 
-// ensureNoKlf removes the ".klf" extension from the given name if it has it.
-// The case-insensitive check allows the function to correctly strip the extension
-// regardless of the case used in the filename, supporting flexible user input.
+// ensureNoKlf removes .klf extension if present (case-insensitive check).
 func ensureNoKlf(name string) string {
 	if strings.HasSuffix(strings.ToLower(name), ".klf") {
 		return name[:len(name)-4]

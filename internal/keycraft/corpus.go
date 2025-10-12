@@ -270,6 +270,8 @@ func (c *Corpus) addWord(word string) {
 
 // addText processes the input text string, converting it to lowercase and adding all unigrams,
 // bigrams, trigrams, and skipgrams to the corpus. N-grams that contain whitespace are skipped.
+//
+//nolint:unused // superseded by addTextWithWords but kept for potential future use
 func (c *Corpus) addText(text string) {
 	text = strings.ToLower(text)
 	var prev1, prev2 rune
@@ -300,6 +302,8 @@ func (c *Corpus) addText(text string) {
 
 // loadFromFile reads the given text file line by line and adds the text content to the corpus.
 // Empty or whitespace-only lines are skipped.
+//
+//nolint:unused // superseded by loadFromFileWithWords but kept for potential future use
 func (c *Corpus) loadFromFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
