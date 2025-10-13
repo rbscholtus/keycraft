@@ -9,7 +9,13 @@ import (
 	"github.com/MaxHalford/eaopt"
 )
 
-// getAcceptFunc returns an acceptance function for simulated annealing based on the chosen policy.
+// getAcceptFunc returns an acceptance function for simulated annealing.
+// The function determines the probability of accepting a worse solution based on the policy:
+//   - "always": always accept worse solutions (pure random search)
+//   - "never": never accept worse solutions (hill climbing)
+//   - "drop-slow": cosine-based decay (smooth, gradual cooling)
+//   - "linear": linear decay
+//   - "drop-fast": exponential decay (rapid cooling)
 func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 {
 	switch acceptWorse {
 	case "always":
@@ -36,46 +42,48 @@ func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 
 	}
 }
 
-// Optimise optimizes a keyboard layout using simulated annealing.
+// Optimise optimizes a keyboard layout using simulated annealing to minimize the weighted score.
+// The optimization swaps unpinned keys iteratively, evaluating each candidate using the Evaluate method.
+// Returns a new optimized layout (the original is not modified).
 func (sl *SplitLayout) Optimise(corp *Corpus, idealfgrLoad *[10]float64, weights *Weights, generations uint, acceptWorse string) *SplitLayout {
+	// Store optimization parameters
 	sl.optCorpus = corp
 	sl.optWeights = weights
 	sl.optIdealfgrLoad = idealfgrLoad
+
+	// Load reference layouts to compute normalization statistics
 	analysers := Must(LoadAnalysers("data/layouts/", corp, idealfgrLoad))
 	sl.optMedians, sl.optIqrs = computeMediansAndIQR(analysers)
 
-	// Configure the simulated annealing algorithm.
+	// Configure simulated annealing
 	cfg := eaopt.NewDefaultGAConfig()
 	cfg.NGenerations = generations
 	cfg.Model = eaopt.ModSimulatedAnnealing{
-		// Determine the acceptance function based on the acceptWorse parameter.
 		Accept: getAcceptFunc(acceptWorse),
 	}
 
-	// Add a custom callback function to track progress.
+	// Track and display progress
 	minFit := math.MaxFloat64
 	cfg.Callback = func(ga *eaopt.GA) {
 		hof0 := ga.HallOfFame[0]
 		fit := hof0.Fitness
 		if fit == minFit {
-			// Output only when we make an improvement.
-			return
+			return // Only output when fitness improves
 		}
-		// best := hof0.Genome.(*SplitLayout)
 		fmt.Printf("Best fitness at generation %d: %.3f\n", ga.Generations, fit)
 		fmt.Println(ga.HallOfFame[0])
 		minFit = fit
 	}
 
-	// Run the simulated-annealing algorithm.
+	// Run optimization
 	ga := Must(cfg.NewGA())
 
 	newGenome := func(rng *rand.Rand) eaopt.Genome {
-		return sl
+		return sl // Start from the provided layout
 	}
 	Must0(ga.Minimize(newGenome))
 
-	// Return the best encountered solution.
+	// Extract best solution
 	hof0 := ga.HallOfFame[0]
 	best := hof0.Genome.(*SplitLayout)
 	best.Name = best.Name + "-opt"
@@ -83,12 +91,15 @@ func (sl *SplitLayout) Optimise(corp *Corpus, idealfgrLoad *[10]float64, weights
 	return best
 }
 
-// Evaluate evaluates the fitness of the current layout.
+// Evaluate computes the fitness of the layout (lower is better).
+// Uses the stored corpus, weights, and normalization stats to compute a weighted score.
+// Returns the negative score so that minimization finds better layouts.
 func (sl *SplitLayout) Evaluate() (float64, error) {
 	analyser := NewAnalyser(sl, sl.optCorpus, sl.optIdealfgrLoad)
 
 	score := 0.0
 	for metric, value := range analyser.Metrics {
+		// Skip metrics with no variation
 		if sl.optIqrs[metric] == 0 {
 			continue
 		}
@@ -96,44 +107,44 @@ func (sl *SplitLayout) Evaluate() (float64, error) {
 		if weight == 0 {
 			continue
 		}
+		// Apply robust normalization and weighting
 		scaledValue := (value - sl.optMedians[metric]) / sl.optIqrs[metric]
 		score += weight * scaledValue
 	}
-	return -score, nil
+	return -score, nil // Negate for minimization
 }
 
-// Mutate randomly swaps two keys in the layout.
+// Mutate randomly swaps two unpinned keys in the layout.
+// This is the mutation operator for the genetic algorithm.
 func (sl *SplitLayout) Mutate(rng *rand.Rand) {
-	// Create a slice to store pairs of indexes and keys that are not pinned.
+	// Collect all unpinned, non-empty keys
 	pairs := make([]Pair[int, rune], 0, len(sl.Runes))
 	for i, r := range sl.Runes {
 		if r != 0 && !sl.optPinned[i] {
-			// Add the pair to the slice and increment the count.
 			pairs = append(pairs, Pair[int, rune]{Key: i, Value: r})
 		}
 	}
 
-	// Check if there are at least two pairs to swap.
 	if len(pairs) < 2 {
 		panic(fmt.Sprintf("Not enough unpinned keys on this layout to make a swap: %d", len(pairs)))
 	}
 
-	// Generate two random indexes for the pairs to swap.
+	// Select two distinct random keys
 	i := rng.Intn(len(pairs))
 	j := rng.Intn(len(pairs))
 	for j == i {
 		j = rng.Intn(len(pairs))
 	}
 
-	// Swap the values associated with the two keys.
+	// Perform the swap in both Runes array and RuneInfo map
 	sl.Runes[pairs[i].Key], sl.Runes[pairs[j].Key] = sl.Runes[pairs[j].Key], sl.Runes[pairs[i].Key]
 	sl.RuneInfo[pairs[i].Value], sl.RuneInfo[pairs[j].Value] = sl.RuneInfo[pairs[j].Value], sl.RuneInfo[pairs[i].Value]
 }
 
-// Crossover does nothing. It is defined only so *SplitLayout implements the eaopt.Genome interface.
+// Crossover is not used in simulated annealing but required by the eaopt.Genome interface.
 func (sl *SplitLayout) Crossover(_ eaopt.Genome, _ *rand.Rand) {}
 
-// Clone returns a copy of the layout.
+// Clone creates a deep copy of the layout for the genetic algorithm.
 func (sl *SplitLayout) Clone() eaopt.Genome {
 	cc := SplitLayout{
 		Name:             sl.Name,

@@ -268,10 +268,10 @@ func (c *Corpus) addWord(word string) {
 	c.TotalWordsCount++
 }
 
-// addText processes the input text string, converting it to lowercase and adding all unigrams,
-// bigrams, trigrams, and skipgrams to the corpus. N-grams that contain whitespace are skipped.
+// addText processes text and extracts n-grams (unigrams, bigrams, trigrams, skipgrams).
+// Text is lowercased, and n-grams containing whitespace are skipped (word boundaries reset the window).
 //
-//nolint:unused // superseded by addTextWithWords but kept for potential future use
+//nolint:unused // Superseded by addTextWithWords but kept for potential future use.
 func (c *Corpus) addText(text string) {
 	text = strings.ToLower(text)
 	var prev1, prev2 rune
@@ -300,10 +300,10 @@ func (c *Corpus) addText(text string) {
 	}
 }
 
-// loadFromFile reads the given text file line by line and adds the text content to the corpus.
+// loadFromFile reads a text file line by line and extracts n-grams.
 // Empty or whitespace-only lines are skipped.
 //
-//nolint:unused // superseded by loadFromFileWithWords but kept for potential future use
+//nolint:unused // Superseded by loadFromFileWithWords but kept for potential future use.
 func (c *Corpus) loadFromFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -327,11 +327,12 @@ func (c *Corpus) loadFromFile(path string) error {
 	return nil
 }
 
-// Modified addText that also tracks words
+// addTextWithWords processes text, extracting both words and n-grams.
+// Words are defined as sequences of letters and numbers, separated by other characters.
 func (c *Corpus) addTextWithWords(text string) {
 	text = strings.ToLower(text)
 
-	// Track words
+	// Extract words (alphanumeric sequences)
 	words := strings.FieldsFunc(text, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 	})
@@ -341,7 +342,7 @@ func (c *Corpus) addTextWithWords(text string) {
 		}
 	}
 
-	// Track n-grams (existing logic)
+	// Extract n-grams using sliding window
 	var prev1, prev2 rune
 	for _, r := range text {
 		if unicode.IsSpace(r) {
@@ -366,7 +367,9 @@ func (c *Corpus) addTextWithWords(text string) {
 	}
 }
 
-// Updated loadFromFileWithWords to track words
+// loadFromFileWithWords loads text from a file, extracting both words and n-grams.
+// After loading, prunes the word list to keep only the most frequent words covering
+// the specified percentage of total word occurrences.
 func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -392,15 +395,15 @@ func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) err
 	return nil
 }
 
-// pruneWordsByCoverage keeps only the most frequent words that account for the specified
-// percentage of total word occurrences. For example, with 99%, it keeps the most common words
-// that together make up 99% of all word instances in the corpus.
+// pruneWordsByCoverage reduces the word list to the most frequent words covering a target percentage.
+// For example, with coveragePercent=99, keeps only the most common words that together account
+// for 99% of all word occurrences. This reduces memory usage while retaining high-frequency vocabulary.
 func (c *Corpus) pruneWordsByCoverage(coveragePercent float64) {
 	if len(c.Words) == 0 {
 		return
 	}
 
-	// Convert to slice and sort by frequency (descending)
+	// Sort words by frequency
 	type wordFreq struct {
 		word  string
 		count uint64
@@ -415,10 +418,10 @@ func (c *Corpus) pruneWordsByCoverage(coveragePercent float64) {
 		return words[i].count > words[j].count
 	})
 
-	// Calculate target coverage
+	// Calculate target occurrence count
 	targetCount := uint64(float64(c.TotalWordsCount) * coveragePercent / 100.0)
 
-	// Keep words until we reach target coverage
+	// Accumulate words until target is reached
 	newWords := make(map[string]uint64)
 	var coveredCount uint64
 	var keptWords int
@@ -462,7 +465,7 @@ func LoadJSON(jsonPath string) (*Corpus, error) {
 	return &c, nil
 }
 
-// SaveJSON saves the corpus data as a JSON file in the specified directory using the corpus name as filename.
+// SaveJSON saves the corpus to a JSON file with pretty-printed formatting.
 func (c *Corpus) SaveJSON(jsonPath string) error {
 	file, err := os.Create(jsonPath)
 	if err != nil {
@@ -478,7 +481,8 @@ func (c *Corpus) SaveJSON(jsonPath string) error {
 	return nil
 }
 
-// TopUnigrams returns the top N most frequent unigrams
+// TopUnigrams returns the top N most frequent unigrams (single characters).
+// If n <= 0 or exceeds the total count, returns all unigrams.
 func (c *Corpus) TopUnigrams(n int) []CountPair[Unigram] {
 	sorted := SortedMap(c.Unigrams)
 	if n > 0 && n < len(sorted) {
@@ -487,7 +491,8 @@ func (c *Corpus) TopUnigrams(n int) []CountPair[Unigram] {
 	return sorted
 }
 
-// TopBigrams returns the top N most frequent bigrams
+// TopBigrams returns the top N most frequent bigrams (2-character sequences).
+// If n <= 0 or exceeds the total count, returns all bigrams.
 func (c *Corpus) TopBigrams(n int) []CountPair[Bigram] {
 	sorted := SortedMap(c.Bigrams)
 	if n > 0 && n < len(sorted) {
@@ -496,7 +501,8 @@ func (c *Corpus) TopBigrams(n int) []CountPair[Bigram] {
 	return sorted
 }
 
-// TopTrigrams returns the top N most frequent trigrams
+// TopTrigrams returns the top N most frequent trigrams (3-character sequences).
+// If n <= 0 or exceeds the total count, returns all trigrams.
 func (c *Corpus) TopTrigrams(n int) []CountPair[Trigram] {
 	sorted := SortedMap(c.Trigrams)
 	if n > 0 && n < len(sorted) {
@@ -505,7 +511,8 @@ func (c *Corpus) TopTrigrams(n int) []CountPair[Trigram] {
 	return sorted
 }
 
-// TopSkipgrams returns the top N most frequent skipgrams
+// TopSkipgrams returns the top N most frequent skipgrams (1st and 3rd chars of trigrams).
+// If n <= 0 or exceeds the total count, returns all skipgrams.
 func (c *Corpus) TopSkipgrams(n int) []CountPair[Skipgram] {
 	sorted := SortedMap(c.Skipgrams)
 	if n > 0 && n < len(sorted) {
@@ -514,7 +521,8 @@ func (c *Corpus) TopSkipgrams(n int) []CountPair[Skipgram] {
 	return sorted
 }
 
-// TopWords returns the top N most frequent words
+// TopWords returns the top N most frequent words.
+// If n <= 0 or exceeds the total count, returns all words.
 func (c *Corpus) TopWords(n int) []CountPair[string] {
 	sorted := SortedMap(c.Words)
 	if n > 0 && n < len(sorted) {

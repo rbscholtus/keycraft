@@ -1,7 +1,9 @@
 // Package keycraft provides ergonomic analysis tools for keyboard layouts.
 //
-// Metrics are described in README.md.
-// Metrics are calculated from unigrams, bigrams, skipgrams, and trigrams in the corpus.
+// This package supports various keyboard geometries (row-staggered, ortholinear,
+// column-staggered, angle-mod) and computes ergonomic metrics based on n-gram
+// frequencies from text corpora. Metrics include same-finger patterns, lateral stretches,
+// scissors, alternations, rolls, and redirections. See README.md for full metric descriptions.
 package keycraft
 
 import (
@@ -15,44 +17,52 @@ import (
 	"unicode"
 )
 
+// Finger constants representing fingers 0-9.
+// LP = left pinky, LR = left ring, LM = left middle, LI = left index, LT = left thumb.
+// RT = right thumb, RI = right index, RM = right middle, RR = right ring, RP = right pinky.
 const (
-	LP uint8 = iota
-	LR
-	LM
-	LI
-	LT
+	LP uint8 = iota // 0: left pinky
+	LR              // 1: left ring
+	LM              // 2: left middle
+	LI              // 3: left index
+	LT              // 4: left thumb
 
-	RT
-	RI
-	RM
-	RR
-	RP
+	RT // 5: right thumb
+	RI // 6: right index
+	RM // 7: right middle
+	RR // 8: right ring
+	RP // 9: right pinky
 )
 
+// keyToFinger maps each of the 42 key positions to the finger that types it.
+// Layout: 3 rows of 12 keys (6 left, 6 right), plus 1 row of 6 thumb keys (3 left, 3 right).
 var keyToFinger = [...]uint8{
-	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
-	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
-	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
-	LT, LT, LT, RT, RT, RT,
+	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP, // Row 0
+	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP, // Row 1
+	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP, // Row 2
+	LT, LT, LT, RT, RT, RT, // Row 3 (thumbs)
 }
 
+// angleModKeyToFinger maps key positions to fingers for angle-mod layouts.
+// In angle-mod, the bottom-left key shifts to accommodate the hand's natural angle.
 var angleModKeyToFinger = [...]uint8{
-	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
-	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP,
-	LP, LR, LM, LI, LI, LI, RI, RI, RM, RR, RP, RP,
-	LT, LT, LT, RT, RT, RT,
+	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP, // Row 0
+	LP, LP, LR, LM, LI, LI, RI, RI, RM, RR, RP, RP, // Row 1
+	LP, LR, LM, LI, LI, LI, RI, RI, RM, RR, RP, RP, // Row 2 (angle-mod difference here)
+	LT, LT, LT, RT, RT, RT, // Row 3 (thumbs)
 }
 
+// LayoutType represents the physical geometry of a keyboard.
 type LayoutType uint8
 
 const (
-	ROWSTAG LayoutType = iota
-	ANGLEMOD
-	ORTHO
-	COLSTAG
+	ROWSTAG  LayoutType = iota // Row-staggered (traditional)
+	ANGLEMOD                   // Angle-mod (row-staggered with bottom-left adjustment)
+	ORTHO                      // Ortholinear (grid layout)
+	COLSTAG                    // Column-staggered (ergonomic)
 )
 
-// Map from LayoutType to string
+// layoutTypeStrings maps LayoutType constants to their string representations.
 var layoutTypeStrings = map[LayoutType]string{
 	ROWSTAG:  "rowstag",
 	ANGLEMOD: "anglemod",
@@ -72,11 +82,11 @@ type KeyPairDistance struct {
 }
 
 // keyDistances contains precomputed key pair distances for each LayoutType.
-// The combinations of row/column distance functions are chosen as follows:
-//  1. ROWSTAG: AbsRowDist, AbsColDistAdj (accounts for row-staggered columns)
-//  2. ANGLEMOD: AbsRowDist, AbsColDistAdj (angle-modified layouts use similar logic)
-//  3. ORTHO: AbsRowDist, AbsColDist (ortholinear layouts use simple absolute distances; this is intentional)
-//  4. COLSTAG: AbsRowDistAdj, AbsColDist (column-staggered layouts adjust row distance only)
+// Distance functions are selected based on keyboard geometry:
+//   - ROWSTAG: AbsRowDist, AbsColDistAdj (accounts for row stagger)
+//   - ANGLEMOD: AbsRowDist, AbsColDistAdj (similar to row-staggered)
+//   - ORTHO: AbsRowDist, AbsColDist (simple grid distances)
+//   - COLSTAG: AbsRowDistAdj, AbsColDist (accounts for column stagger)
 var keyDistances = []map[KeyPair]KeyPairDistance{
 	calcKeyDistances(AbsRowDist, AbsColDistAdj, &keyToFinger),         // ROWSTAG
 	calcKeyDistances(AbsRowDist, AbsColDistAdj, &angleModKeyToFinger), // ANGLEMOD
@@ -84,22 +94,24 @@ var keyDistances = []map[KeyPair]KeyPairDistance{
 	calcKeyDistances(AbsRowDistAdj, AbsColDist, &keyToFinger),         // COLSTAG
 }
 
-// Standard row-staggered keyboard column offsets
+// rowStagOffsets defines the horizontal offset for each row in row-staggered layouts.
+// Traditional keyboards have rows offset by different amounts (in key units).
 var rowStagOffsets = [4]float64{
-	0, 0.25, 0.75, 0,
+	0, 0.25, 0.75, 0, // Top, home, bottom, thumb rows
 }
 
-// Corne-style row offsets
+// colStagOffsets defines the vertical offset for each column in column-staggered layouts.
+// Ergonomic keyboards (e.g., Corne) stagger columns to match natural finger lengths.
 var colStagOffsets = [12]float64{
 	0.35, 0.35, 0.1, 0, 0.1, 0.2, 0.2, 0.1, 0, 0.1, 0.35, 0.35,
 }
 
 const (
-	LEFT  uint8 = 0
-	RIGHT uint8 = 1
+	LEFT  uint8 = 0 // Left hand
+	RIGHT uint8 = 1 // Right hand
 )
 
-// KeyInfo represents a key's position on a keyboard
+// KeyInfo represents a key's physical position and typing finger on a keyboard.
 type KeyInfo struct {
 	Index  uint8 // 0-41
 	Hand   uint8 // LEFT or RIGHT
@@ -108,7 +120,8 @@ type KeyInfo struct {
 	Finger uint8 // 0-9
 }
 
-// NewKeyInfo returns a new KeyInfo struct with some fields derived from row and col.
+// NewKeyInfo constructs a KeyInfo from row, column, and layout type.
+// Automatically determines hand and finger assignments based on position and geometry.
 func NewKeyInfo(row, col uint8, layoutType LayoutType) KeyInfo {
 	if col >= uint8(len(keyToFinger)) {
 		panic(fmt.Sprintf("col exceeds max value: %d", col))
@@ -145,10 +158,10 @@ func NewKeyInfo(row, col uint8, layoutType LayoutType) KeyInfo {
 	}
 }
 
-// SplitLayout represents a split keyboard layout and associated analysis metadata.
-// It contains rune placement, per-rune key information, precomputed pairwise distances,
-// notable lateral-stretch and scissor pairs, pinned-key flags, and optional fields used
-// during optimisation.
+// SplitLayout represents a split keyboard layout with 42 keys (30 alphas + 6 thumbs per hand).
+// Contains rune-to-key mappings, precomputed distance metrics, and identified ergonomic patterns
+// (lateral stretches, scissors). Also includes optional optimization state (pinned keys, corpus,
+// weights) used during layout generation.
 type SplitLayout struct {
 	Name             string                       // layout identifier (filename or user-provided)
 	LayoutType       LayoutType                   // geometry type (ROWSTAG, ORTHO, COLSTAG)
@@ -158,15 +171,16 @@ type SplitLayout struct {
 	LSBs             []LSBInfo                    // notable lateral-stretch bigram key-pairs
 	FScissors        []ScissorInfo                // notable full scissor key-pairs
 	HScissors        []ScissorInfo                // notable half scissor key-pairs
-	optPinned        [42]bool                     // optimisation: flags indicating keys that must not be moved
-	optCorpus        *Corpus                      // optimisation: corpus used during layout optimisation (optional)
-	optIdealfgrLoad  *[10]float64                 // optimisation:
-	optWeights       *Weights                     // optimisation: metric weights used (optional)
-	optMedians       map[string]float64           // optimisation: median values per metric (optional)
-	optIqrs          map[string]float64           // optimisation: IQR values per metric (optional)
+	optPinned        [42]bool                     // Optimization: flags indicating keys that must not be swapped
+	optCorpus        *Corpus                      // Optimization: corpus for evaluating layout quality
+	optIdealfgrLoad  *[10]float64                 // Optimization: ideal finger load distribution
+	optWeights       *Weights                     // Optimization: metric weights for scoring
+	optMedians       map[string]float64           // Optimization: median values for normalization
+	optIqrs          map[string]float64           // Optimization: IQR values for normalization
 }
 
-// NewSplitLayout creates a new split layout
+// NewSplitLayout creates a new split layout and initializes precomputed ergonomic patterns
+// (lateral stretches and scissors) based on the layout geometry.
 func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
 	sl := &SplitLayout{
 		Name:             name,
@@ -226,24 +240,24 @@ func (sl *SplitLayout) String() string {
 	return sb.String()
 }
 
-// NewLayoutFromFile loads a SplitLayout from the named file.
-// The file must contain:
-//   - a first non-empty, non-comment line indicating layout type:
-//     "rowstag", "ortho", or "colstag" (prefix matching allowed).
-//   - three subsequent rows of 12 keys each (6 left, 6 right).
-//   - one final row of 6 thumb keys (3 left, 3 right).
+// NewLayoutFromFile loads a SplitLayout from a .klf file.
 //
-// Special tokens in the file:
+// File format:
+//   - First non-comment line: layout type ("rowstag", "anglemod", "ortho", or "colstag")
+//   - Next 3 lines: 12 keys each (6 left, 6 right) for main rows
+//   - Last line: 6 thumb keys (3 left, 3 right)
+//   - Lines starting with '#' are comments
+//   - Empty lines are ignored
 //
-//	"~"   -> empty key
-//	"_"   -> space character
-//	"~~"  -> literal '~'
-//	"__"  -> literal '_'
-//	"##"  -> literal '#'
+// Special tokens:
+//   - "~"  : empty key (no character assigned)
+//   - "_"  : space character
+//   - "~~" : literal tilde character
+//   - "__" : literal underscore character
+//   - "##" : literal hash character
 //
-// Lines starting with '#' and empty lines are ignored. Each key entry must be
-// either one character or one of the special tokens above. Characters must not
-// be repeated. Returns a parsed *SplitLayout or an error on malformed input.
+// Each character can appear only once in the layout.
+// Returns an error if the file format is invalid or contains duplicate characters.
 func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	keyMap := map[string]rune{
 		"~":  rune(0),
@@ -261,7 +275,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 
 	scanner := bufio.NewScanner(file)
 
-	// Read layout type
+	// Parse layout type from first line
 	layoutTypeStr, err := readLine(scanner)
 	if err != nil {
 		return nil, fmt.Errorf("invalid file format in %s: missing layout type", path)
@@ -310,7 +324,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 				r = rune(key[0])
 			}
 
-			// Check for duplicate runes (skip rune(0) as it represents empty/null positions)
+			// Check for duplicate runes (empty keys are allowed to repeat)
 			if r != rune(0) {
 				if _, exists := seenRunes[r]; exists {
 					return nil, fmt.Errorf("invalid file format in %s: duplicate rune '%c' found at row %d, col %d",
@@ -332,7 +346,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	return NewSplitLayout(name, layoutType, runeArray, runeInfoMap), nil
 }
 
-// SaveToFile saves a layout layout to a text file
+// SaveToFile saves the layout to a .klf file in the standard format.
 func (sl *SplitLayout) SaveToFile(path string) error {
 	inverseKeyMap := map[rune]string{
 		rune(0): "~",
@@ -397,13 +411,15 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 	return nil
 }
 
-// LoadPins loads a pins file and populates the Pinned array.
+// LoadPins loads a pins file specifying which keys should be fixed during optimization.
+// The file format mirrors a layout file, but uses symbols to indicate pin status:
+//   - '.', '_', '-' : unpinned (key can be moved)
+//   - '*', 'x', 'X' : pinned (key is fixed)
 func (sl *SplitLayout) LoadPins(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("pins file %s does not exist", path)
 	}
 
-	// Open the file for reading.
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -414,7 +430,7 @@ func (sl *SplitLayout) LoadPins(path string) error {
 	index := 0
 	expectedKeys := []int{12, 12, 12, 6}
 
-	// Read the pins from the file.
+	// Parse pins from file
 	for row, expectedKeyCount := range expectedKeys {
 		if !scanner.Scan() {
 			return fmt.Errorf("invalid file format in %s: not enough rows", path)
@@ -429,10 +445,8 @@ func (sl *SplitLayout) LoadPins(path string) error {
 			}
 			switch rune(key[0]) {
 			case '.', '_', '-':
-				// Unpinned keys.
 				sl.optPinned[index] = false
 			case '*', 'x', 'X':
-				// Pinned keys.
 				sl.optPinned[index] = true
 			default:
 				return fmt.Errorf("invalid character in %s '%c' at position %d in row %d", path, key[0], col+1, row+1)
@@ -441,7 +455,6 @@ func (sl *SplitLayout) LoadPins(path string) error {
 		}
 	}
 
-	// Check for any scanner errors.
 	if err := scanner.Err(); err != nil {
 		return err
 	}
@@ -449,29 +462,25 @@ func (sl *SplitLayout) LoadPins(path string) error {
 	return nil
 }
 
-// LoadPinsFromParams loads pin information into the SplitLayout from a file, pins string,
-// or a free string (specifying which runes are free, all others pinned).
+// LoadPinsFromParams configures which keys are pinned during optimization.
+// Three modes:
+//  1. Load from pins file (path) - uses pin file format
+//  2. Pin specific characters (pins) - comma-separated characters to fix
+//  3. Free specific characters (free) - all others are pinned
 //
-// Parameters:
-//   - path: path to a pins file (optional). If empty, no file-based pins are loaded.
-//   - pins: a string of characters to pin individually in the layout.
-//   - free: a string of characters that are free to move (all others are pinned).
-//
-// If path or pins are provided, free must be empty.
-// If free is provided, all runes except those in free are pinned.
+// Modes 1 and 2 can be combined, but mode 3 (free) is mutually exclusive.
+// If no options are provided, only empty keys and spaces are pinned by default.
 func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
-	// If pins-file or pins are specified, free must be empty.
 	if (path != "" || pins != "") && free != "" {
 		return fmt.Errorf("cannot use both --free and --pins/--pins-file options together")
 	}
 
 	if free != "" {
-		// Pin all runes except those in free string
-		// First, mark all as pinned
+		// Pin everything except specified characters
 		for i := range sl.optPinned {
 			sl.optPinned[i] = true
 		}
-		// Unpin the runes in free, if they exist in layout
+		// Unpin characters in free string
 		for _, r := range free {
 			key, ok := sl.RuneInfo[r]
 			if !ok {
@@ -482,13 +491,13 @@ func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
 		return nil
 	}
 
-	// Pin keys as specified in the pinfile
+	// Load pins from file if specified
 	if path != "" {
 		if err := sl.LoadPins(path); err != nil {
 			return err
 		}
 	} else {
-		// Otherwise, pin keys that are not used for an actual rune and Space
+		// By default, pin empty keys and spaces
 		for i, r := range sl.Runes {
 			if r == 0 || unicode.IsSpace(r) {
 				sl.optPinned[i] = true
@@ -496,7 +505,7 @@ func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
 		}
 	}
 
-	// Additionally, pin keys in the pins parameter
+	// Pin additional characters from pins string
 	for _, r := range pins {
 		key, ok := sl.RuneInfo[r]
 		if !ok {
@@ -508,7 +517,8 @@ func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
 	return nil
 }
 
-// readLine reads a line, ignoring empty lines and lines that start with #
+// readLine reads the next non-empty, non-comment line from the scanner.
+// Returns an error if EOF is reached without finding a valid line.
 func readLine(scanner *bufio.Scanner) (string, error) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -532,7 +542,9 @@ func (sl *SplitLayout) Distance(k1, k2 uint8) *KeyPairDistance {
 	return &kpd
 }
 
-// There is a minor error in the calcs for the thumb keys!
+// calcKeyDistances precomputes all pairwise distances between keys on the same hand.
+// Uses the provided distance functions to account for layout-specific geometry.
+// Note: thumb key distance calculations have a known minor inaccuracy.
 func calcKeyDistances(
 	rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
 	colDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
@@ -540,6 +552,7 @@ func calcKeyDistances(
 ) map[KeyPair]KeyPairDistance {
 	keyDistances := make(map[KeyPair]KeyPairDistance, 624)
 
+	// Optimized square root for common cases
 	sqrt := func(mul float64) float64 {
 		switch mul {
 		case 1:
@@ -568,18 +581,18 @@ func calcKeyDistances(
 			}
 			row2, col2 := k2/12, k2%12
 
-			// skip if the keys are on different hands
+			// Skip pairs on different hands
 			if ((row1 < 3 && col1 < 6) || (row1 >= 3 && col1 < 3)) !=
 				((row2 < 3 && col2 < 6) || (row2 >= 3 && col2 < 3)) {
 				continue
 			}
 
-			// skip if exactly one of the keys is on the thumb cluster
+			// Skip pairs between main rows and thumb row
 			if (row1 < 3) != (row2 < 3) {
 				continue
 			}
 
-			// calculate distances
+			// Compute distance metrics
 			dx := colDistFunc(row1, col1, row2, col2)
 			dy := rowDistFunc(row1, col1, row2, col2)
 			dist := sqrt(dx*dx + dy*dy)
@@ -595,36 +608,41 @@ func calcKeyDistances(
 	return keyDistances
 }
 
+// AbsRowDist computes the absolute vertical distance between two keys (simple).
 func AbsRowDist(row1, col1, row2, col2 uint8) float64 {
 	return math.Abs(float64(row1) - float64(row2))
 }
 
+// AbsRowDistAdj computes vertical distance accounting for column-stagger offsets.
 func AbsRowDistAdj(row1, col1, row2, col2 uint8) float64 {
 	return math.Abs((float64(row1) + colStagOffsets[col1] -
 		(float64(row2) + colStagOffsets[col2])))
 }
 
+// AbsColDist computes the absolute horizontal distance between two keys (simple).
 func AbsColDist(row1, col1, row2, col2 uint8) float64 {
 	return math.Abs(float64(col1) - float64(col2))
 }
 
+// AbsColDistAdj computes horizontal distance accounting for row-stagger offsets.
 func AbsColDistAdj(row1, col1, row2, col2 uint8) float64 {
 	return math.Abs((float64(col1) + rowStagOffsets[row1] -
 		(float64(col2) + rowStagOffsets[row2])))
 }
 
-// LSBInfo holds information about a lateral-stretch bigram candidate on the layout.
+// LSBInfo represents a lateral-stretch bigram: two keys typed by non-adjacent fingers
+// on the same hand that are uncomfortably far apart horizontally.
 type LSBInfo struct {
 	KeyIdx1     uint8
 	KeyIdx2     uint8
 	ColDistance float64
 }
 
-// Initialize LSB key-pairs
+// initLSBs identifies all lateral-stretch bigram key pairs in the layout.
+// Stretches occur between specific finger combinations when keys exceed a minimum horizontal distance.
 func (sl *SplitLayout) initLSBs() {
-	// Which two fingers (nrs 0..9) may form pairs,
-	// and what it the minimum distance (2.0 or 3.5) to note them
-	// Each pair is noted in both directions
+	// Define finger combinations that can produce lateral stretches,
+	// with minimum horizontal distance thresholds (in key units)
 	fingerPairsToTrack := map[KeyPair]float64{
 		{LM, LI}: 2.0, {LI, LM}: 2.0,
 		{LR, LI}: 3.5, {LI, LR}: 3.5,
@@ -654,14 +672,14 @@ func (sl *SplitLayout) initLSBs() {
 				continue
 			}
 
-			// find a pair of runes on the layout typed by a predefined finger pair
+			// Check if this finger combination is tracked
 			fingerPair := [2]uint8{ri1.Finger, ri2.Finger}
 			minHorDistance, ok := fingerPairsToTrack[fingerPair]
 			if !ok {
 				continue
 			}
 
-			// Get horizontal distance and add
+			// Check if distance exceeds threshold
 			dx := sl.Distance(uint8(key1), uint8(key2)).ColDist
 			if dx >= minHorDistance {
 				sl.LSBs = append(sl.LSBs, LSBInfo{uint8(key1), uint8(key2), dx})
@@ -669,20 +687,20 @@ func (sl *SplitLayout) initLSBs() {
 		}
 	}
 
-	// As per Keyboard Layouts Doc, section 7.4.2
-	// Add a few more notable LSBs on row-staggered
+	// Add geometry-specific edge cases for row-staggered layouts
 	switch sl.LayoutType {
 	case ROWSTAG:
 		sl.LSBs = append(sl.LSBs, LSBInfo{1, 26, 1.75})
 		sl.LSBs = append(sl.LSBs, LSBInfo{2, 27, 1.75})
 		sl.LSBs = append(sl.LSBs, LSBInfo{3, 28, 1.75})
 	case ANGLEMOD:
-		// only the middle - index situation is a stretch with anglemod
+		// Angle-mod only stretches middle-index in this configuration
 		sl.LSBs = append(sl.LSBs, LSBInfo{3, 28, 1.75})
 	}
 }
 
-// ScissorInfo describes a scissor key-pair (full or half) including finger distance, row distance and angle.
+// ScissorInfo represents a scissor motion: two keys on the same hand typed in
+// quick succession with uncomfortable vertical displacement between adjacent or close fingers.
 type ScissorInfo struct {
 	keyIdx1    uint8
 	keyIdx2    uint8
@@ -692,7 +710,7 @@ type ScissorInfo struct {
 	angle      float64
 }
 
-// Helper to make map from slice of pairs
+// makePairs converts a slice of finger pairs into a lookup map.
 func makePairs(pairs [][2]uint8) map[[2]uint8]bool {
 	m := make(map[[2]uint8]bool, len(pairs))
 	for _, p := range pairs {
@@ -701,14 +719,14 @@ func makePairs(pairs [][2]uint8) map[[2]uint8]bool {
 	return m
 }
 
-// A config holds index ranges and the valid finger pair map
+// scissorConfig defines key index ranges and valid finger pairs for finding scissors.
 type scissorConfig struct {
 	i1Start, i1End uint8
 	i2Start, i2End uint8
 	fingerPairs    map[[2]uint8]bool
 }
 
-// Helper to initialize scissor pairs
+// initScissorPairs finds all scissor key pairs matching the given configurations.
 func (sl *SplitLayout) initScissorPairs(configs []scissorConfig, out *[]ScissorInfo) {
 	var i1, i2 uint8
 	for _, cfg := range configs {
@@ -740,7 +758,7 @@ func (sl *SplitLayout) initScissorPairs(configs []scissorConfig, out *[]ScissorI
 	}
 }
 
-// Initializes full scissors
+// initFScissors identifies full scissor patterns (large vertical displacement, 2 rows).
 func (sl *SplitLayout) initFScissors() {
 	configs := []scissorConfig{
 		{
@@ -766,7 +784,7 @@ func (sl *SplitLayout) initFScissors() {
 	sl.initScissorPairs(configs, &sl.FScissors)
 }
 
-// Initializes half scissors
+// initHScissors identifies half scissor patterns (moderate vertical displacement, 1 row).
 func (sl *SplitLayout) initHScissors() {
 	configs := []scissorConfig{
 		{
