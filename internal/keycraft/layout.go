@@ -173,6 +173,7 @@ type SplitLayout struct {
 	HScissors        []ScissorInfo                // notable half scissor key-pairs
 	optPinned        [42]bool                     // Optimization: flags indicating keys that must not be swapped
 	optCorpus        *Corpus                      // Optimization: corpus for evaluating layout quality
+	optIdealRowLoad  *[3]float64                  // Optimization: ideal row load distribution
 	optIdealfgrLoad  *[10]float64                 // Optimization: ideal finger load distribution
 	optWeights       *Weights                     // Optimization: metric weights for scoring
 	optMedians       map[string]float64           // Optimization: median values for normalization

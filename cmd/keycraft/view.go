@@ -11,7 +11,7 @@ var viewCommand = &cli.Command{
 	Name:      "view",
 	Aliases:   []string{"v"},
 	Usage:     "Analyse and display one or more keyboard layouts",
-	Flags:     flagsSlice("corpus", "finger-load"),
+	Flags:     flagsSlice("corpus", "row-load", "finger-load"),
 	ArgsUsage: "<layout1> <layout2> ...",
 	Before:    validateViewFlags,
 	Action:    viewAction,
@@ -32,6 +32,11 @@ func viewAction(c *cli.Context) error {
 		return err
 	}
 
+	rowLoad, err := getRowLoadFromFlag(c)
+	if err != nil {
+		return err
+	}
+
 	fingerLoad, err := getFingerLoadFromFlag(c)
 	if err != nil {
 		return err
@@ -41,7 +46,7 @@ func viewAction(c *cli.Context) error {
 
 	// Analyse all provided layouts using given corpus.
 	// The 'false' parameter indicates not to include detailed metrics.
-	if err := DoAnalysis(layouts, corpus, fingerLoad, false, 0); err != nil {
+	if err := DoAnalysis(layouts, corpus, rowLoad, fingerLoad, false, 0); err != nil {
 		return err
 	}
 

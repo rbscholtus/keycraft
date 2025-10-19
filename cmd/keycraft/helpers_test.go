@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -309,5 +310,92 @@ func TestEnsureNoKlf(t *testing.T) {
 		if got != tt.out {
 			t.Errorf("ensureNoKlf(%q) = %q, want %q", tt.in, got, tt.out)
 		}
+	}
+}
+
+func TestFloatConv(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    float64
+		wantErr bool
+	}{
+		{
+			name:    "simple string",
+			input:   "1.23",
+			want:    1.23,
+			wantErr: false,
+		},
+		{
+			name:    "empty string",
+			input:   "",
+			want:    1.23,
+			wantErr: true,
+		},
+		{
+			name:    "space string",
+			input:   " ",
+			want:    1.23,
+			wantErr: true,
+		},
+		{
+			name:    "simple string with l space",
+			input:   " 1.23",
+			want:    1.23,
+			wantErr: true,
+		},
+		{
+			name:    "simple string with t space",
+			input:   "1.23 ",
+			want:    1.23,
+			wantErr: true,
+		},
+		{
+			name:    "simple string with l/t space",
+			input:   " 1.23 ",
+			want:    1.23,
+			wantErr: true,
+		},
+		{
+			name:    "simple string with text",
+			input:   " hello ",
+			want:    1.23,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := strconv.ParseFloat(tt.input, 64)
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("expected error=%v, got err=%v", tt.wantErr, err)
+			}
+
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// BenchmarkFloatConv benchmarks strconv.ParseFloat performance with various inputs.
+func BenchmarkFloatConv(b *testing.B) {
+	benchmarks := []struct {
+		name  string
+		input string
+	}{
+		{"simple-float", "1.23"},
+		{"integer", "42"},
+		{"large-float", "123456.789012"},
+		{"scientific", "1.23e-10"},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for b.Loop() {
+				_, _ = strconv.ParseFloat(bm.input, 64)
+			}
+		})
 	}
 }

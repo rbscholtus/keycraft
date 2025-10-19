@@ -23,7 +23,7 @@ var MetricsMap = map[string][]string{
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS", // "LSS", "FSS", "HSS",
 		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
-		"IN:OUT", "FBL", "POH", "FLW",
+		"IN:OUT", "RBL", "FBL", "POH", "FLW",
 	},
 	"extended": {
 		"SFB", "LSB", "FSB", "HSB",
@@ -32,7 +32,7 @@ var MetricsMap = map[string][]string{
 		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
 		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
 		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
-		"IN:OUT", "FBL", "POH", "FLW",
+		"IN:OUT", "RBL", "FBL", "POH", "FLW",
 	},
 	"fingers": {
 		"H0", "F0", "F1", "F2", "F3", "F4",
@@ -145,14 +145,14 @@ type LayoutScore struct {
 
 // LoadAnalysers loads and analyses all .klf layout files from a directory in parallel.
 // Uses bounded concurrency based on GOMAXPROCS to avoid overloading the system.
-func LoadAnalysers(layoutsDir string, corpus *Corpus, idealfgrLoad *[10]float64) ([]*Analyser, error) {
+func LoadAnalysers(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64) ([]*Analyser, error) {
 	layoutFiles, err := os.ReadDir(layoutsDir)
 	if err != nil {
 		return nil, fmt.Errorf("error reading layout files from %v: %v", layoutsDir, err)
 	}
 
 	var (
-		analysers []*Analyser
+		analysers = make([]*Analyser, 0, len(layoutFiles)) // Pre-allocate
 		mu        sync.Mutex
 		wg        sync.WaitGroup
 		sem       = make(chan struct{}, runtime.GOMAXPROCS(0)) // Semaphore to limit concurrent goroutines
@@ -176,7 +176,7 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, idealfgrLoad *[10]float64)
 				fmt.Println(err)
 				return
 			}
-			analyser := NewAnalyser(layout, corpus, idealfgrLoad)
+			analyser := NewAnalyser(layout, corpus, idealRowLoad, idealfgrLoad)
 
 			mu.Lock()
 			analysers = append(analysers, analyser)
@@ -379,11 +379,12 @@ func formatDelta(metric string, delta float64, weights *Weights) string {
 //   - layoutsDir: directory containing .klf layout files
 //   - layoutFiles: specific layout files to rank (empty means all)
 //   - corpus: text corpus for frequency analysis
+//   - idealRowLoad: ideal row load distribution for balance metrics
 //   - idealfgrLoad: ideal finger load distribution for balance metrics
 //   - weights: metric weights for scoring
 //   - metricsSet: which metric set to display ("basic", "extended", or "fingers")
 //   - deltas: how to display deltas ("none", "rows", "median", or a layout name)
-func DoLayoutRankings(layoutsDir string, layoutFiles []string, corpus *Corpus, idealfgrLoad *[10]float64, weights *Weights, metricsSet string, deltas string) error {
+func DoLayoutRankings(layoutsDir string, layoutFiles []string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, weights *Weights, metricsSet string, deltas string) error {
 	// Select the appropriate metric set
 	metrics, ok := MetricsMap[metricsSet]
 	if !ok {
@@ -392,7 +393,7 @@ func DoLayoutRankings(layoutsDir string, layoutFiles []string, corpus *Corpus, i
 	}
 
 	// Load and analyze all layouts (needed for normalization even if we filter later)
-	analysers, err := LoadAnalysers(layoutsDir, corpus, idealfgrLoad)
+	analysers, err := LoadAnalysers(layoutsDir, corpus, idealRowLoad, idealfgrLoad)
 	if err != nil {
 		return err
 	}

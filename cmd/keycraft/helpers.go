@@ -32,6 +32,21 @@ func getFingerLoadFromFlag(c *cli.Context) (*[10]float64, error) {
 	return vals, nil
 }
 
+// getRowLoadFromFlag parses and scales the --row-load flag into percentages.
+// Accepts 3 values for top row, home row, and bottom row.
+// Values are validated and scaled to sum to 100.0.
+func getRowLoadFromFlag(c *cli.Context) (*[3]float64, error) {
+	rlStr := c.String("row-load")
+	vals, err := parseRowLoad(rlStr)
+	if err != nil {
+		return nil, err
+	}
+	if err := scaleRowLoad(vals); err != nil {
+		return nil, err
+	}
+	return vals, nil
+}
+
 // loadWeightsFromFlags loads weights from the --weights-file and --weights flags.
 // Weights specified via --weights take precedence over file-based weights.
 func loadWeightsFromFlags(c *cli.Context) (*kc.Weights, error) {
@@ -70,6 +85,54 @@ func loadLayout(filename string) (*kc.SplitLayout, error) {
 	path := filepath.Join(layoutDir, filename)
 
 	return kc.NewLayoutFromFile(layoutName, path)
+}
+
+// parseRowLoad parses row load values from a comma-separated string.
+// Expects exactly 3 values for top row, home row, and bottom row.
+func parseRowLoad(s string) (*[3]float64, error) {
+	parts := strings.Split(s, ",")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("row-load must have exactly 3 comma-separated values (got %d)", len(parts))
+	}
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+
+	var rowVals [3]float64
+	for i, p := range parts {
+		if p == "" {
+			return nil, fmt.Errorf("empty value in row-load at position %d", i)
+		}
+		v, err := strconv.ParseFloat(p, 64)
+		if err != nil || v < 0.0 {
+			return nil, fmt.Errorf("invalid float in row-load at position %d: %v", i, err)
+		}
+		rowVals[i] = v
+	}
+
+	return &rowVals, nil
+}
+
+// scaleRowLoad scales row load values in-place so their sum equals 100.0.
+// Validates all values are non-negative and sum is above epsilon threshold.
+// Returns an error if any value is negative or if the sum is too small to scale safely.
+func scaleRowLoad(vals *[3]float64) error {
+	var sum float64
+	for _, v := range vals {
+		if v < 0.0 {
+			return fmt.Errorf("cannot scale row load: negative value %f", v)
+		}
+		sum += v
+	}
+	const epsilon = 1e-9
+	if sum < epsilon {
+		return fmt.Errorf("cannot scale row load: sum is zero or too small")
+	}
+	scale := 100.0 / sum
+	for i := range vals {
+		vals[i] *= scale
+	}
+	return nil
 }
 
 // parseFingerLoad parses finger load values from a comma-separated string.

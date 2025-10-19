@@ -45,14 +45,15 @@ func getAcceptFunc(acceptWorse string) func(g, ng uint, e0, e1 float64) float64 
 // Optimise optimizes a keyboard layout using simulated annealing to minimize the weighted score.
 // The optimization swaps unpinned keys iteratively, evaluating each candidate using the Evaluate method.
 // Returns a new optimized layout (the original is not modified).
-func (sl *SplitLayout) Optimise(corp *Corpus, idealfgrLoad *[10]float64, weights *Weights, generations uint, acceptWorse string) *SplitLayout {
+func (sl *SplitLayout) Optimise(corp *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, weights *Weights, generations uint, acceptWorse string) *SplitLayout {
 	// Store optimization parameters
 	sl.optCorpus = corp
 	sl.optWeights = weights
+	sl.optIdealRowLoad = idealRowLoad
 	sl.optIdealfgrLoad = idealfgrLoad
 
 	// Load reference layouts to compute normalization statistics
-	analysers := Must(LoadAnalysers("data/layouts/", corp, idealfgrLoad))
+	analysers := Must(LoadAnalysers("data/layouts/", corp, idealRowLoad, idealfgrLoad))
 	sl.optMedians, sl.optIqrs = computeMediansAndIQR(analysers)
 
 	// Configure simulated annealing
@@ -95,7 +96,7 @@ func (sl *SplitLayout) Optimise(corp *Corpus, idealfgrLoad *[10]float64, weights
 // Uses the stored corpus, weights, and normalization stats to compute a weighted score.
 // Returns the negative score so that minimization finds better layouts.
 func (sl *SplitLayout) Evaluate() (float64, error) {
-	analyser := NewAnalyser(sl, sl.optCorpus, sl.optIdealfgrLoad)
+	analyser := NewAnalyser(sl, sl.optCorpus, sl.optIdealRowLoad, sl.optIdealfgrLoad)
 
 	score := 0.0
 	for metric, value := range analyser.Metrics {

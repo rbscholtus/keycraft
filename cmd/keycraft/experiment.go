@@ -225,6 +225,9 @@ func ExperimentAction2(c *cli.Context) error {
 		return err
 	}
 
+	// Use default row load for experiments
+	rowLoad := kc.DefaultIdealRowLoad()
+
 	fbStr := c.String("finger-load")
 	fingerBal, err := parseFingerLoad(fbStr)
 	if err != nil {
@@ -273,7 +276,7 @@ func ExperimentAction2(c *cli.Context) error {
 			return err
 		}
 
-		best := layout.Optimise(corpus, fingerBal, weights, numGenerations, acceptFunction)
+		best := layout.Optimise(corpus, rowLoad, fingerBal, weights, numGenerations, acceptFunction)
 
 		name := filepath.Base(layout.Name)
 		ext := strings.ToLower(filepath.Ext(name))

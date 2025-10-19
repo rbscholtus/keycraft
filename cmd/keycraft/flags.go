@@ -33,6 +33,12 @@ var appFlagsMap = map[string]cli.Flag{
 			return nil
 		},
 	},
+	"row-load": &cli.StringFlag{
+		Name:    "row-load",
+		Aliases: []string{"rl"},
+		Usage:   "Define ideal row load percentages. Provide 3 comma-separated floats for top row, home row, and bottom row. Values are scaled to sum to 100%.",
+		Value:   "18.5,73,8.5", // default: top, home, bottom
+	},
 	"finger-load": &cli.StringFlag{
 		Name:    "finger-load",
 		Aliases: []string{"fl"},

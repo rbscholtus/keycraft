@@ -17,7 +17,7 @@ var rankCommand = &cli.Command{
 	Name:      "rank",
 	Aliases:   []string{"r"},
 	Usage:     "Rank keyboard layouts and optionally view deltas",
-	Flags:     flagsSlice("metrics", "deltas", "corpus", "finger-load", "weights-file", "weights"),
+	Flags:     flagsSlice("metrics", "deltas", "corpus", "row-load", "finger-load", "weights-file", "weights"),
 	ArgsUsage: "<layout1> <layout2> ...",
 	Action:    rankAction,
 }
@@ -39,6 +39,11 @@ func rankAction(c *cli.Context) error {
 		return err
 	}
 
+	rowLoad, err := getRowLoadFromFlag(c)
+	if err != nil {
+		return err
+	}
+
 	fingerBal, err := getFingerLoadFromFlag(c)
 	if err != nil {
 		return err
@@ -55,7 +60,7 @@ func rankAction(c *cli.Context) error {
 	}
 
 	// Perform the layout comparison and display results
-	return kc.DoLayoutRankings(layoutDir, layouts, corpus, fingerBal, weights, metrics, deltas)
+	return kc.DoLayoutRankings(layoutDir, layouts, corpus, rowLoad, fingerBal, weights, metrics, deltas)
 }
 
 // getMetricsFromFlag validates the --metrics flag and returns the metric set name.

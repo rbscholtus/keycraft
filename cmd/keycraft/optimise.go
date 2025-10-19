@@ -18,7 +18,7 @@ var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Aliases:   []string{"o"},
 	Usage:     "Optimise a keyboard layout using simulated annealing",
-	Flags:     flagsSlice("corpus", "finger-load", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse"),
+	Flags:     flagsSlice("corpus", "row-load", "finger-load", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse"),
 	ArgsUsage: "<layout>",
 	Before:    validateOptFlags,
 	Action:    optimiseAction,
@@ -36,6 +36,11 @@ func validateOptFlags(c *cli.Context) error {
 // then analyzes and ranks the original vs optimized layouts.
 func optimiseAction(c *cli.Context) error {
 	corpus, err := getCorpusFromFlags(c)
+	if err != nil {
+		return err
+	}
+
+	rowLoad, err := getRowLoadFromFlag(c)
 	if err != nil {
 		return err
 	}
@@ -74,7 +79,7 @@ func optimiseAction(c *cli.Context) error {
 		return err
 	}
 
-	best := layout.Optimise(corpus, fingerBal, weights, numGenerations, acceptFunction)
+	best := layout.Optimise(corpus, rowLoad, fingerBal, weights, numGenerations, acceptFunction)
 
 	// Save best layout to file
 	bestPath := filepath.Join(layoutDir, best.Name+".klf")
@@ -86,12 +91,12 @@ func optimiseAction(c *cli.Context) error {
 	layoutsToCompare := []string{layout.Name, best.Name}
 
 	// Call DoAnalysis with the layouts
-	if err := DoAnalysis(layoutsToCompare, corpus, fingerBal, false, 0); err != nil {
+	if err := DoAnalysis(layoutsToCompare, corpus, rowLoad, fingerBal, false, 0); err != nil {
 		return fmt.Errorf("failed to perform layout analysis: %v", err)
 	}
 
 	// Call DoLayoutRankings with the layouts
-	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, fingerBal, weights, "extended", layout.Name); err != nil {
+	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, rowLoad, fingerBal, weights, "extended", layout.Name); err != nil {
 		return fmt.Errorf("failed to perform layout rankings: %v", err)
 	}
 
