@@ -71,15 +71,18 @@ func optimiseAction(c *cli.Context) error {
 		return err
 	}
 
-	pinsPath := c.String("pins-file")
-	if pinsPath != "" {
-		pinsPath = filepath.Join(pinsDir, pinsPath)
-	}
-	if err := layout.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free")); err != nil {
-		return err
-	}
+	/* 	pinsPath := c.String("pins-file")
+	   	if pinsPath != "" {
+	   		pinsPath = filepath.Join(pinsDir, pinsPath)
+	   	}
+	   	if err := layout.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free")); err != nil {
+	   		return err
+	   	}
 
-	best := layout.Optimise(corpus, rowLoad, fingerBal, weights, numGenerations, acceptFunction)
+	   	best := layout.Optimise(corpus, rowLoad, fingerBal, weights, numGenerations, acceptFunction)
+	*/
+
+	best := kc.ILS(layout, corpus, rowLoad, fingerBal, weights, &kc.ILSConfig{})
 
 	// Save best layout to file
 	bestPath := filepath.Join(layoutDir, best.Name+".klf")

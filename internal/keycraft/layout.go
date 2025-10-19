@@ -14,7 +14,6 @@ import (
 	"os"
 	"slices"
 	"strings"
-	"unicode"
 )
 
 // Finger constants representing fingers 0-9.
@@ -171,13 +170,14 @@ type SplitLayout struct {
 	LSBs             []LSBInfo                    // notable lateral-stretch bigram key-pairs
 	FScissors        []ScissorInfo                // notable full scissor key-pairs
 	HScissors        []ScissorInfo                // notable half scissor key-pairs
-	optPinned        [42]bool                     // Optimization: flags indicating keys that must not be swapped
-	optCorpus        *Corpus                      // Optimization: corpus for evaluating layout quality
-	optIdealRowLoad  *[3]float64                  // Optimization: ideal row load distribution
-	optIdealfgrLoad  *[10]float64                 // Optimization: ideal finger load distribution
-	optWeights       *Weights                     // Optimization: metric weights for scoring
-	optMedians       map[string]float64           // Optimization: median values for normalization
-	optIqrs          map[string]float64           // Optimization: IQR values for normalization
+	/* 	optPinned        [42]bool                     // Optimization: flags indicating keys that must not be swapped
+	   	optCorpus        *Corpus                      // Optimization: corpus for evaluating layout quality
+	   	optIdealRowLoad  *[3]float64                  // Optimization: ideal row load distribution
+	   	optIdealfgrLoad  *[10]float64                 // Optimization: ideal finger load distribution
+	   	optWeights       *Weights                     // Optimization: metric weights for scoring
+	   	optMedians       map[string]float64           // Optimization: median values for normalization
+	   	optIqrs          map[string]float64           // Optimization: IQR values for normalization
+	*/
 }
 
 // NewSplitLayout creates a new split layout and initializes precomputed ergonomic patterns
@@ -412,7 +412,7 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 	return nil
 }
 
-// LoadPins loads a pins file specifying which keys should be fixed during optimization.
+/* // LoadPins loads a pins file specifying which keys should be fixed during optimization.
 // The file format mirrors a layout file, but uses symbols to indicate pin status:
 //   - '.', '_', '-' : unpinned (key can be moved)
 //   - '*', 'x', 'X' : pinned (key is fixed)
@@ -461,9 +461,9 @@ func (sl *SplitLayout) LoadPins(path string) error {
 	}
 
 	return nil
-}
+} */
 
-// LoadPinsFromParams configures which keys are pinned during optimization.
+/* // LoadPinsFromParams configures which keys are pinned during optimization.
 // Three modes:
 //  1. Load from pins file (path) - uses pin file format
 //  2. Pin specific characters (pins) - comma-separated characters to fix
@@ -517,6 +517,7 @@ func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
 
 	return nil
 }
+*/
 
 // readLine reads the next non-empty, non-comment line from the scanner.
 // Returns an error if EOF is reached without finding a valid line.

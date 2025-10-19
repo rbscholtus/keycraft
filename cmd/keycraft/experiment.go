@@ -216,7 +216,7 @@ func ExperimentAction(c *cli.Context) error {
 	return nil
 }
 
-// ExperimentAction2 runs layout optimization experiments with pin variations.
+/* // ExperimentAction2 runs layout optimization experiments with pin variations.
 func ExperimentAction2(c *cli.Context) error {
 	fmt.Println("Running experiment...")
 
@@ -291,7 +291,7 @@ func ExperimentAction2(c *cli.Context) error {
 	}
 
 	return nil
-}
+} */
 
 // generateVariations generates all combinations created by removing k characters from s.
 func generateVariations(s string, k int) []string {
