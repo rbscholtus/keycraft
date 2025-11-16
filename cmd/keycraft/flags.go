@@ -107,6 +107,12 @@ var appFlagsMap = map[string]cli.Flag{
 		Usage:   "Maximum time in minutes to spend optimizing the layout.",
 		Value:   15,
 	},
+	"seed": &cli.Int64Flag{
+		Name:    "seed",
+		Aliases: []string{"s"},
+		Usage:   "Random seed for reproducible optimization results. If not specified, uses current Unix timestamp.",
+		Value:   0,
+	},
 }
 
 // flagsSlice returns a slice of cli.Flag pointers for the given keys from appFlagsMap.

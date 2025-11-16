@@ -27,6 +27,7 @@ type PinnedKeys [42]bool
 //   - pinned: Which keys are pinned (fixed) during optimization
 //   - maxIterations: Maximum number of iterations (0 = use default)
 //   - maxTimeMinutes: Maximum time in minutes (0 = use default)
+//   - seed: Random seed for reproducibility (0 = use current time)
 //   - progressWriter: Where to write progress (use os.Stdout or nil)
 //
 // Returns the optimized layout.
@@ -40,6 +41,7 @@ func OptimizeLayoutBLS(
 	pinned *PinnedKeys,
 	maxIterations int,
 	maxTimeMinutes int,
+	seed int64,
 	progressWriter io.Writer,
 ) (*SplitLayout, error) {
 	// Count free keys
@@ -61,6 +63,11 @@ func OptimizeLayoutBLS(
 	}
 	if maxTimeMinutes > 0 {
 		params.MaxTime = time.Duration(maxTimeMinutes) * time.Minute
+	}
+	if seed != 0 {
+		params.Seed = seed
+	} else {
+		params.Seed = time.Now().UnixNano()
 	}
 
 	// Create scorer - use provided balance values or defaults

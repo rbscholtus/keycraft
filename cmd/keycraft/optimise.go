@@ -15,7 +15,7 @@ var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Aliases:   []string{"o"},
 	Usage:     "Optimise a keyboard layout using simulated annealing",
-	Flags:     flagsSlice("corpus", "row-load", "finger-load", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime"),
+	Flags:     flagsSlice("corpus", "row-load", "finger-load", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed"),
 	ArgsUsage: "<layout>",
 	Before:    validateOptFlags,
 	Action:    optimiseAction,
@@ -62,6 +62,8 @@ func optimiseAction(c *cli.Context) error {
 		return fmt.Errorf("maximum time must be above 0. Got: %d", maxTime)
 	}
 
+	seed := c.Int64("seed")
+
 	layoutFile := c.Args().First()
 	layout, err := loadLayout(layoutFile)
 	if err != nil {
@@ -88,6 +90,7 @@ func optimiseAction(c *cli.Context) error {
 		pinned,              // pinned keys
 		int(numGenerations), // max iterations
 		int(maxTime),        // max time in minutes
+		seed,                // random seed
 		os.Stdout,           // progress output
 	)
 	if err != nil {
