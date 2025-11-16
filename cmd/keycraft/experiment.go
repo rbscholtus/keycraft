@@ -20,7 +20,7 @@ var experimentCommand = &cli.Command{
 	Aliases:   []string{"x"},
 	Usage:     "Run experiments (for developer use)",
 	ArgsUsage: "<layout.klf>",
-	Flags:     flagsSlice("corpus", "finger-load", "weights-file", "weights", "free", "generations", "accept-worse"),
+	Flags:     flagsSlice("corpus", "finger-load", "weights-file", "weights", "free", "generations"),
 	Action:    DoExperiment3,
 }
 

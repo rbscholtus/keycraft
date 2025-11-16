@@ -113,8 +113,7 @@ keycraft optimise --pins qwerty qwerty
 - Supports user-defined weights for all metrics, using a weights file and from the command-line
 - Supports a default weights file, eliminating the need to specify the weights for every command
 - Supports normalisation of metrics using stable scaling (using the median and inter-quartile range of each metric)
-- Supports optimising a layout using Simulated annealing
-- Supports various accept-worse functions: always, drop-slow, linear, drop-fast, never
+- Supports optimising a layout using Breakout Local Search (BLS)
 - Supports pinning specific keys using a .pin file and from the command-line
 - Supports "freeing" specific keys (pinning all others) from the command-line
 - Supports MacOS (tested), Linux, Windows
@@ -212,7 +211,7 @@ Redirections - All three keys on one hand
 
 |               | Left-Pinky | Left-Ring | Left-Middle | Left-Index | Right-Index | Right-Middle | Right-Ring | Right-Pinky |
 |--------------:|:----------:|:---------:|:-----------:|:----------:|:-----------:|:------------:|:----------:|:-----------:|
-| Ideal load (%)| 8.0        | 11.0      | 16.0        | 15.0       | 15.0        | 16.0         | 11.0       | 8.0         |
+| Ideal load (%)| 7.5        | 11.0      | 16.0        | 15.5       | 15.5        | 16.0         | 11.0       | 7.5         |
 
 #### Hand balance metrics
 
@@ -386,21 +385,19 @@ keycraft rank --weights sfb=-1000
 Use the `optimise` command and specify the layout you want to optimise.
 
 ```bash
-# Optimise a layout with an adjusted number of generations, but default weights and default accept-worse function ("drop-slow")
-# "drop-slow" allows the optimisation engine to make radical jumps to very different layouts
+# Optimise a layout with an adjusted number of generations, but default weights
 keycraft optimise -g 500 qwerty
 
-# Optimise an already very good layout with the "never" accept-worse function and some keys pinned
-# "never" prevents the optimisation engine from making unpredictable jumps to worse layouts
+# Optimise an already very good layout with some keys pinned
 # Pinning keys prevents those keys from being moved around, which could otherwise ruin the essence of a layout
-keycraft optimise -g 100 -aw never --pins srntaeiou focal
+keycraft optimise -g 100 --pins srntaeiou focal
 
 # Optimise a layout, strongly aiming for good finger balance, but potentially ruining other metrics
-keycraft optimise --weights FBL=-100 -aw never -g 100 canary
+keycraft optimise --weights FBL=-100 -g 100 canary
 
 # Optimise a small number of keys using the --free flag
 # Optimising special characters should be used in combination with a more specific corpus
-keycraft optimise -aw never -g 50 --free "';,.-/" graphite
+keycraft optimise -g 50 --free "';,.-/" graphite
 ```
 
 #### Example

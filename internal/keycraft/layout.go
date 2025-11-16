@@ -69,94 +69,6 @@ var layoutTypeStrings = map[LayoutType]string{
 	COLSTAG:  "colstag",
 }
 
-// KeyPair represents an ordered pair of key indices.
-type KeyPair [2]uint8
-
-// KeyPairDistance contains precomputed distance metrics between two key indices.
-type KeyPairDistance struct {
-	RowDist    float64 // vertical (row) distance in layout units
-	ColDist    float64 // horizontal (column) distance in layout units
-	FingerDist uint8   // absolute difference between the two keys' finger indices
-	Distance   float64 // Euclidean distance (sqrt(RowDist^2 + ColDist^2))
-}
-
-// keyDistances contains precomputed key pair distances for each LayoutType.
-// Distance functions are selected based on keyboard geometry:
-//   - ROWSTAG: AbsRowDist, AbsColDistAdj (accounts for row stagger)
-//   - ANGLEMOD: AbsRowDist, AbsColDistAdj (similar to row-staggered)
-//   - ORTHO: AbsRowDist, AbsColDist (simple grid distances)
-//   - COLSTAG: AbsRowDistAdj, AbsColDist (accounts for column stagger)
-var keyDistances = []map[KeyPair]KeyPairDistance{
-	calcKeyDistances(AbsRowDist, AbsColDistAdj, &keyToFinger),         // ROWSTAG
-	calcKeyDistances(AbsRowDist, AbsColDistAdj, &angleModKeyToFinger), // ANGLEMOD
-	calcKeyDistances(AbsRowDist, AbsColDist, &keyToFinger),            // ORTHO
-	calcKeyDistances(AbsRowDistAdj, AbsColDist, &keyToFinger),         // COLSTAG
-}
-
-// rowStagOffsets defines the horizontal offset for each row in row-staggered layouts.
-// Traditional keyboards have rows offset by different amounts (in key units).
-var rowStagOffsets = [4]float64{
-	0, 0.25, 0.75, 0, // Top, home, bottom, thumb rows
-}
-
-// colStagOffsets defines the vertical offset for each column in column-staggered layouts.
-// Ergonomic keyboards (e.g., Corne) stagger columns to match natural finger lengths.
-var colStagOffsets = [12]float64{
-	0.35, 0.35, 0.1, 0, 0.1, 0.2, 0.2, 0.1, 0, 0.1, 0.35, 0.35,
-}
-
-const (
-	LEFT  uint8 = 0 // Left hand
-	RIGHT uint8 = 1 // Right hand
-)
-
-// KeyInfo represents a key's physical position and typing finger on a keyboard.
-type KeyInfo struct {
-	Index  uint8 // 0-41
-	Hand   uint8 // LEFT or RIGHT
-	Row    uint8 // 0-3
-	Column uint8 // 0-11 for Row=0-2, 0-5 for Row=3
-	Finger uint8 // 0-9
-}
-
-// NewKeyInfo constructs a KeyInfo from row, column, and layout type.
-// Automatically determines hand and finger assignments based on position and geometry.
-func NewKeyInfo(row, col uint8, layoutType LayoutType) KeyInfo {
-	if col >= uint8(len(keyToFinger)) {
-		panic(fmt.Sprintf("col exceeds max value: %d", col))
-	}
-	if row > 3 {
-		panic(fmt.Sprintf("row exceeds max value: %d", row))
-	}
-
-	index := 12*row + col
-	if index >= 42 {
-		panic(fmt.Sprintf("index exceeds max value: %d", index))
-	}
-
-	hand := RIGHT
-	if row < 3 && col < 6 {
-		hand = LEFT
-	} else if row == 3 && col < 3 {
-		hand = LEFT
-	}
-
-	var finger uint8
-	if layoutType == ANGLEMOD {
-		finger = angleModKeyToFinger[index]
-	} else {
-		finger = keyToFinger[index]
-	}
-
-	return KeyInfo{
-		Index:  index,
-		Hand:   hand,
-		Row:    row,
-		Column: col,
-		Finger: finger,
-	}
-}
-
 // SplitLayout represents a split keyboard layout with 42 keys (30 alphas + 6 thumbs per hand).
 // Contains rune-to-key mappings, precomputed distance metrics, and identified ergonomic patterns
 // (lateral stretches, scissors). Also includes optional optimization state (pinned keys, corpus,
@@ -196,6 +108,50 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 	return sl
 }
 
+// Clone creates a deep copy of the SplitLayout.
+// The cloned layout has the same configuration but is independent of the original.
+// This is useful for optimization algorithms that need to modify layouts without affecting the original.
+func (sl *SplitLayout) Clone() *SplitLayout {
+	// Copy the RuneInfo map
+	runeInfoCopy := make(map[rune]KeyInfo, len(sl.RuneInfo))
+	maps.Copy(runeInfoCopy, sl.RuneInfo)
+
+	// Create new layout with copied data
+	// Note: Runes is a fixed-size array, so it's automatically copied by value
+	// LSBs, FScissors, and HScissors are shared (derived data, not modified after init)
+	clone := &SplitLayout{
+		Name:             sl.Name,
+		LayoutType:       sl.LayoutType,
+		Runes:            sl.Runes,            // Array is copied by value
+		RuneInfo:         runeInfoCopy,        // Deep copied map
+		KeyPairDistances: sl.KeyPairDistances, // Shared reference to immutable data
+		LSBs:             sl.LSBs,             // Shared - derived data, not modified
+		FScissors:        sl.FScissors,        // Shared - derived data, not modified
+		HScissors:        sl.HScissors,        // Shared - derived data, not modified
+	}
+
+	return clone
+}
+
+// Swap exchanges the runes at two key positions and updates the RuneInfo map accordingly.
+// This is the fundamental operation for layout optimization algorithms.
+func (sl *SplitLayout) Swap(idx1, idx2 uint8) {
+	if idx1 >= 42 || idx2 >= 42 {
+		panic(fmt.Sprintf("swap indices out of bounds: %d, %d", idx1, idx2))
+	}
+	if idx1 == idx2 {
+		return
+	}
+
+	// Swap runes in the array
+	r1, r2 := sl.Runes[idx1], sl.Runes[idx2]
+	if r1 == 0 || r2 == 0 {
+		panic(fmt.Sprintf("can't swap unused key at index %d or %d", idx1, idx2))
+	}
+	sl.Runes[idx1], sl.Runes[idx2] = r2, r1
+	sl.RuneInfo[r1], sl.RuneInfo[r2] = sl.RuneInfo[r2], sl.RuneInfo[r1]
+}
+
 func (sl *SplitLayout) String() string {
 	var sb strings.Builder
 
@@ -211,7 +167,7 @@ func (sl *SplitLayout) String() string {
 		sb.WriteRune(' ')
 	}
 
-	sb.WriteRune('\n')
+	//sb.WriteRune('\n')
 	for row := range 3 {
 		if sl.LayoutType == ANGLEMOD && row == 2 {
 			sb.WriteRune(' ')
@@ -412,113 +368,6 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 	return nil
 }
 
-/* // LoadPins loads a pins file specifying which keys should be fixed during optimization.
-// The file format mirrors a layout file, but uses symbols to indicate pin status:
-//   - '.', '_', '-' : unpinned (key can be moved)
-//   - '*', 'x', 'X' : pinned (key is fixed)
-func (sl *SplitLayout) LoadPins(path string) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("pins file %s does not exist", path)
-	}
-
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer CloseFile(file)
-
-	scanner := bufio.NewScanner(file)
-	index := 0
-	expectedKeys := []int{12, 12, 12, 6}
-
-	// Parse pins from file
-	for row, expectedKeyCount := range expectedKeys {
-		if !scanner.Scan() {
-			return fmt.Errorf("invalid file format in %s: not enough rows", path)
-		}
-		keys := strings.Fields(scanner.Text())
-		if len(keys) != expectedKeyCount {
-			return fmt.Errorf("invalid file format in %s: row %d has %d keys, expected %d", path, row+1, len(keys), expectedKeyCount)
-		}
-		for col, key := range keys {
-			if len(key) != 1 {
-				return fmt.Errorf("invalid file format in %s: key '%s' in row %d must have 1 character only", path, key, row+1)
-			}
-			switch rune(key[0]) {
-			case '.', '_', '-':
-				sl.optPinned[index] = false
-			case '*', 'x', 'X':
-				sl.optPinned[index] = true
-			default:
-				return fmt.Errorf("invalid character in %s '%c' at position %d in row %d", path, key[0], col+1, row+1)
-			}
-			index++
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
-} */
-
-/* // LoadPinsFromParams configures which keys are pinned during optimization.
-// Three modes:
-//  1. Load from pins file (path) - uses pin file format
-//  2. Pin specific characters (pins) - comma-separated characters to fix
-//  3. Free specific characters (free) - all others are pinned
-//
-// Modes 1 and 2 can be combined, but mode 3 (free) is mutually exclusive.
-// If no options are provided, only empty keys and spaces are pinned by default.
-func (sl *SplitLayout) LoadPinsFromParams(path, pins, free string) error {
-	if (path != "" || pins != "") && free != "" {
-		return fmt.Errorf("cannot use both --free and --pins/--pins-file options together")
-	}
-
-	if free != "" {
-		// Pin everything except specified characters
-		for i := range sl.optPinned {
-			sl.optPinned[i] = true
-		}
-		// Unpin characters in free string
-		for _, r := range free {
-			key, ok := sl.RuneInfo[r]
-			if !ok {
-				return fmt.Errorf("cannot free unavailable character: %c", r)
-			}
-			sl.optPinned[key.Index] = false
-		}
-		return nil
-	}
-
-	// Load pins from file if specified
-	if path != "" {
-		if err := sl.LoadPins(path); err != nil {
-			return err
-		}
-	} else {
-		// By default, pin empty keys and spaces
-		for i, r := range sl.Runes {
-			if r == 0 || unicode.IsSpace(r) {
-				sl.optPinned[i] = true
-			}
-		}
-	}
-
-	// Pin additional characters from pins string
-	for _, r := range pins {
-		key, ok := sl.RuneInfo[r]
-		if !ok {
-			return fmt.Errorf("cannot pin unavailable character: %c", r)
-		}
-		sl.optPinned[key.Index] = true
-	}
-
-	return nil
-}
-*/
-
 // readLine reads the next non-empty, non-comment line from the scanner.
 // Returns an error if EOF is reached without finding a valid line.
 func readLine(scanner *bufio.Scanner) (string, error) {
@@ -532,104 +381,6 @@ func readLine(scanner *bufio.Scanner) (string, error) {
 		return "", err
 	}
 	return "", fmt.Errorf("unexpected end of file")
-}
-
-// Distance returns the precomputed distance between two key indices.
-// If the key pair is not found, it returns nil.
-func (sl *SplitLayout) Distance(k1, k2 uint8) *KeyPairDistance {
-	kpd, ok := (*sl.KeyPairDistances)[KeyPair{k1, k2}]
-	if !ok {
-		return nil
-	}
-	return &kpd
-}
-
-// calcKeyDistances precomputes all pairwise distances between keys on the same hand.
-// Uses the provided distance functions to account for layout-specific geometry.
-// Note: thumb key distance calculations have a known minor inaccuracy.
-func calcKeyDistances(
-	rowDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
-	colDistFunc func(row1 uint8, col1 uint8, row2 uint8, col2 uint8) float64,
-	keyToFinger *[42]uint8,
-) map[KeyPair]KeyPairDistance {
-	keyDistances := make(map[KeyPair]KeyPairDistance, 624)
-
-	// Optimized square root for common cases
-	sqrt := func(mul float64) float64 {
-		switch mul {
-		case 1:
-			return 1 // no calc necessary
-		case 2:
-			return math.Sqrt2 // pre-calculated
-		default:
-			return math.Sqrt(mul)
-		}
-	}
-
-	absDist := func(x, y uint8) uint8 {
-		if x > y {
-			return x - y
-		} else {
-			return y - x
-		}
-	}
-
-	var k1, k2 uint8
-	for k1 = range 42 {
-		row1, col1 := k1/12, k1%12
-		for k2 = range 42 {
-			if k1 == k2 {
-				continue
-			}
-			row2, col2 := k2/12, k2%12
-
-			// Skip pairs on different hands
-			if ((row1 < 3 && col1 < 6) || (row1 >= 3 && col1 < 3)) !=
-				((row2 < 3 && col2 < 6) || (row2 >= 3 && col2 < 3)) {
-				continue
-			}
-
-			// Skip pairs between main rows and thumb row
-			if (row1 < 3) != (row2 < 3) {
-				continue
-			}
-
-			// Compute distance metrics
-			dx := colDistFunc(row1, col1, row2, col2)
-			dy := rowDistFunc(row1, col1, row2, col2)
-			dist := sqrt(dx*dx + dy*dy)
-			keyDistances[KeyPair{k1, k2}] = KeyPairDistance{
-				RowDist:    dy,
-				ColDist:    dx,
-				FingerDist: absDist(keyToFinger[k1], keyToFinger[k2]),
-				Distance:   dist,
-			}
-		}
-	}
-
-	return keyDistances
-}
-
-// AbsRowDist computes the absolute vertical distance between two keys (simple).
-func AbsRowDist(row1, col1, row2, col2 uint8) float64 {
-	return math.Abs(float64(row1) - float64(row2))
-}
-
-// AbsRowDistAdj computes vertical distance accounting for column-stagger offsets.
-func AbsRowDistAdj(row1, col1, row2, col2 uint8) float64 {
-	return math.Abs((float64(row1) + colStagOffsets[col1] -
-		(float64(row2) + colStagOffsets[col2])))
-}
-
-// AbsColDist computes the absolute horizontal distance between two keys (simple).
-func AbsColDist(row1, col1, row2, col2 uint8) float64 {
-	return math.Abs(float64(col1) - float64(col2))
-}
-
-// AbsColDistAdj computes horizontal distance accounting for row-stagger offsets.
-func AbsColDistAdj(row1, col1, row2, col2 uint8) float64 {
-	return math.Abs((float64(col1) + rowStagOffsets[row1] -
-		(float64(col2) + rowStagOffsets[row2])))
 }
 
 // LSBInfo represents a lateral-stretch bigram: two keys typed by non-adjacent fingers

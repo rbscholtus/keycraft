@@ -140,19 +140,19 @@ func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, rowLoad *[3]float64
 			twOuter.AppendRow(data)
 		}
 
-		details = make([][]*kc.MetricDetails, 0, len(layoutFilenames))
-		for _, an := range analysers {
-			details = append(details, an.AllCorpusDetails(nRows))
-		}
+		// details = make([][]*kc.MetricDetails, 0, len(layoutFilenames))
+		// for _, an := range analysers {
+		// 	details = append(details, an.AllCorpusDetails(nRows))
+		// }
 
-		metrics = details[0] // get the first entry to get the metrics
-		for i, ma := range metrics {
-			data := table.Row{ma.Metric}
-			for _, mas := range details {
-				data = append(data, MetricDetailsString(mas[i], nRows))
-			}
-			twOuter.AppendRow(data)
-		}
+		// metrics = details[0] // get the first entry to get the metrics
+		// for i, ma := range metrics {
+		// 	data := table.Row{ma.Metric}
+		// 	for _, mas := range details {
+		// 		data = append(data, MetricDetailsString(mas[i], nRows))
+		// 	}
+		// 	twOuter.AppendRow(data)
+		// }
 	}
 
 	// Print layout(s) in the table

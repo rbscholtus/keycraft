@@ -39,7 +39,8 @@ data/pins/hieamtsrn.pin
 /*.prof
 _cleanuipman
 
-*-opt.klf
+*-opt*.klf
+*-best*.klf
 /data/layouts2
 data/layouts/enthium-promax.klf
 data/layouts/northwest.klf

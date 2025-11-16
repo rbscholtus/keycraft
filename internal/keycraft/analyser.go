@@ -5,6 +5,32 @@ import (
 	"strconv"
 )
 
+// MetricsMap groups named metric sets used for different ranking views.
+// Each metric set defines which columns appear in the ranking table output.
+var MetricsMap = map[string][]string{
+	"basic": {
+		"SFB", "LSB", "FSB", "HSB",
+		"SFS", // "LSS", "FSS", "HSS",
+		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
+		"IN:OUT", "RBL", "FBL", "POH", "FLW",
+	},
+	"extended": {
+		"SFB", "LSB", "FSB", "HSB",
+		"SFS", "LSS", "FSS", "HSS",
+		"ALT", "ALT-NML", "ALT-SFS",
+		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
+		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
+		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
+		"IN:OUT", "RBL", "FBL", "POH", "FLW",
+	},
+	"fingers": {
+		"H0", "H1",
+		"R0", "R1", "R2", "R3",
+		"F0", "F1", "F2", "F3", "F4",
+		"F5", "F6", "F7", "F8", "F9",
+	},
+}
+
 // DefaultIdealRowLoad
 func DefaultIdealRowLoad() *[3]float64 {
 	return &[3]float64{
@@ -69,7 +95,7 @@ func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealRowLoad *[3]float64, 
 		Corpus:       corpus,
 		IdealRowLoad: idealRowLoad,
 		IdealfgrLoad: idealfgrLoad,
-		Metrics:      make(map[string]float64),
+		Metrics:      make(map[string]float64, 60),
 	}
 	an.analyseHand()
 	an.analyseBigrams()

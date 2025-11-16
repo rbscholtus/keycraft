@@ -98,14 +98,14 @@ var appFlagsMap = map[string]cli.Flag{
 	"generations": &cli.UintFlag{
 		Name:    "generations",
 		Aliases: []string{"gens", "g"},
-		Usage:   "The number of generations (iterations) to run the optimization algorithm.",
+		Usage:   "The number of generations (iterations) to run the optimization.",
 		Value:   250,
 	},
-	"accept-worse": &cli.StringFlag{
-		Name:    "accept-worse",
-		Aliases: []string{"aw"},
-		Usage:   fmt.Sprintf("Define the acceptance function for worse layouts during optimization. This controls the likelihood of accepting a less optimal layout to explore the search space. Available options: %v.", validAcceptFuncs),
-		Value:   "drop-slow",
+	"maxtime": &cli.UintFlag{
+		Name:    "maxtime",
+		Aliases: []string{"mt"},
+		Usage:   "Maximum time in minutes to spend optimizing the layout.",
+		Value:   15,
 	},
 }
 

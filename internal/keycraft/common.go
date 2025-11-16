@@ -2,6 +2,8 @@ package keycraft
 
 import (
 	"bufio"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"sort"
@@ -81,6 +83,33 @@ func SortedMap[K comparable](m map[K]uint64) []CountPair[K] {
 func CloseFile(file *os.File) {
 	if err := file.Close(); err != nil {
 		log.Printf("Error closing file: %v", err)
+	}
+}
+
+// MustFprint writes arguments to the given writer, logging and exiting on error.
+// It simplifies error handling for fmt.Fprint calls where failures are critical
+// and should halt execution.
+func MustFprint(w io.Writer, args ...interface{}) {
+	if _, err := fmt.Fprint(w, args...); err != nil {
+		log.Fatalf("Fprint failed: %v", err)
+	}
+}
+
+// mustFprintln writes a newline-terminated string of arguments to the given writer,
+// logging and exiting on error. It simplifies error handling for fmt.Fprintln calls
+// where failures are critical and should halt execution.
+func MustFprintln(w io.Writer, args ...interface{}) {
+	if _, err := fmt.Fprintln(w, args...); err != nil {
+		log.Fatalf("Fprintln failed: %v", err)
+	}
+}
+
+// MustFprintf writes a formatted string to the given writer, logging and exiting
+// on error. It simplifies error handling for fmt.Fprintf calls where failures
+// are critical and should halt execution.
+func MustFprintf(w io.Writer, format string, args ...interface{}) {
+	if _, err := fmt.Fprintf(w, format, args...); err != nil {
+		log.Fatalf("Fprintf failed: %v", err)
 	}
 }
 
