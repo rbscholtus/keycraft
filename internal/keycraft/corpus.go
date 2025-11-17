@@ -224,7 +224,7 @@ func NewCorpusFromFile(name, path string, forceReload bool, coveragePercent floa
 
 	// Otherwise, load from the text file and save JSON cache
 	c := NewCorpus(name)
-	if err := c.loadFromFileWithWords(path, coveragePercent); err != nil {
+	if err := c.loadFromFile(path); err != nil {
 		return nil, err
 	}
 	if err := c.SaveJSON(jsonPath); err != nil {
