@@ -71,6 +71,13 @@ type MetricDetails struct {
 	Custom       map[string]map[string]any // Additional per-n-gram attributes
 }
 
+// TrigramInfo holds a trigram with its frequency for performance.
+// KeyInfo is looked up fresh from the layout during analysis to ensure correctness.
+type TrigramInfo struct {
+	Count uint64  // Frequency of this trigram in the corpus
+	Runes [3]rune // The 3 runes in this trigram
+}
+
 // Analyser computes ergonomic metrics for a keyboard layout using corpus n-gram frequencies.
 // Metrics are stored as percentages or ratios in the Metrics map.
 type Analyser struct {
@@ -79,6 +86,9 @@ type Analyser struct {
 	IdealRowLoad *[3]float64        // Target row load distribution (percentages for top, home, bottom)
 	IdealfgrLoad *[10]float64       // Target finger load distribution (percentages for F0-F9)
 	Metrics      map[string]float64 // Computed metrics (e.g., "SFB", "ALT", "FBL")
+
+	// Pre-filtered n-grams (injected by Scorer to avoid redundant filtering)
+	relevantTrigrams []TrigramInfo // Only trigrams with all 3 runes on layout
 }
 
 // NewAnalyser creates an Analyser and computes all metrics for the given layout.
@@ -116,7 +126,7 @@ func (an *Analyser) analyseHand() {
 	var rowCount [4]uint64
 
 	for uniGr, uniCnt := range an.Corpus.Unigrams {
-		key, ok := an.Layout.RuneInfo[rune(uniGr)]
+		key, ok := an.Layout.GetKeyInfo(rune(uniGr))
 		if !ok {
 			continue
 		}
@@ -197,14 +207,12 @@ func (an *Analyser) analyseHand() {
 //   - HSB: Half Scissor Bigrams
 func (an *Analyser) analyseBigrams() {
 	var count1, count2, count3, count4 uint64
-	for bi, biCnt := range an.Corpus.Bigrams {
-		key1, ok1 := an.Layout.RuneInfo[bi[0]]
-		key2, ok2 := an.Layout.RuneInfo[bi[1]]
-		if !ok1 || !ok2 {
-			continue
-		}
-		if key1.Finger == key2.Finger && key1.Index != key2.Index {
-			count1 += biCnt
+
+	// SFB calculation using pre-computed cache
+	for _, sfb := range an.Layout.SFBs {
+		bi := Bigram{an.Layout.Runes[sfb.KeyIdx1], an.Layout.Runes[sfb.KeyIdx2]}
+		if cnt, ok := an.Corpus.Bigrams[bi]; ok {
+			count1 += cnt
 		}
 	}
 
@@ -243,14 +251,12 @@ func (an *Analyser) analyseBigrams() {
 //   - HSS: Half Scissor Skipgrams
 func (an *Analyser) analyseSkipgrams() {
 	var count1, count2, count3, count4 uint64
-	for skp, skpCnt := range an.Corpus.Skipgrams {
-		key1, ok1 := an.Layout.RuneInfo[skp[0]]
-		key2, ok2 := an.Layout.RuneInfo[skp[1]]
-		if !ok1 || !ok2 {
-			continue
-		}
-		if key1.Finger == key2.Finger && key1.Index != key2.Index {
-			count1 += skpCnt
+
+	// SFS calculation using pre-computed cache
+	for _, sfb := range an.Layout.SFBs {
+		skp := Skipgram{an.Layout.Runes[sfb.KeyIdx1], an.Layout.Runes[sfb.KeyIdx2]}
+		if cnt, ok := an.Corpus.Skipgrams[skp]; ok {
+			count1 += cnt
 		}
 	}
 
@@ -292,40 +298,40 @@ func (an *Analyser) analyseSkipgrams() {
 func (an *Analyser) analyseTrigrams() {
 	var rl2SFB, rl2In, rl2Out, altSFS, altNml, rl3SFB, rl3In, rl3Out, redWeak, redSFS, redNml uint64
 
-	for tri, cnt := range an.Corpus.Trigrams {
-		var r0, r1, r2 KeyInfo
-		var ok bool
-		if r0, ok = an.Layout.RuneInfo[tri[0]]; !ok {
-			continue
-		}
-		if r1, ok = an.Layout.RuneInfo[tri[1]]; !ok {
-			continue
-		}
-		if r2, ok = an.Layout.RuneInfo[tri[2]]; !ok {
-			continue
-		}
-
-		// Extract key properties for classification
-		h0, h1, h2 := r0.Hand, r1.Hand, r2.Hand
-		f0, f1, f2 := r0.Finger, r1.Finger, r2.Finger
-
-		// Helper to classify 2-key rolls
-		add2Roll := func(fA, fB uint8) {
-			switch {
-			case fA == fB: // Same finger (also counted in SFB/SFS)
-				rl2SFB += cnt
-			case (fA < fB) == (h1 == LEFT):
-				rl2In += cnt
-			default:
-				rl2Out += cnt
+	// Use pre-filtered trigrams if available (injected by Scorer), otherwise filter on-the-fly
+	trigrams := an.relevantTrigrams
+	if trigrams == nil {
+		// Fallback: pre-filter trigrams now (for non-Scorer callers)
+		trigrams = make([]TrigramInfo, 0, len(an.Corpus.Trigrams)/10)
+		for tri, cnt := range an.Corpus.Trigrams {
+			_, ok0 := an.Layout.GetKeyInfo(tri[0])
+			_, ok1 := an.Layout.GetKeyInfo(tri[1])
+			_, ok2 := an.Layout.GetKeyInfo(tri[2])
+			if ok0 && ok1 && ok2 {
+				trigrams = append(trigrams, TrigramInfo{
+					Count: cnt,
+					Runes: [3]rune{tri[0], tri[1], tri[2]},
+				})
 			}
 		}
+	}
+
+	for _, ti := range trigrams {
+		cnt := ti.Count
+		// Look up fresh KeyInfo from current layout
+		k0, _ := an.Layout.GetKeyInfo(ti.Runes[0])
+		k1, _ := an.Layout.GetKeyInfo(ti.Runes[1])
+		k2, _ := an.Layout.GetKeyInfo(ti.Runes[2])
+
+		// Extract key properties for classification
+		h0, h1, h2 := k0.Hand, k1.Hand, k2.Hand
+		f0, f1, f2 := k0.Finger, k1.Finger, k2.Finger
 
 		// Classify trigram by hand pattern
 		switch h0 {
 		case h2:
 			if h0 != h1 { // Alternation (two hands alternate)
-				if f0 == f2 && r0.Index != r2.Index {
+				if f0 == f2 && k0.Index != k2.Index {
 					altSFS += cnt
 				} else {
 					altNml += cnt
@@ -345,17 +351,31 @@ func (an *Analyser) analyseTrigrams() {
 						f1 != LI && f1 != RI &&
 						f2 != LI && f2 != RI {
 						redWeak += cnt
-					} else if f0 == f2 && r0.Index != r2.Index {
+					} else if f0 == f2 && k0.Index != k2.Index {
 						redSFS += cnt
 					} else {
 						redNml += cnt
 					}
 				}
 			}
-		case h1: // 2-roll with h0 == h1
-			add2Roll(f0, f1)
-		default: // 2-roll with h1 == h2
-			add2Roll(f1, f2)
+		case h1: // 2-roll with h0 == h1 (inlined for performance)
+			switch {
+			case f0 == f1: // Same finger
+				rl2SFB += cnt
+			case (f0 < f1) == (h1 == LEFT):
+				rl2In += cnt
+			default:
+				rl2Out += cnt
+			}
+		default: // 2-roll with h1 == h2 (inlined for performance)
+			switch {
+			case f1 == f2: // Same finger
+				rl2SFB += cnt
+			case (f1 < f2) == (h2 == LEFT):
+				rl2In += cnt
+			default:
+				rl2Out += cnt
+			}
 		}
 	}
 
@@ -433,8 +453,8 @@ func (an *Analyser) AllCorpusDetails(nRows int) []*MetricDetails {
 	for _, cb := range topBigrams {
 		bi := cb.Key
 		biStr := bi.String()
-		key1, ok1 := an.Layout.RuneInfo[bi[0]]
-		key2, ok2 := an.Layout.RuneInfo[bi[1]]
+		key1, ok1 := an.Layout.GetKeyInfo(bi[0])
+		key2, ok2 := an.Layout.GetKeyInfo(bi[1])
 
 		ma.NGramCount[biStr] += cb.Count
 		ma.TotalNGrams += cb.Count
@@ -484,8 +504,8 @@ func (an *Analyser) SFBiDetails() *MetricDetails {
 
 	for bi, biCnt := range an.Corpus.Bigrams {
 		biStr := bi.String()
-		key1, ok1 := an.Layout.RuneInfo[bi[0]]
-		key2, ok2 := an.Layout.RuneInfo[bi[1]]
+		key1, ok1 := an.Layout.GetKeyInfo(bi[0])
+		key2, ok2 := an.Layout.GetKeyInfo(bi[1])
 
 		if !ok1 || !ok2 {
 			// ma.Unsupported[biStr] += biCnt
@@ -539,7 +559,7 @@ func (an *Analyser) LSBiDetails() *MetricDetails {
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma.Custom[biStr] = make(map[string]any)
 			}
-			key1 := an.Layout.RuneInfo[rune1]
+			key1, _ := an.Layout.GetKeyInfo(rune1)
 			ma.Custom[biStr]["Hd"] = key1.Hand + 1
 			ma.Custom[biStr]["Δcol"] = kpDist.ColDist
 		}
@@ -585,7 +605,7 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma.Custom[biStr] = make(map[string]any)
 			}
-			key1 := an.Layout.RuneInfo[rune1]
+			key1, _ := an.Layout.GetKeyInfo(rune1)
 			ma.Custom[biStr]["Hd"] = key1.Hand + 1
 			ma.Custom[biStr]["Δrow"] = sci.rowDist
 			ma.Custom[biStr]["Δcol"] = sci.colDist
@@ -607,7 +627,7 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma2.Custom[biStr] = make(map[string]any)
 			}
-			key1 := an.Layout.RuneInfo[rune1]
+			key1, _ := an.Layout.GetKeyInfo(rune1)
 			ma2.Custom[biStr]["Hd"] = key1.Hand + 1
 			ma2.Custom[biStr]["Δrow"] = sci.rowDist
 			ma2.Custom[biStr]["Δcol"] = sci.colDist
@@ -633,8 +653,8 @@ func (an *Analyser) SFSkpDetails() *MetricDetails {
 
 	for skp, skpCnt := range an.Corpus.Skipgrams {
 		skpStr := skp.String()
-		key1, ok1 := an.Layout.RuneInfo[skp[0]]
-		key2, ok2 := an.Layout.RuneInfo[skp[1]]
+		key1, ok1 := an.Layout.GetKeyInfo(skp[0])
+		key2, ok2 := an.Layout.GetKeyInfo(skp[1])
 
 		if !ok1 || !ok2 {
 			// ma.Unsupported[skpStr] += skpCnt
@@ -688,7 +708,7 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma.Custom[skpStr] = make(map[string]any)
 			}
-			key1 := an.Layout.RuneInfo[rune1]
+			key1, _ := an.Layout.GetKeyInfo(rune1)
 			ma.Custom[skpStr]["Hd"] = key1.Hand + 1
 			ma.Custom[skpStr]["Δcol"] = kpDist.ColDist
 		}
@@ -734,7 +754,7 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma.Custom[skpStr] = make(map[string]any)
 			}
-			key1 := an.Layout.RuneInfo[rune1]
+			key1, _ := an.Layout.GetKeyInfo(rune1)
 			ma.Custom[skpStr]["Hd"] = key1.Hand + 1
 			ma.Custom[skpStr]["Δrow"] = sci.rowDist
 			ma.Custom[skpStr]["Δcol"] = sci.colDist
@@ -757,7 +777,7 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma2.Custom[skpStr] = make(map[string]any)
 			}
-			key1 := an.Layout.RuneInfo[rune1]
+			key1, _ := an.Layout.GetKeyInfo(rune1)
 			ma2.Custom[skpStr]["Hd"] = key1.Hand + 1
 			ma2.Custom[skpStr]["Δrow"] = sci.rowDist
 			ma2.Custom[skpStr]["Δcol"] = sci.colDist
@@ -815,9 +835,9 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 
 	for tri, cnt := range an.Corpus.Trigrams {
 		triStr := tri.String()
-		r0, ok0 := an.Layout.RuneInfo[tri[0]]
-		r1, ok1 := an.Layout.RuneInfo[tri[1]]
-		r2, ok2 := an.Layout.RuneInfo[tri[2]]
+		r0, ok0 := an.Layout.GetKeyInfo(tri[0])
+		r1, ok1 := an.Layout.GetKeyInfo(tri[1])
+		r2, ok2 := an.Layout.GetKeyInfo(tri[2])
 		if !ok0 || !ok1 || !ok2 {
 			// alt.Unsupported[triStr] += cnt
 			continue

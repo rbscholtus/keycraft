@@ -78,18 +78,13 @@ type SplitLayout struct {
 	LayoutType       LayoutType                   // geometry type (ROWSTAG, ORTHO, COLSTAG)
 	Runes            [42]rune                     // runes mapped to physical key positions (42 positions)
 	RuneInfo         map[rune]KeyInfo             // map from rune to KeyInfo for quick lookup
+	KeyInfos         [95]KeyInfo                  // fast lookup for ASCII runes (32-126, indexed by rune-32)
+	KeyInfoValid     [95]bool                     // validity bitmap for KeyInfos array
 	KeyPairDistances *map[KeyPair]KeyPairDistance // cache of distances between key index pairs
+	SFBs             []SFBInfo                    // same-finger bigram key-pairs (pre-computed for performance)
 	LSBs             []LSBInfo                    // notable lateral-stretch bigram key-pairs
 	FScissors        []ScissorInfo                // notable full scissor key-pairs
 	HScissors        []ScissorInfo                // notable half scissor key-pairs
-	/* 	optPinned        [42]bool                     // Optimization: flags indicating keys that must not be swapped
-	   	optCorpus        *Corpus                      // Optimization: corpus for evaluating layout quality
-	   	optIdealRowLoad  *[3]float64                  // Optimization: ideal row load distribution
-	   	optIdealfgrLoad  *[10]float64                 // Optimization: ideal finger load distribution
-	   	optWeights       *Weights                     // Optimization: metric weights for scoring
-	   	optMedians       map[string]float64           // Optimization: median values for normalization
-	   	optIqrs          map[string]float64           // Optimization: IQR values for normalization
-	*/
 }
 
 // NewSplitLayout creates a new split layout and initializes precomputed ergonomic patterns
@@ -102,6 +97,18 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 		RuneInfo:         runeInfo,
 		KeyPairDistances: &keyDistances[layoutType],
 	}
+
+	// Populate KeyInfos array for ASCII printable runes (32-126)
+	// KeyInfoValid is zero-initialized (all false)
+	for r, ki := range runeInfo {
+		if r >= 32 && r < 127 {
+			idx := r - 32
+			sl.KeyInfos[idx] = ki
+			sl.KeyInfoValid[idx] = true
+		}
+	}
+
+	sl.initSFBs()
 	sl.initLSBs()
 	sl.initFScissors()
 	sl.initHScissors()
@@ -117,14 +124,17 @@ func (sl *SplitLayout) Clone() *SplitLayout {
 	maps.Copy(runeInfoCopy, sl.RuneInfo)
 
 	// Create new layout with copied data
-	// Note: Runes is a fixed-size array, so it's automatically copied by value
-	// LSBs, FScissors, and HScissors are shared (derived data, not modified after init)
+	// Note: Runes, KeyInfos, and KeyInfoValid are fixed-size arrays, copied by value
+	// LSBs, FScissors, HScissors, and SFBs are shared (derived data, not modified after init)
 	clone := &SplitLayout{
 		Name:             sl.Name,
 		LayoutType:       sl.LayoutType,
 		Runes:            sl.Runes,            // Array is copied by value
 		RuneInfo:         runeInfoCopy,        // Deep copied map
+		KeyInfos:         sl.KeyInfos,         // Array is copied by value
+		KeyInfoValid:     sl.KeyInfoValid,     // Array is copied by value
 		KeyPairDistances: sl.KeyPairDistances, // Shared reference to immutable data
+		SFBs:             sl.SFBs,             // Shared - derived data, not modified
 		LSBs:             sl.LSBs,             // Shared - derived data, not modified
 		FScissors:        sl.FScissors,        // Shared - derived data, not modified
 		HScissors:        sl.HScissors,        // Shared - derived data, not modified
@@ -133,7 +143,22 @@ func (sl *SplitLayout) Clone() *SplitLayout {
 	return clone
 }
 
-// Swap exchanges the runes at two key positions and updates the RuneInfo map accordingly.
+// GetKeyInfo returns the KeyInfo for a given rune and a boolean indicating whether the rune exists in the layout.
+// For ASCII printable runes (32-126), it uses direct array indexing with validity bitmap for O(1) lookup.
+// For non-ASCII runes or control characters, it falls back to the RuneInfo map.
+func (sl *SplitLayout) GetKeyInfo(r rune) (KeyInfo, bool) {
+	if r >= 32 && r < 127 {
+		idx := r - 32
+		if sl.KeyInfoValid[idx] {
+			return sl.KeyInfos[idx], true
+		}
+		return KeyInfo{}, false
+	}
+	ki, ok := sl.RuneInfo[r]
+	return ki, ok
+}
+
+// Swap exchanges the runes at two key positions and updates the RuneInfo map and KeyInfos array accordingly.
 // This is the fundamental operation for layout optimization algorithms.
 func (sl *SplitLayout) Swap(idx1, idx2 uint8) {
 	if idx1 >= 42 || idx2 >= 42 {
@@ -149,7 +174,21 @@ func (sl *SplitLayout) Swap(idx1, idx2 uint8) {
 		panic(fmt.Sprintf("can't swap unused key at index %d or %d", idx1, idx2))
 	}
 	sl.Runes[idx1], sl.Runes[idx2] = r2, r1
+
+	// Update RuneInfo map
 	sl.RuneInfo[r1], sl.RuneInfo[r2] = sl.RuneInfo[r2], sl.RuneInfo[r1]
+
+	// Update KeyInfos array for ASCII printable runes (32-126)
+	if r1 >= 32 && r1 < 127 {
+		idx := r1 - 32
+		sl.KeyInfos[idx] = sl.RuneInfo[r1]
+		sl.KeyInfoValid[idx] = true
+	}
+	if r2 >= 32 && r2 < 127 {
+		idx := r2 - 32
+		sl.KeyInfos[idx] = sl.RuneInfo[r2]
+		sl.KeyInfoValid[idx] = true
+	}
 }
 
 func (sl *SplitLayout) String() string {
@@ -383,6 +422,52 @@ func readLine(scanner *bufio.Scanner) (string, error) {
 	return "", fmt.Errorf("unexpected end of file")
 }
 
+// SFBInfo represents a same-finger bigram: two different keys typed by the same finger.
+// This cache enables fast lookup of all potential SFBs based on layout geometry.
+type SFBInfo struct {
+	KeyIdx1 uint8
+	KeyIdx2 uint8
+}
+
+// initSFBs identifies all same-finger bigram key pairs in the layout.
+// Same finger bigrams occur when two different keys are typed by the same finger.
+// This pre-computation enables fast SFB/SFS lookup during analysis.
+func (sl *SplitLayout) initSFBs() {
+	sl.SFBs = make([]SFBInfo, 0, 144)
+
+	for key1 := range uint8(41) {
+		rune1 := sl.Runes[key1]
+		if rune1 == 0 {
+			continue // Skip empty key positions
+		}
+		ki1, ok1 := sl.GetKeyInfo(rune1)
+		if !ok1 {
+			continue
+		}
+
+		// Only check key2 > key1 to avoid duplicate pairs
+		for key2 := key1 + 1; key2 < 42; key2++ {
+			rune2 := sl.Runes[key2]
+			if rune2 == 0 {
+				continue // Skip empty key positions
+			}
+			ki2, ok2 := sl.GetKeyInfo(rune2)
+			if !ok2 {
+				continue
+			}
+
+			// Check if same finger (different keys guaranteed by key2 > key1)
+			if ki1.Finger == ki2.Finger {
+				// Store both directions for consistency with LSBs/Scissors pattern
+				sl.SFBs = append(sl.SFBs,
+					SFBInfo{key1, key2},
+					SFBInfo{key2, key1},
+				)
+			}
+		}
+	}
+}
+
 // LSBInfo represents a lateral-stretch bigram: two keys typed by non-adjacent fingers
 // on the same hand that are uncomfortably far apart horizontally.
 type LSBInfo struct {
@@ -411,7 +496,7 @@ func (sl *SplitLayout) initLSBs() {
 		if rune1 == 0 {
 			continue
 		}
-		ri1, ok1 := sl.RuneInfo[rune1]
+		ri1, ok1 := sl.GetKeyInfo(rune1)
 		if !ok1 {
 			continue
 		}
@@ -420,7 +505,7 @@ func (sl *SplitLayout) initLSBs() {
 			if rune2 == 0 || key1 == key2 {
 				continue
 			}
-			ri2, ok2 := sl.RuneInfo[rune2]
+			ri2, ok2 := sl.GetKeyInfo(rune2)
 			if !ok2 {
 				continue
 			}
@@ -488,14 +573,20 @@ func (sl *SplitLayout) initScissorPairs(configs []scissorConfig, out *[]ScissorI
 			if r1 == 0 {
 				continue
 			}
-			ki1 := sl.RuneInfo[r1]
+			ki1, ok1 := sl.GetKeyInfo(r1)
+			if !ok1 {
+				continue
+			}
 
 			for i2 = cfg.i2Start; i2 <= cfg.i2End; i2++ {
 				r2 := sl.Runes[i2]
 				if r2 == 0 {
 					continue
 				}
-				ki2 := sl.RuneInfo[r2]
+				ki2, ok2 := sl.GetKeyInfo(r2)
+				if !ok2 {
+					continue
+				}
 
 				if cfg.fingerPairs[[2]uint8{ki1.Finger, ki2.Finger}] {
 					kp := sl.Distance(i1, i2)

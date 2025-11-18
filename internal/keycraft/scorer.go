@@ -37,6 +37,12 @@ type Scorer struct {
 	weights             map[string]float64 // Importance weights for each metric (filtered)
 	scoreCache          map[string]float64 // Cache of computed scores by layout identifier
 	cacheMu             sync.RWMutex       // Protects scoreCache for concurrent access
+	DisableScoreCache   bool               // If true, skip score cache lookup/storage
+
+	// Pre-filtered n-gram caches (computed lazily on first Score() call)
+	trigramCache      []TrigramInfo // Pre-filtered trigrams with KeyInfo lookups
+	trigramCacheOnce  sync.Once     // Ensures trigram cache is initialized exactly once
+	DisableNGramCache bool          // If true, don't inject n-gram caches into Analyser
 
 	// Statistics tracking (atomic for thread safety)
 	cacheHits   atomic.Int64 // Number of cache hits
@@ -75,7 +81,7 @@ func NewScorer(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idea
 		filteredWeights[metric] = weight
 	}
 
-	return &Scorer{
+	sc := &Scorer{
 		corpus:              corpus,
 		targetRowBalance:    idealRowLoad,
 		targetFingerBalance: idealfgrLoad,
@@ -83,32 +89,103 @@ func NewScorer(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idea
 		iqrs:                filteredIQRs,
 		weights:             filteredWeights,
 		scoreCache:          make(map[string]float64, 1000),
-	}, nil
+	}
+
+	return sc, nil
+}
+
+// prepareTrigramCache pre-filters corpus trigrams using a template layout and applies
+// 99% coverage filtering to keep only high-frequency trigrams.
+// This eliminates redundant filtering across all future Score() calls and reduces cache size
+// by discarding low-frequency trigrams that contribute minimally to the analysis.
+// The cache contains only trigrams where all 3 runes exist on the template layout.
+// KeyInfo is looked up fresh during analysis to ensure correctness when layouts change.
+func (sc *Scorer) prepareTrigramCache(templateLayout *SplitLayout) {
+	// Step 1: Filter by layout (keep only trigrams where all runes exist on layout)
+	layoutFiltered := make([]TrigramInfo, 0, len(sc.corpus.Trigrams)/10)
+	var totalCount uint64
+
+	for tri, cnt := range sc.corpus.Trigrams {
+		_, ok0 := templateLayout.GetKeyInfo(tri[0])
+		_, ok1 := templateLayout.GetKeyInfo(tri[1])
+		_, ok2 := templateLayout.GetKeyInfo(tri[2])
+
+		if ok0 && ok1 && ok2 {
+			layoutFiltered = append(layoutFiltered, TrigramInfo{
+				Count: cnt,
+				Runes: [3]rune{tri[0], tri[1], tri[2]},
+			})
+			totalCount += cnt
+		}
+	}
+
+	// Step 2: Sort by frequency (descending) to prioritize high-frequency trigrams
+	sort.Slice(layoutFiltered, func(i, j int) bool {
+		return layoutFiltered[i].Count > layoutFiltered[j].Count
+	})
+
+	// Step 3: Apply 99% coverage threshold - keep only trigrams accounting for 99% of occurrences
+	targetCount := uint64(float64(totalCount) * 0.98)
+	var cumulative uint64
+	cutoffIndex := 0
+
+	for i, ti := range layoutFiltered {
+		cumulative += ti.Count
+		if cumulative >= targetCount {
+			cutoffIndex = i + 1
+			break
+		}
+	}
+
+	// Step 4: Keep only trigrams that meet 99% coverage threshold
+	sc.trigramCache = layoutFiltered[:cutoffIndex]
 }
 
 // Score evaluates a layout by computing a weighted sum of normalized metrics.
 // Each metric is normalized using robust scaling: (value - median) / IQR.
 // Only metrics with non-zero weights and sufficient variance are scored.
 // The weighted sum is subtracted to produce a cost score where lower is better.
-// Results are cached by layout configuration to avoid redundant calculations.
+// Results are cached by layout configuration to avoid redundant calculations (unless DisableScoreCache is true).
 // Thread-safe for concurrent access.
 func (sc *Scorer) Score(layout *SplitLayout) float64 {
-	// Check cache first using unique layout identifier
-	cacheKey := layoutCacheKey(layout)
-
-	// Read lock for cache check
-	sc.cacheMu.RLock()
-	cachedScore, exists := sc.scoreCache[cacheKey]
-	sc.cacheMu.RUnlock()
-
-	if exists {
-		sc.cacheHits.Add(1)
-		return cachedScore
+	// Initialize n-gram caches lazily on first call (unless disabled)
+	if !sc.DisableNGramCache {
+		sc.trigramCacheOnce.Do(func() {
+			sc.prepareTrigramCache(layout)
+		})
 	}
 
-	// Cache miss - calculate score
-	sc.cacheMisses.Add(1)
-	an := NewAnalyser(layout, sc.corpus, sc.targetRowBalance, sc.targetFingerBalance)
+	// Check score cache first (unless disabled)
+	if !sc.DisableScoreCache {
+		cacheKey := layoutCacheKey(layout)
+
+		// Read lock for cache check
+		sc.cacheMu.RLock()
+		cachedScore, exists := sc.scoreCache[cacheKey]
+		sc.cacheMu.RUnlock()
+
+		if exists {
+			sc.cacheHits.Add(1)
+			return cachedScore
+		}
+		sc.cacheMisses.Add(1)
+	}
+
+	// Calculate score
+	an := &Analyser{
+		Layout:           layout,
+		Corpus:           sc.corpus,
+		IdealRowLoad:     sc.targetRowBalance,
+		IdealfgrLoad:     sc.targetFingerBalance,
+		Metrics:          make(map[string]float64, 60),
+		relevantTrigrams: sc.trigramCache, // Inject pre-filtered trigrams for performance optimization
+	}
+
+	an.analyseHand()
+	an.analyseBigrams()
+	an.analyseSkipgrams()
+	an.analyseTrigrams()
+
 	score := 0.0
 	for metric, iqr := range sc.iqrs {
 		if value, exists := an.Metrics[metric]; exists {
@@ -117,10 +194,13 @@ func (sc *Scorer) Score(layout *SplitLayout) float64 {
 		}
 	}
 
-	// Write lock for cache update
-	sc.cacheMu.Lock()
-	sc.scoreCache[cacheKey] = score
-	sc.cacheMu.Unlock()
+	// Update cache (unless disabled)
+	if !sc.DisableScoreCache {
+		cacheKey := layoutCacheKey(layout)
+		sc.cacheMu.Lock()
+		sc.scoreCache[cacheKey] = score
+		sc.cacheMu.Unlock()
+	}
 
 	return score
 }
@@ -173,15 +253,15 @@ func (sc *Scorer) GetStats() ScorerStats {
 func (sc *Scorer) LogStats(w io.Writer) {
 	stats := sc.GetStats()
 
-	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "Scorer Statistics:\n")
-	fmt.Fprintf(w, "==================\n")
-	fmt.Fprintf(w, "Total Score() calls:     %s\n", formatInt(stats.TotalCalls))
-	fmt.Fprintf(w, "Cache hits:              %s (%.1f%%)\n", formatInt(stats.CacheHits), stats.HitRate)
-	fmt.Fprintf(w, "Cache misses:            %s (%.1f%%)\n", formatInt(stats.CacheMisses), 100.0-stats.HitRate)
-	fmt.Fprintf(w, "Unique layouts cached:   %s\n", formatInt(int64(stats.UniqueLayouts)))
-	fmt.Fprintf(w, "Cache memory usage:      ~%s\n", formatBytes(stats.CacheSizeBytes))
-	fmt.Fprintf(w, "\n")
+	MustFprintf(w, "\n")
+	MustFprintf(w, "Scorer Statistics:\n")
+	MustFprintf(w, "==================\n")
+	MustFprintf(w, "Total Score() calls:     %s\n", formatInt(stats.TotalCalls))
+	MustFprintf(w, "Cache hits:              %s (%.1f%%)\n", formatInt(stats.CacheHits), stats.HitRate)
+	MustFprintf(w, "Cache misses:            %s (%.1f%%)\n", formatInt(stats.CacheMisses), 100.0-stats.HitRate)
+	MustFprintf(w, "Unique layouts cached:   %s\n", formatInt(int64(stats.UniqueLayouts)))
+	MustFprintf(w, "Cache memory usage:      ~%s\n", formatBytes(stats.CacheSizeBytes))
+	MustFprintf(w, "\n")
 }
 
 // formatInt formats an integer with thousand separators for readability.

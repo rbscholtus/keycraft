@@ -165,15 +165,14 @@ func NewBLS(params BLSParams, scorer *Scorer, corpus *Corpus, pinned *PinnedKeys
 	}
 }
 
-// Optimize runs the BLS algorithm on the given layout and returns the best layout found.
-// Progress can optionally be reported to the provided writer (use nil to disable).
-func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLayout {
-	// Pre-filter and sort bigrams for pattern analysis
-	// This must be done per layout since different layouts may have different character sets
+// prefilterBigrams filters and sorts corpus bigrams that are relevant to the given layout.
+// This must be done per layout since different layouts may have different character sets.
+// Only bigrams where both characters are present on the layout are kept.
+func (bls *BLS) prefilterBigrams(layout *SplitLayout) {
 	bls.relevantBigrams = make([]BigramCount, 0, len(bls.corpus.Bigrams))
 	for bi, cnt := range bls.corpus.Bigrams {
-		_, ok1 := layout.RuneInfo[bi[0]]
-		_, ok2 := layout.RuneInfo[bi[1]]
+		_, ok1 := layout.GetKeyInfo(bi[0])
+		_, ok2 := layout.GetKeyInfo(bi[1])
 		if ok1 && ok2 {
 			bls.relevantBigrams = append(bls.relevantBigrams, BigramCount{
 				Bigram: bi,
@@ -186,6 +185,13 @@ func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLa
 	sort.Slice(bls.relevantBigrams, func(i, j int) bool {
 		return bls.relevantBigrams[i].Count > bls.relevantBigrams[j].Count
 	})
+}
+
+// Optimize runs the BLS algorithm on the given layout and returns the best layout found.
+// Progress can optionally be reported to the provided writer (use nil to disable).
+func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLayout {
+	// Pre-filter and sort bigrams for pattern analysis
+	bls.prefilterBigrams(layout)
 
 	// Initialize search state
 	bls.state = BLSState{
@@ -485,8 +491,8 @@ func (bls *BLS) identifyProblematicKeys(layout *SplitLayout) []uint8 {
 
 	// Check SFB contribution
 	for bi, biCnt := range bls.corpus.Bigrams {
-		key1, ok1 := layout.RuneInfo[bi[0]]
-		key2, ok2 := layout.RuneInfo[bi[1]]
+		key1, ok1 := layout.GetKeyInfo(bi[0])
+		key2, ok2 := layout.GetKeyInfo(bi[1])
 		if !ok1 || !ok2 {
 			continue
 		}
@@ -549,8 +555,8 @@ func (bls *BLS) identifyProblematicKeys2(layout *SplitLayout) []uint8 {
 	// Check SFB contribution using pre-filtered bigrams
 	// Only iterate over bigrams that are actually on the layout
 	for _, bc := range bls.relevantBigrams {
-		key1 := layout.RuneInfo[bc.Bigram[0]]
-		key2 := layout.RuneInfo[bc.Bigram[1]]
+		key1, _ := layout.GetKeyInfo(bc.Bigram[0])
+		key2, _ := layout.GetKeyInfo(bc.Bigram[1])
 
 		// Check if this is a same-finger bigram
 		if key1.Finger == key2.Finger && key1.Index != key2.Index {
@@ -570,8 +576,8 @@ func (bls *BLS) identifyProblematicKeys2(layout *SplitLayout) []uint8 {
 
 	// Only check relevant bigrams to see if they're LSBs
 	for _, bc := range bls.relevantBigrams {
-		key1 := layout.RuneInfo[bc.Bigram[0]]
-		key2 := layout.RuneInfo[bc.Bigram[1]]
+		key1, _ := layout.GetKeyInfo(bc.Bigram[0])
+		key2, _ := layout.GetKeyInfo(bc.Bigram[1])
 
 		// Check if this key pair is an LSB
 		if lsbSet[[2]uint8{key1.Index, key2.Index}] {
@@ -617,7 +623,7 @@ func (bls *BLS) identifyProblematicKeys2(layout *SplitLayout) []uint8 {
 // findBetterPosition finds a good position to swap the given key to.
 func (bls *BLS) findBetterPosition(layout *SplitLayout, keyIdx uint8) uint8 {
 	keyRune := layout.Runes[keyIdx]
-	keyInfo := layout.RuneInfo[keyRune]
+	keyInfo, _ := layout.GetKeyInfo(keyRune)
 
 	candidates := []uint8{}
 
@@ -627,7 +633,7 @@ func (bls *BLS) findBetterPosition(layout *SplitLayout, keyIdx uint8) uint8 {
 		}
 
 		posRune := layout.Runes[pos]
-		posInfo := layout.RuneInfo[posRune]
+		posInfo, _ := layout.GetKeyInfo(posRune)
 
 		// Prefer different finger or opposite hand
 		if posInfo.Hand != keyInfo.Hand || posInfo.Finger != keyInfo.Finger {
