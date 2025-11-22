@@ -4,7 +4,9 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"runtime"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -36,6 +38,11 @@ type BLSParams struct {
 	MaxTime        time.Duration // Maximum wall-clock time for optimization
 	Seed           int64         // Random seed for reproducibility
 	ReportInterval int           // Report progress every N iterations (0 = no reporting)
+
+	// Parallelism control
+
+	UseParallel     bool // Enable parallel evaluation in steepest descent
+	ParallelWorkers int  // Number of parallel workers (0 = use runtime.NumCPU())
 }
 
 // DefaultBLSParams returns recommended BLS parameters for keyboard layout optimization.
@@ -64,6 +71,10 @@ func DefaultBLSParams(numFreeKeys int) BLSParams {
 		MaxTime:        15 * time.Minute,
 		Seed:           time.Now().UnixNano(),
 		ReportInterval: 100,
+
+		// Parallelism control
+		UseParallel:     true, // Disabled by default
+		ParallelWorkers: 4,    // Use runtime.NumCPU() when enabled
 	}
 }
 
@@ -299,7 +310,17 @@ func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLa
 
 // steepestDescent performs local search until a local optimum is reached.
 // Uses best-improvement strategy: evaluates all valid swaps and applies the best one.
+// Dispatches to parallel or sequential implementation based on params.
 func (bls *BLS) steepestDescent(layout *SplitLayout) {
+	if bls.params.UseParallel {
+		bls.steepestDescentParallel(layout)
+	} else {
+		bls.steepestDescentSequential(layout)
+	}
+}
+
+// steepestDescentSequential is the sequential implementation.
+func (bls *BLS) steepestDescentSequential(layout *SplitLayout) {
 	improved := true
 
 	for improved {
@@ -323,6 +344,107 @@ func (bls *BLS) steepestDescent(layout *SplitLayout) {
 				bestDelta = delta
 				bestI = i
 				bestJ = j
+				improved = true
+			}
+		}
+
+		if improved {
+			// Apply best swap
+			layout.Swap(bestI, bestJ)
+
+			// Update tabu matrix
+			bls.state.tabuMatrix[bestI][bestJ] = bls.state.iteration
+			bls.state.tabuMatrix[bestJ][bestI] = bls.state.iteration
+			bls.state.iteration++
+		}
+	}
+}
+
+// swapResult holds the result of evaluating a single swap.
+type swapResult struct {
+	i     uint8
+	j     uint8
+	delta float64
+}
+
+// steepestDescentParallel is the parallel implementation using worker goroutines.
+func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
+	improved := true
+
+	// Determine number of workers
+	numWorkers := bls.params.ParallelWorkers
+	if numWorkers <= 0 {
+		numWorkers = runtime.NumCPU()
+	}
+
+	for improved {
+		improved = false
+		bestDelta := 0.0
+		var bestI, bestJ uint8
+
+		costBefore := bls.scorer.Score(layout)
+
+		// Distribute work into chunks
+		numPairs := len(bls.validPairs)
+		chunkSize := (numPairs + numWorkers - 1) / numWorkers
+
+		results := make(chan swapResult, numWorkers)
+		var wg sync.WaitGroup
+
+		// Spawn workers
+		for w := 0; w < numWorkers; w++ {
+			start := w * chunkSize
+			if start >= numPairs {
+				break
+			}
+			end := min(start+chunkSize, numPairs)
+
+			wg.Add(1)
+			go func(pairs [][2]uint8) {
+				defer wg.Done()
+
+				// Each worker needs its own layout clone
+				localLayout := layout.Clone()
+				localBestDelta := 0.0
+				var localBestI, localBestJ uint8
+				found := false
+
+				for _, pair := range pairs {
+					i, j := pair[0], pair[1]
+
+					// Compute delta by scoring after swap
+					localLayout.Swap(i, j)
+					costAfter := bls.scorer.Score(localLayout)
+					localLayout.Swap(i, j) // Swap back
+
+					delta := costAfter - costBefore
+
+					if delta < localBestDelta {
+						localBestDelta = delta
+						localBestI = i
+						localBestJ = j
+						found = true
+					}
+				}
+
+				if found {
+					results <- swapResult{localBestI, localBestJ, localBestDelta}
+				}
+			}(bls.validPairs[start:end])
+		}
+
+		// Close results channel when all workers complete
+		go func() {
+			wg.Wait()
+			close(results)
+		}()
+
+		// Collect results from workers
+		for result := range results {
+			if result.delta < bestDelta {
+				bestDelta = result.delta
+				bestI = result.i
+				bestJ = result.j
 				improved = true
 			}
 		}

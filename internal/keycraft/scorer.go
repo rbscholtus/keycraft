@@ -156,8 +156,9 @@ func (sc *Scorer) Score(layout *SplitLayout) float64 {
 	}
 
 	// Check score cache first (unless disabled)
+	var cacheKey string
 	if !sc.DisableScoreCache {
-		cacheKey := layoutCacheKey(layout)
+		cacheKey = layoutCacheKey(layout)
 
 		// Read lock for cache check
 		sc.cacheMu.RLock()
@@ -196,7 +197,6 @@ func (sc *Scorer) Score(layout *SplitLayout) float64 {
 
 	// Update cache (unless disabled)
 	if !sc.DisableScoreCache {
-		cacheKey := layoutCacheKey(layout)
 		sc.cacheMu.Lock()
 		sc.scoreCache[cacheKey] = score
 		sc.cacheMu.Unlock()

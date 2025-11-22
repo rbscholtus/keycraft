@@ -24,7 +24,7 @@ func TestProfileOptimize(t *testing.T) {
 	os.Args = []string{
 		"keycraft",
 		"o",
-		"-g", "1000", // Change to 100 generations
+		"-g", "2000", // Change to 100 generations
 		"--mt", "5", // Change to 1 minutes
 		"--seed", "42",
 		"qwerty2",
