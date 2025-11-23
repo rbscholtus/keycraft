@@ -671,3 +671,57 @@ func (sl *SplitLayout) initHScissors() {
 	sl.HScissors = make([]ScissorInfo, 0, 72)
 	sl.initScissorPairs(configs, &sl.HScissors)
 }
+
+// Mirror swaps keys between left and right hands, creating a horizontally mirrored layout.
+// For each row of 12 keys, key positions are swapped: 0↔11, 1↔10, 2↔9, 3↔8, 4↔7, 5↔6.
+// For the 6 thumb keys, positions are swapped: 36↔41, 37↔40, 38↔39.
+func (sl *SplitLayout) Mirror() {
+	// Mirror main rows (3 rows of 12 keys each)
+	for row := range 3 {
+		base := row * 12
+		for col := range 6 {
+			leftIdx := base + col
+			rightIdx := base + 11 - col
+			sl.Runes[leftIdx], sl.Runes[rightIdx] = sl.Runes[rightIdx], sl.Runes[leftIdx]
+		}
+	}
+
+	// Mirror thumb row (6 keys)
+	for col := range 3 {
+		leftIdx := 36 + col
+		rightIdx := 41 - col
+		sl.Runes[leftIdx], sl.Runes[rightIdx] = sl.Runes[rightIdx], sl.Runes[leftIdx]
+	}
+
+	// Rebuild RuneInfo map with updated key positions
+	sl.RuneInfo = make(map[rune]KeyInfo, len(sl.RuneInfo))
+	for idx, r := range sl.Runes {
+		if r != 0 {
+			row := uint8(idx / 12)
+			col := uint8(idx % 12)
+			if idx >= 36 {
+				row = 3
+				col = uint8(idx - 36)
+			}
+			sl.RuneInfo[r] = NewKeyInfo(row, col, sl.LayoutType)
+		}
+	}
+
+	// Update KeyInfos array for ASCII printable runes
+	for i := range sl.KeyInfoValid {
+		sl.KeyInfoValid[i] = false
+	}
+	for r, ki := range sl.RuneInfo {
+		if r >= 32 && r < 127 {
+			idx := r - 32
+			sl.KeyInfos[idx] = ki
+			sl.KeyInfoValid[idx] = true
+		}
+	}
+
+	// Reinitialize derived data structures
+	sl.initSFBs()
+	sl.initLSBs()
+	sl.initFScissors()
+	sl.initHScissors()
+}
