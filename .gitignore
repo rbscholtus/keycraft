@@ -38,10 +38,11 @@ likes.json
 data/pins/hieamtsrn.pin
 /*.prof
 _cleanuipman
-
 *-opt*.klf
 *-best*.klf
 /data/layouts2
 data/layouts/enthium-promax.klf
 data/layouts/northwest.klf
 data/layouts/northeast.klf
+/keycraft
+run.jsonl

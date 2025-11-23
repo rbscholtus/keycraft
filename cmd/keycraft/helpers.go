@@ -47,6 +47,14 @@ func getRowLoadFromFlag(c *cli.Context) (*[3]float64, error) {
 	return vals, nil
 }
 
+// getPinkyWeightsFromFlag parses the --pinky-weights flag into penalty weights.
+// Accepts 6 values (mirrored for both hands) or 12 values (left then right).
+// Values are not scaled (used as-is for penalty calculations).
+func getPinkyWeightsFromFlag(c *cli.Context) (*[12]float64, error) {
+	pwStr := c.String("pinky-weights")
+	return parsePinkyWeights(pwStr)
+}
+
 // loadWeightsFromFlags loads weights from the --weights-file and --weights flags.
 // Weights specified via --weights take precedence over file-based weights.
 func loadWeightsFromFlags(c *cli.Context) (*kc.Weights, error) {
@@ -193,6 +201,41 @@ func scaleFingerLoad(vals *[10]float64) error {
 		vals[i] *= scale
 	}
 	return nil
+}
+
+// parsePinkyWeights parses pinky weight values from a comma-separated string.
+// Accepts 6 values (mirrored to 12) or 12 values directly.
+// Order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner.
+func parsePinkyWeights(s string) (*[12]float64, error) {
+	parts := strings.Split(s, ",")
+	if len(parts) != 6 && len(parts) != 12 {
+		return nil, fmt.Errorf("pinky-weights must have 6 or 12 comma-separated values (got %d)", len(parts))
+	}
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+
+	// If the user provided 6 values, mirror them to create the 12-value representation.
+	if len(parts) == 6 {
+		for i := 0; i < 6; i++ {
+			parts = append(parts, parts[i])
+		}
+	}
+
+	// convert values to float64
+	var pinkyVals [12]float64
+	for i, p := range parts {
+		if p == "" {
+			return nil, fmt.Errorf("empty value in pinky-weights at position %d", i)
+		}
+		v, err := strconv.ParseFloat(p, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid float in pinky-weights at position %d: %v", i, err)
+		}
+		pinkyVals[i] = v
+	}
+
+	return &pinkyVals, nil
 }
 
 // ensureKlf appends .klf extension if not present (case-insensitive check).

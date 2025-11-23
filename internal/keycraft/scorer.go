@@ -32,6 +32,7 @@ type Scorer struct {
 	corpus              *Corpus            // Text corpus used for analysis
 	targetRowBalance    *[3]float64        // Ideal distribution across rows
 	targetFingerBalance *[10]float64       // Ideal distribution across fingers
+	pinkyWeights        *[12]float64       // Pinky off-home penalty weights
 	medians             map[string]float64 // Median values for each metric (filtered)
 	iqrs                map[string]float64 // Interquartile ranges for each metric (filtered)
 	weights             map[string]float64 // Importance weights for each metric (filtered)
@@ -52,8 +53,8 @@ type Scorer struct {
 // NewScorer creates a new Scorer by analyzing reference layouts from the given directory.
 // It computes median and IQR statistics from the reference layouts and filters out metrics
 // with insignificant variance or weight to ensure robust scoring.
-func NewScorer(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, weights *Weights) (*Scorer, error) {
-	analysers, err := LoadAnalysers(layoutsDir, corpus, idealRowLoad, idealfgrLoad)
+func NewScorer(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyWeights *[12]float64, weights *Weights) (*Scorer, error) {
+	analysers, err := LoadAnalysers(layoutsDir, corpus, idealRowLoad, idealfgrLoad, pinkyWeights)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +86,7 @@ func NewScorer(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idea
 		corpus:              corpus,
 		targetRowBalance:    idealRowLoad,
 		targetFingerBalance: idealfgrLoad,
+		pinkyWeights:        pinkyWeights,
 		medians:             filteredMedians,
 		iqrs:                filteredIQRs,
 		weights:             filteredWeights,
@@ -178,6 +180,7 @@ func (sc *Scorer) Score(layout *SplitLayout) float64 {
 		Corpus:           sc.corpus,
 		IdealRowLoad:     sc.targetRowBalance,
 		IdealfgrLoad:     sc.targetFingerBalance,
+		PinkyWeights:     sc.pinkyWeights,
 		Metrics:          make(map[string]float64, 60),
 		relevantTrigrams: sc.trigramCache, // Inject pre-filtered trigrams for performance optimization
 	}
@@ -297,7 +300,7 @@ type LayoutScore struct {
 
 // LoadAnalysers loads and analyses all .klf layout files from a directory in parallel.
 // Uses bounded concurrency based on GOMAXPROCS to avoid overloading the system.
-func LoadAnalysers(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64) ([]*Analyser, error) {
+func LoadAnalysers(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyWeights *[12]float64) ([]*Analyser, error) {
 	layoutFiles, err := os.ReadDir(layoutsDir)
 	if err != nil {
 		return nil, fmt.Errorf("error reading layout files from %v: %v", layoutsDir, err)
@@ -328,7 +331,7 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, 
 				fmt.Println(err)
 				return
 			}
-			analyser := NewAnalyser(layout, corpus, idealRowLoad, idealfgrLoad)
+			analyser := NewAnalyser(layout, corpus, idealRowLoad, idealfgrLoad, pinkyWeights)
 
 			mu.Lock()
 			analysers = append(analysers, analyser)

@@ -28,7 +28,8 @@ type PinnedKeys [42]bool
 //   - maxIterations: Maximum number of iterations (0 = use default)
 //   - maxTimeMinutes: Maximum time in minutes (0 = use default)
 //   - seed: Random seed for reproducibility (0 = use current time)
-//   - progressWriter: Where to write progress (use os.Stdout or nil)
+//   - consoleWriter: Where to write human-readable progress (use os.Stdout or nil)
+//   - logFileWriter: Where to write JSONL structured logs (use nil to disable)
 //
 // Returns the optimized layout.
 func OptimizeLayoutBLS(
@@ -38,11 +39,13 @@ func OptimizeLayoutBLS(
 	weights *Weights,
 	rowBal *[3]float64,
 	fingerBal *[10]float64,
+	pinkyWeights *[12]float64,
 	pinned *PinnedKeys,
 	maxIterations int,
 	maxTimeMinutes int,
 	seed int64,
-	progressWriter io.Writer,
+	consoleWriter io.Writer,
+	logFileWriter io.Writer,
 ) (*SplitLayout, error) {
 	// Count free keys
 	numFree := 0
@@ -81,7 +84,12 @@ func OptimizeLayoutBLS(
 		idealFingerLoad = DefaultIdealFingerLoad()
 	}
 
-	scorer, err := NewScorer(layoutsDir, corpus, idealRowLoad, idealFingerLoad, weights)
+	idealPinkyWeights := pinkyWeights
+	if idealPinkyWeights == nil {
+		idealPinkyWeights = DefaultPinkyWeights()
+	}
+
+	scorer, err := NewScorer(layoutsDir, corpus, idealRowLoad, idealFingerLoad, idealPinkyWeights, weights)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scorer: %w", err)
 	}
@@ -89,12 +97,26 @@ func OptimizeLayoutBLS(
 	// Create BLS optimizer
 	bls := NewBLS(params, scorer, corpus, pinned)
 
-	// Run optimization
-	bestLayout := bls.Optimize(layout, progressWriter)
+	// Create logger with dual output
+	logger := NewBLSLogger(consoleWriter, logFileWriter)
 
-	// Log scorer statistics if writer provided
-	if progressWriter != nil {
-		scorer.LogStats(progressWriter)
+	// Run optimization
+	bestLayout := bls.Optimize(layout, logger)
+
+	// Log scorer statistics if console writer provided
+	if consoleWriter != nil {
+		scorer.LogStats(consoleWriter)
+	}
+
+	// Log cache stats to JSONL if file writer provided
+	if logFileWriter != nil {
+		hits := uint64(scorer.cacheHits.Load())
+		misses := uint64(scorer.cacheMisses.Load())
+		scorer.cacheMu.RLock()
+		uniqueKeys := len(scorer.scoreCache)
+		scorer.cacheMu.RUnlock()
+		memoryBytes := int64(uniqueKeys) * 8 // Rough estimate: 8 bytes per float64
+		logger.LogCacheStats(hits, misses, uniqueKeys, memoryBytes)
 	}
 
 	return bestLayout, nil

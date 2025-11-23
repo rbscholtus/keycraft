@@ -272,7 +272,7 @@ func MetricsString(an *kc.Analyser) string {
 			fmt.Sprintf("ALT: %.2f%%", an.Metrics["ALT"]),
 			fmt.Sprintf(".NML: %.2f%%", an.Metrics["ALT-NML"]),
 			fmt.Sprintf(".SFS: %.2f%%", an.Metrics["ALT-SFS"]),
-			fmt.Sprintf("I:O: %.2f", an.Metrics["IN:OUT"]),
+			"",
 		},
 		{
 			fmt.Sprintf("2RL: %.2f%%", an.Metrics["2RL"]),
@@ -296,7 +296,13 @@ func MetricsString(an *kc.Analyser) string {
 			fmt.Sprintf("RBL: %.2f", an.Metrics["RBL"]),
 			fmt.Sprintf("FBL: %.2f%%", an.Metrics["FBL"]),
 			fmt.Sprintf("POH: %.2f%%", an.Metrics["POH"]),
+			fmt.Sprintf("POW: %.2f%%", an.Metrics["POW"]),
+		},
+		{
+			fmt.Sprintf("I:O: %.2f", an.Metrics["IN:OUT"]),
 			fmt.Sprintf("FLW: %.2f%%", an.Metrics["FLW"]),
+			"",
+			"",
 		},
 	}
 	tw.AppendRows(data)

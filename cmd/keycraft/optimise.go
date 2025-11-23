@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -15,7 +16,7 @@ var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Aliases:   []string{"o"},
 	Usage:     "Optimise a keyboard layout using simulated annealing",
-	Flags:     flagsSlice("corpus", "row-load", "finger-load", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed"),
+	Flags:     flagsSlice("corpus", "row-load", "finger-load", "pinky-weights", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed", "log-file"),
 	ArgsUsage: "<layout>",
 	Before:    validateOptFlags,
 	Action:    optimiseAction,
@@ -43,6 +44,11 @@ func optimiseAction(c *cli.Context) error {
 	}
 
 	fingerBal, err := getFingerLoadFromFlag(c)
+	if err != nil {
+		return err
+	}
+
+	pinkyWeights, err := getPinkyWeightsFromFlag(c)
 	if err != nil {
 		return err
 	}
@@ -79,6 +85,18 @@ func optimiseAction(c *cli.Context) error {
 		return err
 	}
 
+	// Set up log file if specified
+	var logFile io.Writer
+	logFilePath := c.String("log-file")
+	if logFilePath != "" {
+		f, err := os.Create(logFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to create log file %s: %v", logFilePath, err)
+		}
+		defer kc.CloseFile(f)
+		logFile = f
+	}
+
 	// Run optimization with specified row and finger balance
 	best, err := kc.OptimizeLayoutBLS(
 		layout,
@@ -87,11 +105,13 @@ func optimiseAction(c *cli.Context) error {
 		weights,
 		rowBal,              // ideal row load distribution
 		fingerBal,           // ideal finger load distribution
+		pinkyWeights,        // pinky off-home penalty weights
 		pinned,              // pinned keys
 		int(numGenerations), // max iterations
 		int(maxTime),        // max time in minutes
 		seed,                // random seed
-		os.Stdout,           // progress output
+		os.Stdout,           // console output
+		logFile,             // JSONL log file
 	)
 	if err != nil {
 		return err
@@ -107,12 +127,12 @@ func optimiseAction(c *cli.Context) error {
 	layoutsToCompare := []string{layout.Name, best.Name}
 
 	// Call DoAnalysis with the layouts
-	if err := DoAnalysis(layoutsToCompare, corpus, rowBal, fingerBal, false, 0); err != nil {
+	if err := DoAnalysis(layoutsToCompare, corpus, rowBal, fingerBal, pinkyWeights, false, 0); err != nil {
 		return fmt.Errorf("failed to perform layout analysis: %v", err)
 	}
 
 	// Call DoLayoutRankings with the layouts
-	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, rowBal, fingerBal, weights, "extended", layout.Name); err != nil {
+	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, rowBal, fingerBal, pinkyWeights, weights, "extended", layout.Name); err != nil {
 		return fmt.Errorf("failed to perform layout rankings: %v", err)
 	}
 

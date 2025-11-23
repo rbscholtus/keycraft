@@ -1,7 +1,6 @@
 package keycraft
 
 import (
-	"io"
 	"math"
 	"math/rand"
 	"runtime"
@@ -52,7 +51,7 @@ func DefaultBLSParams(numFreeKeys int) BLSParams {
 		// Core parameters (scaled to number of free keys)
 		L0:      int(0.1 * float64(numFreeKeys)), // was: 0.15
 		LMax:    int(0.5 * float64(numFreeKeys)),
-		T:       500, // was: 2500
+		T:       50, // was: 2500
 		TabuMin: int(0.9 * float64(numFreeKeys)),
 		TabuMax: int(1.1 * float64(numFreeKeys)),
 		P0:      0.75,
@@ -70,7 +69,7 @@ func DefaultBLSParams(numFreeKeys int) BLSParams {
 		MaxIterations:  2000,
 		MaxTime:        15 * time.Minute,
 		Seed:           time.Now().UnixNano(),
-		ReportInterval: 100,
+		ReportInterval: 10,
 
 		// Parallelism control
 		UseParallel:     true, // Disabled by default
@@ -129,6 +128,7 @@ type BLS struct {
 	rng        *rand.Rand
 	numFree    int        // Number of free (non-pinned) keys
 	validPairs [][2]uint8 // Pre-calculated valid key pairs (excludes pinned keys)
+	logger     *BLSLogger // Logger for dual output (can be nil)
 
 	// Pre-filtered bigrams for pattern analysis (computed per layout in Optimize())
 	relevantBigrams []BigramCount // Only bigrams with both chars on layout, sorted by frequency
@@ -199,8 +199,11 @@ func (bls *BLS) prefilterBigrams(layout *SplitLayout) {
 }
 
 // Optimize runs the BLS algorithm on the given layout and returns the best layout found.
-// Progress can optionally be reported to the provided writer (use nil to disable).
-func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLayout {
+// Progress can optionally be reported to the provided logger (use nil to disable all logging).
+func (bls *BLS) Optimize(layout *SplitLayout, logger *BLSLogger) *SplitLayout {
+	// Store logger for use in descent methods
+	bls.logger = logger
+
 	// Pre-filter and sort bigrams for pattern analysis
 	bls.prefilterBigrams(layout)
 
@@ -225,11 +228,9 @@ func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLa
 	bls.state.bestLayout = current.Clone()
 	bls.state.lastOptCost = bls.state.bestCost
 
-	if progressWriter != nil {
-		MustFprintf(progressWriter, "Starting BLS optimization\n")
-		MustFprintf(progressWriter, "Initial cost: %.4f\n", bls.state.bestCost)
-		MustFprintf(progressWriter, "Free keys: %d/%d\n\n", bls.numFree, 42)
-		MustFprintln(progressWriter, bls.state.bestLayout)
+	if logger != nil {
+		logger.LogStart(bls.params, layout, bls.numFree)
+		logger.LogInitialCost(bls.state.bestCost)
 	}
 
 	// Main optimization loop
@@ -237,8 +238,8 @@ func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLa
 		// Check time limit
 		elapsed := time.Since(bls.state.startTime)
 		if elapsed >= bls.params.MaxTime {
-			if progressWriter != nil {
-				MustFprintf(progressWriter, "\nTime limit reached: %v\n", elapsed)
+			if logger != nil {
+				logger.LogTimeLimit(elapsed)
 			}
 			break
 		}
@@ -252,14 +253,14 @@ func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLa
 
 		// Check if we improved
 		if currentCost < bls.state.bestCost {
+			prevBest := bls.state.bestCost
 			bls.state.bestCost = currentCost
 			bls.state.bestLayout = current.Clone()
 			bls.state.omega = 0
 
-			if progressWriter != nil {
-				MustFprintf(progressWriter, "Iter %d: New best cost: %.4f (elapsed: %v)\n",
-					bls.state.iteration, bls.state.bestCost, time.Since(bls.state.startTime).Round(time.Second))
-				MustFprintln(progressWriter, current)
+			if logger != nil {
+				logger.LogImprovement(bls.state.iteration, bls.state.bestCost, prevBest,
+					current, time.Since(bls.state.startTime))
 			}
 		} else if math.Abs(currentCost-bls.state.lastOptCost) > 1e-9 {
 			// Escaped to a different local optimum (but not better)
@@ -272,13 +273,13 @@ func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLa
 			bls.state.L = bls.params.LMax
 			bls.state.omega = 0
 
-			if progressWriter != nil && bls.params.ReportInterval > 0 {
-				MustFprintf(progressWriter, "Iter %d: Strong perturbation triggered (L=%d)\n",
-					bls.state.iteration, bls.state.L)
+			if logger != nil && bls.params.ReportInterval > 0 {
+				logger.LogStrongPerturbation(bls.state.iteration, bls.state.L)
 			}
 		} else if math.Abs(currentCost-bls.state.lastOptCost) < 1e-9 {
-			// Returned to same local optimum: increase jump magnitude
+			// Returned to same local optimum: increase jump magnitude and omega
 			bls.state.L++
+			bls.state.omega++
 		} else {
 			// Escaped to different local optimum: reset jump magnitude
 			bls.state.L = bls.params.L0
@@ -289,19 +290,16 @@ func (bls *BLS) Optimize(layout *SplitLayout, progressWriter io.Writer) *SplitLa
 		bls.perturb(current, bls.state.L)
 
 		// Progress reporting
-		if progressWriter != nil && bls.params.ReportInterval > 0 &&
+		if logger != nil && bls.params.ReportInterval > 0 &&
 			bls.state.iteration%bls.params.ReportInterval == 0 {
-			MustFprintf(progressWriter, "Iter %d: Current: %.4f, Best: %.4f, L=%d, ω=%d\n",
-				bls.state.iteration, currentCost, bls.state.bestCost, bls.state.L, bls.state.omega)
+			logger.LogProgress(bls.state.iteration, currentCost, bls.state.bestCost,
+				bls.state.L, bls.state.omega)
 		}
 	}
 
-	if progressWriter != nil {
+	if logger != nil {
 		elapsed := time.Since(bls.state.startTime)
-		MustFprintf(progressWriter, "\nOptimization complete\n")
-		MustFprintf(progressWriter, "Final best cost: %.4f\n", bls.state.bestCost)
-		MustFprintf(progressWriter, "Total iterations: %d\n", bls.state.iteration)
-		MustFprintf(progressWriter, "Total time: %v\n", elapsed.Round(time.Second))
+		logger.LogEnd(bls.state.bestCost, bls.state.iteration, elapsed, bls.state.bestLayout)
 	}
 
 	bls.state.bestLayout.Name += "-best"
@@ -322,6 +320,8 @@ func (bls *BLS) steepestDescent(layout *SplitLayout) {
 // steepestDescentSequential is the sequential implementation.
 func (bls *BLS) steepestDescentSequential(layout *SplitLayout) {
 	improved := true
+	swapCount := 0
+	startCost := bls.scorer.Score(layout)
 
 	for improved {
 		improved = false
@@ -351,12 +351,19 @@ func (bls *BLS) steepestDescentSequential(layout *SplitLayout) {
 		if improved {
 			// Apply best swap
 			layout.Swap(bestI, bestJ)
+			swapCount++
 
 			// Update tabu matrix
 			bls.state.tabuMatrix[bestI][bestJ] = bls.state.iteration
 			bls.state.tabuMatrix[bestJ][bestI] = bls.state.iteration
 			bls.state.iteration++
 		}
+	}
+
+	// Log descent completion
+	if bls.logger != nil {
+		endCost := bls.scorer.Score(layout)
+		bls.logger.LogDescent(bls.state.iteration, swapCount, startCost, endCost)
 	}
 }
 
@@ -370,6 +377,8 @@ type swapResult struct {
 // steepestDescentParallel is the parallel implementation using worker goroutines.
 func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 	improved := true
+	swapCount := 0
+	startCost := bls.scorer.Score(layout)
 
 	// Determine number of workers
 	numWorkers := bls.params.ParallelWorkers
@@ -452,6 +461,7 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 		if improved {
 			// Apply best swap
 			layout.Swap(bestI, bestJ)
+			swapCount++
 
 			// Update tabu matrix
 			bls.state.tabuMatrix[bestI][bestJ] = bls.state.iteration
@@ -459,10 +469,21 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 			bls.state.iteration++
 		}
 	}
+
+	// Log descent completion
+	if bls.logger != nil {
+		endCost := bls.scorer.Score(layout)
+		bls.logger.LogDescent(bls.state.iteration, swapCount, startCost, endCost)
+	}
 }
 
 // perturb applies L perturbation moves to escape the current local optimum.
 func (bls *BLS) perturb(layout *SplitLayout, L int) {
+	// Track strategies used and swaps applied for logging
+	strategies := make(map[string]int)
+	totalSwaps := 0
+	startCost := bls.scorer.Score(layout)
+
 	for range L {
 		pertType := bls.selectPerturbationType()
 
@@ -472,19 +493,26 @@ func (bls *BLS) perturb(layout *SplitLayout, L int) {
 		switch pertType {
 		case DirectedPerturb:
 			swapI, swapJ, valid = bls.selectDirectedSwap(layout)
+			strategies["directed"]++
 		case PatternGuidedPerturb:
 			swapI, swapJ, valid = bls.selectPatternGuidedSwap(layout)
+			strategies["pattern"]++
 		case ColumnPerturb:
 			bls.applyColumnSwap(layout)
-			continue // Column swap applies multiple swaps
+			strategies["column"]++
+			totalSwaps += 3 // Column swap applies up to 3 swaps
+			continue        // Column swap applies multiple swaps
 		case RecencyPerturb:
 			swapI, swapJ, valid = bls.selectRecencySwap(layout)
+			strategies["recency"]++
 		case RandomPerturb:
 			swapI, swapJ, valid = bls.selectRandomSwap(layout)
+			strategies["random"]++
 		}
 
 		if valid {
 			layout.Swap(swapI, swapJ)
+			totalSwaps++
 
 			// Update tabu matrix
 			bls.state.tabuMatrix[swapI][swapJ] = bls.state.iteration
@@ -500,6 +528,12 @@ func (bls *BLS) perturb(layout *SplitLayout, L int) {
 			bls.state.bestLayout = layout.Clone()
 			bls.state.omega = 0
 		}
+	}
+
+	// Log perturbation completion
+	if bls.logger != nil {
+		endCost := bls.scorer.Score(layout)
+		bls.logger.LogPerturb(bls.state.iteration, strategies, totalSwaps, startCost, endCost)
 	}
 }
 

@@ -12,7 +12,7 @@ var MetricsMap = map[string][]string{
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS", // "LSS", "FSS", "HSS",
 		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
-		"IN:OUT", "RBL", "FBL", "POH", "FLW",
+		"IN:OUT", "RBL", "FBL", "POH", "POW", "FLW",
 	},
 	"extended": {
 		"SFB", "LSB", "FSB", "HSB",
@@ -21,7 +21,7 @@ var MetricsMap = map[string][]string{
 		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
 		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
 		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
-		"IN:OUT", "RBL", "FBL", "POH", "FLW",
+		"IN:OUT", "RBL", "FBL", "POH", "POW", "FLW",
 	},
 	"fingers": {
 		"H0", "H1",
@@ -58,6 +58,28 @@ func DefaultIdealFingerLoad() *[10]float64 {
 	}
 }
 
+// DefaultPinkyWeights returns the default pinky off-home penalty weights.
+// Order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner.
+// Left hand uses columns 0 (outer) and 1 (inner), right hand uses columns 11 (outer) and 10 (inner).
+func DefaultPinkyWeights() *[12]float64 {
+	return &[12]float64{
+		// Left pinky
+		3.0, // top-outer (row 0, col 0)
+		2.0, // top-inner (row 0, col 1)
+		1.0, // home-outer (row 1, col 0)
+		0.0, // home-inner (row 1, col 1)
+		2.0, // bottom-outer (row 2, col 0)
+		1.0, // bottom-inner (row 2, col 1)
+		// Right pinky (mirrored)
+		3.0, // top-outer (row 0, col 11)
+		2.0, // top-inner (row 0, col 10)
+		1.0, // home-outer (row 1, col 11)
+		0.0, // home-inner (row 1, col 10)
+		2.0, // bottom-outer (row 2, col 11)
+		1.0, // bottom-inner (row 2, col 10)
+	}
+}
+
 // MetricDetails contains detailed analysis results for a single metric.
 // Includes per-n-gram counts, distances, and custom attributes (e.g., hand, finger, direction).
 type MetricDetails struct {
@@ -85,6 +107,7 @@ type Analyser struct {
 	Corpus       *Corpus            // Text corpus for n-gram frequencies
 	IdealRowLoad *[3]float64        // Target row load distribution (percentages for top, home, bottom)
 	IdealfgrLoad *[10]float64       // Target finger load distribution (percentages for F0-F9)
+	PinkyWeights *[12]float64       // Pinky off-home penalty weights (6 per hand)
 	Metrics      map[string]float64 // Computed metrics (e.g., "SFB", "ALT", "FBL")
 
 	// Pre-filtered n-grams (injected by Scorer to avoid redundant filtering)
@@ -92,19 +115,23 @@ type Analyser struct {
 }
 
 // NewAnalyser creates an Analyser and computes all metrics for the given layout.
-// If idealRowLoad or idealfgrLoad are nil, uses default target loads.
-func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64) *Analyser {
+// If idealRowLoad, idealfgrLoad, or pinkyWeights are nil, uses defaults.
+func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyWeights *[12]float64) *Analyser {
 	if idealRowLoad == nil {
 		idealRowLoad = DefaultIdealRowLoad()
 	}
 	if idealfgrLoad == nil {
 		idealfgrLoad = DefaultIdealFingerLoad()
 	}
+	if pinkyWeights == nil {
+		pinkyWeights = DefaultPinkyWeights()
+	}
 	an := &Analyser{
 		Layout:       layout,
 		Corpus:       corpus,
 		IdealRowLoad: idealRowLoad,
 		IdealfgrLoad: idealfgrLoad,
+		PinkyWeights: pinkyWeights,
 		Metrics:      make(map[string]float64, 60),
 	}
 	an.analyseHand()
@@ -120,10 +147,31 @@ func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealRowLoad *[3]float64, 
 func (an *Analyser) analyseHand() {
 	var totalUnigramCount uint64
 	var pinkyOffHomeCount uint64
+	var pinkyOffWeighted float64
 	var handCount [2]uint64
 	var fingerCount [10]uint64
 	var columnCount [12]uint64
 	var rowCount [4]uint64
+
+	// Map (row, column) to PinkyWeights array index
+	// Array order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner
+	// Left hand: col 0 is outer, col 1 is inner; Right hand: col 11 is outer, col 10 is inner
+	pofIndex := map[[2]uint8]int{
+		// Left pinky (indices 0-5)
+		{0, 0}: 0, // top-outer
+		{0, 1}: 1, // top-inner
+		{1, 0}: 2, // home-outer
+		{1, 1}: 3, // home-inner
+		{2, 0}: 4, // bottom-outer
+		{2, 1}: 5, // bottom-inner
+		// Right pinky (indices 6-11)
+		{0, 11}: 6,  // top-outer
+		{0, 10}: 7,  // top-inner
+		{1, 11}: 8,  // home-outer
+		{1, 10}: 9,  // home-inner
+		{2, 11}: 10, // bottom-outer
+		{2, 10}: 11, // bottom-inner
+	}
 
 	for uniGr, uniCnt := range an.Corpus.Unigrams {
 		key, ok := an.Layout.GetKeyInfo(rune(uniGr))
@@ -136,6 +184,12 @@ func (an *Analyser) analyseHand() {
 			totalUnigramCount += uniCnt
 			if (key.Finger == LP || key.Finger == RP) && key.Row != 1 {
 				pinkyOffHomeCount += uniCnt
+			}
+			// POW: weighted pinky penalty
+			if key.Finger == LP || key.Finger == RP {
+				if idx, ok := pofIndex[[2]uint8{key.Row, key.Column}]; ok {
+					pinkyOffWeighted += an.PinkyWeights[idx] * float64(uniCnt)
+				}
 			}
 			handCount[key.Hand] += uniCnt
 			fingerCount[key.Finger] += uniCnt
@@ -152,6 +206,7 @@ func (an *Analyser) analyseHand() {
 	}
 
 	an.Metrics["POH"] = float64(pinkyOffHomeCount) * totFactor
+	an.Metrics["POW"] = pinkyOffWeighted * totFactor
 	for i, c := range handCount {
 		an.Metrics["H"+strconv.Itoa(i)] = float64(c) * totFactor
 	}

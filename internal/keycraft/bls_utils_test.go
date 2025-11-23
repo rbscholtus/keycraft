@@ -579,7 +579,7 @@ func createBenchBLS(b *testing.B) (*BLS, *SplitLayout) {
 	params := DefaultBLSParams(numFree)
 
 	// Create scorer
-	scorer, err := NewScorer("../../data/layouts", corpus, DefaultIdealRowLoad(), DefaultIdealFingerLoad(), NewWeights())
+	scorer, err := NewScorer("../../data/layouts", corpus, DefaultIdealRowLoad(), DefaultIdealFingerLoad(), DefaultPinkyWeights(), NewWeights())
 	if err != nil {
 		b.Fatalf("Failed to create scorer: %v", err)
 	}
@@ -660,7 +660,7 @@ func TestIdentifyProblematicKeysEquivalence(t *testing.T) {
 	params := DefaultBLSParams(numFree)
 
 	// Create scorer
-	scorer, err := NewScorer("../../data/layouts", corpus, DefaultIdealRowLoad(), DefaultIdealFingerLoad(), NewWeights())
+	scorer, err := NewScorer("../../data/layouts", corpus, DefaultIdealRowLoad(), DefaultIdealFingerLoad(), DefaultPinkyWeights(), NewWeights())
 	if err != nil {
 		t.Skipf("Skipping test - layouts not available: %v", err)
 	}

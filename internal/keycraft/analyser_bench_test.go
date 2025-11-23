@@ -27,10 +27,11 @@ func BenchmarkAnalyser(b *testing.B) {
 	// Use default ideal loads
 	idealRowLoad := DefaultIdealRowLoad()
 	idealFingerLoad := DefaultIdealFingerLoad()
+	pinkyWeights := DefaultPinkyWeights()
 
 	// Benchmark the analyser creation and metric computation
 	for b.Loop() {
-		_ = NewAnalyser(layout, corpus, idealRowLoad, idealFingerLoad)
+		_ = NewAnalyser(layout, corpus, idealRowLoad, idealFingerLoad, pinkyWeights)
 	}
 }
 
@@ -132,6 +133,7 @@ func BenchmarkAnalyserWithScorer(b *testing.B) {
 
 	idealRowLoad := DefaultIdealRowLoad()
 	idealFingerLoad := DefaultIdealFingerLoad()
+	pinkyWeights := DefaultPinkyWeights()
 
 	// Load proper weights from default file
 	weights, err := NewWeightsFromParams("../../data/weights/default.txt", "")
@@ -140,7 +142,7 @@ func BenchmarkAnalyserWithScorer(b *testing.B) {
 	}
 
 	// Create Scorer (pre-filters trigrams once)
-	scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, weights)
+	scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, pinkyWeights, weights)
 	if err != nil {
 		b.Fatalf("Failed to create scorer: %v", err)
 	}
@@ -172,6 +174,7 @@ func BenchmarkAnalyserHand(b *testing.B) {
 
 	idealRowLoad := DefaultIdealRowLoad()
 	idealFingerLoad := DefaultIdealFingerLoad()
+	pinkyWeights := DefaultPinkyWeights()
 
 	for b.Loop() {
 		a := &Analyser{
@@ -179,6 +182,7 @@ func BenchmarkAnalyserHand(b *testing.B) {
 			Corpus:       corpus,
 			IdealRowLoad: idealRowLoad,
 			IdealfgrLoad: idealFingerLoad,
+			PinkyWeights: pinkyWeights,
 			Metrics:      make(map[string]float64),
 		}
 		a.analyseHand()
@@ -289,13 +293,14 @@ func BenchmarkAnalyserTrigramsWithCache(b *testing.B) {
 
 	idealRowLoad := DefaultIdealRowLoad()
 	idealFingerLoad := DefaultIdealFingerLoad()
+	pinkyWeights := DefaultPinkyWeights()
 
 	weights, err := NewWeightsFromParams("../../data/weights/default.txt", "")
 	if err != nil {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
 
-	scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, weights)
+	scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, pinkyWeights, weights)
 	if err != nil {
 		b.Fatalf("Failed to create scorer: %v", err)
 	}
@@ -332,13 +337,14 @@ func BenchmarkAnalyserWithScorerAllCached(b *testing.B) {
 
 	idealRowLoad := DefaultIdealRowLoad()
 	idealFingerLoad := DefaultIdealFingerLoad()
+	pinkyWeights := DefaultPinkyWeights()
 
 	weights, err := NewWeightsFromParams("../../data/weights/default.txt", "")
 	if err != nil {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
 
-	scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, weights)
+	scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, pinkyWeights, weights)
 	if err != nil {
 		b.Fatalf("Failed to create scorer: %v", err)
 	}
@@ -370,13 +376,14 @@ func BenchmarkAnalyserWithScorerNoCaches(b *testing.B) {
 
 	idealRowLoad := DefaultIdealRowLoad()
 	idealFingerLoad := DefaultIdealFingerLoad()
+	pinkyWeights := DefaultPinkyWeights()
 
 	weights, err := NewWeightsFromParams("../../data/weights/default.txt", "")
 	if err != nil {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
 
-	scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, weights)
+	scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, pinkyWeights, weights)
 	if err != nil {
 		b.Fatalf("Failed to create scorer: %v", err)
 	}

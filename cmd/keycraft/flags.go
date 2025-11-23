@@ -45,6 +45,12 @@ var appFlagsMap = map[string]cli.Flag{
 		Usage:   "Define ideal finger load percentages. Provide 4 comma-separated floats (F0-F3, mirrored to F9-F6) or 8 floats (F0-F3, F6-F9). Thumbs (F4/F5) are always 0.0. Values are scaled to sum to 100%.",
 		Value:   "7.5,11,16,15.5", // default 4-values mirrored
 	},
+	"pinky-weights": &cli.StringFlag{
+		Name:    "pinky-weights",
+		Aliases: []string{"pw"},
+		Usage:   "Define pinky off-home penalty weights. Provide 6 comma-separated floats (left hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner; mirrored to right hand) or 12 floats (left then right). Higher values penalize more.",
+		Value:   "3,2,1,0,2,1", // default 6-values mirrored
+	},
 	"rows": &cli.IntFlag{
 		Name:    "rows",
 		Aliases: []string{"r"},
@@ -99,19 +105,24 @@ var appFlagsMap = map[string]cli.Flag{
 		Name:    "generations",
 		Aliases: []string{"gens", "g"},
 		Usage:   "The number of generations (iterations) to run the optimization.",
-		Value:   250,
+		Value:   1000,
 	},
 	"maxtime": &cli.UintFlag{
 		Name:    "maxtime",
 		Aliases: []string{"mt"},
 		Usage:   "Maximum time in minutes to spend optimizing the layout.",
-		Value:   15,
+		Value:   5,
 	},
 	"seed": &cli.Int64Flag{
 		Name:    "seed",
 		Aliases: []string{"s"},
 		Usage:   "Random seed for reproducible optimization results. If not specified, uses current Unix timestamp.",
 		Value:   0,
+	},
+	"log-file": &cli.StringFlag{
+		Name:    "log-file",
+		Aliases: []string{"lf"},
+		Usage:   "Path to write JSONL log file with detailed optimization metrics for analysis.",
 	},
 }
 

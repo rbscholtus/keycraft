@@ -155,7 +155,7 @@ func formatDelta(metric string, delta float64, weights *Weights) string {
 //   - weights: metric weights for scoring
 //   - metricsSet: which metric set to display ("basic", "extended", or "fingers")
 //   - deltas: how to display deltas ("none", "rows", "median", or a layout name)
-func DoLayoutRankings(layoutsDir string, layoutFiles []string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, weights *Weights, metricsSet string, deltas string) error {
+func DoLayoutRankings(layoutsDir string, layoutFiles []string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyWeights *[12]float64, weights *Weights, metricsSet string, deltas string) error {
 	// Select the appropriate metric set
 	metrics, ok := MetricsMap[metricsSet]
 	if !ok {
@@ -164,7 +164,7 @@ func DoLayoutRankings(layoutsDir string, layoutFiles []string, corpus *Corpus, i
 	}
 
 	// Load and analyze all layouts (needed for normalization even if we filter later)
-	analysers, err := LoadAnalysers(layoutsDir, corpus, idealRowLoad, idealfgrLoad)
+	analysers, err := LoadAnalysers(layoutsDir, corpus, idealRowLoad, idealfgrLoad, pinkyWeights)
 	if err != nil {
 		return err
 	}

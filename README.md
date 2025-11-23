@@ -151,6 +151,7 @@ The following metrics are currently supported by Keycraft. Spaces in the corpus 
 | IN:OUT   | Inward:Outward ratio                |          |
 | FBL      | Finger Balance                      |          |
 | POH      | Pinky Off Home                      |          |
+| POW      | Pinky Off Home Key Weighted         |          |
 | FLW      | Flowiness                           |          |
 
 ### Metric details
@@ -205,6 +206,7 @@ Redirections - All three keys on one hand
 - IN:OUT - ratio of inward rolls to outward rolls computed as (2RL-IN + 3RL-IN) / (2RL-OUT + 3RL-OUT)
 - FBL - cumulative absolute deviation (percentage points) from the ideal finger-load distribution
 - POH - percentage of unigram frequency typed with a pinky while that pinky is off the home row
+- POW - weighted percentage of unigram frequency typed with a pinky while off the home row key, using position-specific weights that penalize certain pinky positions more heavily
 - FLW - total percentage of normal alternations and inward and outward sequences
 
 ##### Ideal Finger-load distribution
