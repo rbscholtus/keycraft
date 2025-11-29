@@ -263,6 +263,8 @@ func (c *Corpus) addSkipgram(r1, r2 rune) {
 }
 
 // addWord increments the count of the given word in the corpus
+//
+//nolint:unused
 func (c *Corpus) addWord(word string) {
 	c.Words[word]++
 	c.TotalWordsCount++
@@ -271,7 +273,7 @@ func (c *Corpus) addWord(word string) {
 // addText processes text and extracts n-grams (unigrams, bigrams, trigrams, skipgrams).
 // Text is lowercased, and n-grams containing whitespace are skipped (word boundaries reset the window).
 //
-//nolint:unused // Superseded by addTextWithWords but kept for potential future use.
+//nolint:unused
 func (c *Corpus) addText(text string) {
 	text = strings.ToLower(text)
 	var prev1, prev2 rune
@@ -329,6 +331,8 @@ func (c *Corpus) loadFromFile(path string) error {
 
 // addTextWithWords processes text, extracting both words and n-grams.
 // Words are defined as sequences of letters and numbers, separated by other characters.
+//
+//nolint:unused // Superseded by addTextWithWords but kept for potential future use.
 func (c *Corpus) addTextWithWords(text string) {
 	text = strings.ToLower(text)
 
@@ -370,6 +374,8 @@ func (c *Corpus) addTextWithWords(text string) {
 // loadFromFileWithWords loads text from a file, extracting both words and n-grams.
 // After loading, prunes the word list to keep only the most frequent words covering
 // the specified percentage of total word occurrences.
+//
+//nolint:unused
 func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -398,6 +404,8 @@ func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) err
 // pruneWordsByCoverage reduces the word list to the most frequent words covering a target percentage.
 // For example, with coveragePercent=99, keeps only the most common words that together account
 // for 99% of all word occurrences. This reduces memory usage while retaining high-frequency vocabulary.
+//
+//nolint:unused
 func (c *Corpus) pruneWordsByCoverage(coveragePercent float64) {
 	if len(c.Words) == 0 {
 		return
