@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -17,7 +19,7 @@ var corpusCommand = &cli.Command{
 	Name:    "corpus",
 	Aliases: []string{"c"},
 	Usage:   "Display statistics for a text corpus",
-	Flags:   flagsSlice("corpus", "rows", "coverage-threshold"),
+	Flags:   flagsSlice("corpus", "corpus-rows", "coverage-threshold"),
 	Action:  corpusAction,
 }
 
@@ -33,24 +35,39 @@ func corpusAction(c *cli.Context) error {
 
 	fmt.Printf("Corpus: %s\n\n", corpus.Name)
 
-	fmt.Println(corpusWordLengthString(corpus))
+	fmt.Println(corpusWordLenDistStr(corpus))
 	fmt.Println()
 
-	fmt.Println(corpusUnigramsString(corpus, nrows))
+	fmt.Println(corpusUnigramsStr(corpus, nrows))
 	fmt.Println()
 
-	fmt.Println(corpusBigramsString(corpus, nrows))
+	fmt.Println(corpusBigramsStr(corpus, nrows))
 	fmt.Println()
 
-	fmt.Println(corpusTrigramsString(corpus, nrows))
+	fmt.Println(corpusBigramConsonStr(corpus, nrows))
 	fmt.Println()
 
-	fmt.Println(corpusSkipgramsString(corpus, nrows))
+	fmt.Println(corpusTrigramsStr(corpus, nrows))
 	fmt.Println()
 
-	fmt.Println(corpusWordsString(corpus, nrows))
+	fmt.Println(corpusSkipgramsStr(corpus, nrows))
+	fmt.Println()
+
+	fmt.Println(corpusWordsStr(corpus, nrows))
 
 	return nil
+}
+
+// calculatePagination calculates the number of rows per table and number of tables
+// for paginated display based on the total number of rows.
+// For up to 50 rows of data, the number of rows per table is fixed at 10.
+// For over 50 rows of data, the maximum number of tables is fixed at 5.
+func calculatePagination(nrows int) (rowsPerTable, numTables int) {
+	rowsPerTable, numTables = 10, (nrows+9)/10
+	if nrows > 50 {
+		rowsPerTable, numTables = (nrows+4)/5, 5
+	}
+	return rowsPerTable, numTables
 }
 
 // renderOuterCorpusTable renders the outer table layout, including pagination and title,
@@ -60,7 +77,11 @@ func renderOuterCorpusTable(inner table.Writer, title string, rowsPerTable int, 
 	p := inner.Pager(table.PageSize(rowsPerTable))
 	tables = append(tables, p.Render())
 	for p.Location() < numTables {
-		tables = append(tables, strings.TrimSpace(p.Next()))
+		next := strings.TrimSpace(p.Next())
+		if next == "" {
+			break
+		}
+		tables = append(tables, next)
 	}
 
 	outer := table.NewWriter()
@@ -75,35 +96,33 @@ func renderOuterCorpusTable(inner table.Writer, title string, rowsPerTable int, 
 	return outer.Render()
 }
 
-// corpusWordLengthString renders the word length distribution as a formatted table.
-func corpusWordLengthString(corpus *kc.Corpus) string {
+// corpusWordLenDistStr renders the word length distribution as a formatted table.
+func corpusWordLenDistStr(corpus *kc.Corpus) string {
 	lengthCounts := make(map[int]uint64)
 
 	for word, count := range corpus.Words {
-		length := len([]rune(word)) // Use runes to count characters properly
+		length := len([]rune(word))
 		lengthCounts[length] += count
 	}
 
 	t := createSimpleTable()
 	t.SetTitle("Word Length Distribution")
+	t.SetAutoIndex(false)
 
-	t.AppendHeader(table.Row{"orderby", "Length", "Count", "%"})
+	t.AppendHeader(table.Row{"orderby", "Length", "Count", "%", "Cum%"})
 
-	maxLength := 0
-	for length := range lengthCounts {
-		if length > maxLength {
-			maxLength = length
-		}
-	}
+	maxLength := slices.Max(slices.Collect(maps.Keys(lengthCounts)))
 
+	cumPct := 0.0
 	for length := 1; length <= maxLength; length++ {
 		if count, exists := lengthCounts[length]; exists {
 			pct := float64(count) / float64(corpus.TotalWordsCount)
-			t.AppendRow(table.Row{100 - length, fmt.Sprintf("%d chars", length), count, pct})
+			cumPct += pct
+			t.AppendRow(table.Row{-length, length, count, pct, cumPct})
 		}
 	}
 
-	t.AppendFooter(table.Row{"", "Total", corpus.TotalWordsCount, 1.0})
+	t.AppendFooter(table.Row{"", "Total", corpus.TotalWordsCount, 1.0, ""})
 
 	return t.Render()
 }
@@ -178,88 +197,100 @@ func displayChar(r rune) string {
 	}
 }
 
-// corpusUnigramsString renders the top unigrams as paginated tables.
-func corpusUnigramsString(corpus *kc.Corpus, nrows int) string {
-	rowsPerTable, numTables := 10, (nrows+9)/10
-	if nrows > 50 {
-		rowsPerTable, numTables = (nrows+4)/5, 5
-	}
+// corpusUnigramsStr renders the top unigrams as paginated tables.
+func corpusUnigramsStr(corpus *kc.Corpus, nrows int) string {
 	topUnigrams := corpus.TopUnigrams(nrows)
-	inner := createSimpleTable()
-	inner.AppendHeader(table.Row{"orderby", "Char", "Count", "%"})
+	rowsPerTable, numTables := calculatePagination(len(topUnigrams))
+	t := createSimpleTable()
+	t.AppendHeader(table.Row{"orderby", "Ch", "Count", "%", "Cum%"})
+	cumPct := 0.0
 	for _, pair := range topUnigrams {
 		char := displayChar(rune(pair.Key))
 		pct := float64(pair.Count) / float64(corpus.TotalUnigramsCount)
-		inner.AppendRow(table.Row{pair.Count, char, pair.Count, pct})
+		cumPct += pct
+		t.AppendRow(table.Row{pair.Count, char, pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top Unigrams (Total %s)", Comma(corpus.TotalUnigramsCount))
-	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
+	title := fmt.Sprintf("Top-%d Unigrams (Total %s)", len(topUnigrams), Comma(corpus.TotalUnigramsCount))
+	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
 
-// corpusBigramsString renders the top bigrams as paginated tables.
-func corpusBigramsString(corpus *kc.Corpus, nrows int) string {
-	rowsPerTable, numTables := 10, (nrows+9)/10
-	if nrows > 50 {
-		rowsPerTable, numTables = (nrows+4)/5, 5
-	}
+// corpusBigramsStr renders the top bigrams as paginated tables.
+func corpusBigramsStr(corpus *kc.Corpus, nrows int) string {
 	topBigrams := corpus.TopBigrams(nrows)
-	inner := createSimpleTable()
-	inner.AppendHeader(table.Row{"orderby", "Bigram", "Count", "%"})
+	rowsPerTable, numTables := calculatePagination(len(topBigrams))
+	t := createSimpleTable()
+	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
+	cumPct := 0.0
 	for _, pair := range topBigrams {
 		pct := float64(pair.Count) / float64(corpus.TotalBigramsCount)
-		inner.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct})
+		cumPct += pct
+		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top Bigrams (Total %s)", Comma(corpus.TotalBigramsCount))
-	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
+	title := fmt.Sprintf("Top-%d Bigrams (Total %s)", len(topBigrams), Comma(corpus.TotalBigramsCount))
+	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
 
-// corpusTrigramsString renders the top trigrams as paginated tables.
-func corpusTrigramsString(corpus *kc.Corpus, nrows int) string {
-	rowsPerTable, numTables := 10, (nrows+9)/10
-	if nrows > 50 {
-		rowsPerTable, numTables = (nrows+4)/5, 5
+// corpusBigramConsonStr renders the top consonant-only bigrams as paginated tables.
+func corpusBigramConsonStr(corpus *kc.Corpus, nrows int) string {
+	topConsonantBigrams, totalConsonantBigramsCount := corpus.TopConsonantBigrams(nrows)
+	rowsPerTable, numTables := calculatePagination(len(topConsonantBigrams))
+
+	t := createSimpleTable()
+	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
+	cumPct := 0.0
+	for _, pair := range topConsonantBigrams {
+		pct := float64(pair.Count) / float64(totalConsonantBigramsCount)
+		cumPct += pct
+		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
 	}
+	title := fmt.Sprintf("Top-%d Consonant-Only Bigrams (Total %s)", len(topConsonantBigrams), Comma(totalConsonantBigramsCount))
+	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
+}
+
+// corpusTrigramsStr renders the top trigrams as paginated tables.
+func corpusTrigramsStr(corpus *kc.Corpus, nrows int) string {
 	topTrigrams := corpus.TopTrigrams(nrows)
-	inner := createSimpleTable()
-	inner.AppendHeader(table.Row{"orderby", "Trigram", "Count", "%"})
+	rowsPerTable, numTables := calculatePagination(len(topTrigrams))
+	t := createSimpleTable()
+	t.AppendHeader(table.Row{"orderby", "Tri", "Count", "%", "Cum%"})
+	cumPct := 0.0
 	for _, pair := range topTrigrams {
 		pct := float64(pair.Count) / float64(corpus.TotalTrigramsCount)
-		inner.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct})
+		cumPct += pct
+		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top Trigrams (Total %s)", Comma(corpus.TotalTrigramsCount))
-	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
+	title := fmt.Sprintf("Top-%d Trigrams (Total %s)", len(topTrigrams), Comma(corpus.TotalTrigramsCount))
+	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
 
-// corpusSkipgramsString renders the top skipgrams as paginated tables.
-func corpusSkipgramsString(corpus *kc.Corpus, nrows int) string {
-	rowsPerTable, numTables := 10, (nrows+9)/10
-	if nrows > 50 {
-		rowsPerTable, numTables = (nrows+4)/5, 5
-	}
+// corpusSkipgramsStr renders the top skipgrams as paginated tables.
+func corpusSkipgramsStr(corpus *kc.Corpus, nrows int) string {
 	topSkipgrams := corpus.TopSkipgrams(nrows)
-	inner := createSimpleTable()
-	inner.AppendHeader(table.Row{"orderby", "Skipgram", "Count", "%"})
+	rowsPerTable, numTables := calculatePagination(len(topSkipgrams))
+	t := createSimpleTable()
+	t.AppendHeader(table.Row{"orderby", "Skp", "Count", "%", "Cum%"})
+	cumPct := 0.0
 	for _, pair := range topSkipgrams {
 		pct := float64(pair.Count) / float64(corpus.TotalSkipgramsCount)
-		inner.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct})
+		cumPct += pct
+		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top Skipgrams (Total %s)", Comma(corpus.TotalSkipgramsCount))
-	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
+	title := fmt.Sprintf("Top-%d Skipgrams (Total %s)", len(topSkipgrams), Comma(corpus.TotalSkipgramsCount))
+	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
 
-// corpusWordsString renders the top words as a paginated table.
-func corpusWordsString(corpus *kc.Corpus, nrows int) string {
-	rowsPerTable, numTables := 10, (nrows+9)/10
-	if nrows > 50 {
-		rowsPerTable, numTables = (nrows+4)/5, 5
-	}
+// corpusWordsStr renders the top words as a paginated table.
+func corpusWordsStr(corpus *kc.Corpus, nrows int) string {
 	topWords := corpus.TopWords(nrows)
-	inner := createSimpleTable()
-	inner.AppendHeader(table.Row{"orderby", "Word", "Count", "%"})
+	rowsPerTable, numTables := calculatePagination(len(topWords))
+	t := createSimpleTable()
+	t.AppendHeader(table.Row{"orderby", "Word", "Count", "%", "Cum%"})
+	cumPct := 0.0
 	for _, pair := range topWords {
 		pct := float64(pair.Count) / float64(corpus.TotalWordsCount)
-		inner.AppendRow(table.Row{pair.Count, pair.Key, pair.Count, pct})
+		cumPct += pct
+		t.AppendRow(table.Row{pair.Count, pair.Key, pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top Words (Total %s)", Comma(corpus.TotalWordsCount))
-	return renderOuterCorpusTable(inner, title, rowsPerTable, numTables)
+	title := fmt.Sprintf("Top-%d Words (Total %s)", len(topWords), Comma(corpus.TotalWordsCount))
+	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
