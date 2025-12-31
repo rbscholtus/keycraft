@@ -21,10 +21,22 @@ var appFlagsMap = map[string]cli.Flag{
 		Usage:   "The corpus file used for calculating keyboard metrics.",
 		Value:   "default.txt",
 	},
+	"corpus-rows": &cli.IntFlag{
+		Name:    "rows",
+		Aliases: []string{"r"},
+		Usage:   "Specify the maximum number of rows to display in data tables (must be at least 1).",
+		Value:   100,
+		Action: func(c *cli.Context, value int) error {
+			if value < 1 {
+				return fmt.Errorf("--rows must be at least 1 (got %d)", value)
+			}
+			return nil
+		},
+	},
 	"coverage-threshold": &cli.Float64Flag{
 		Name:    "coverage-threshold",
 		Aliases: []string{"ct"},
-		Usage:   "Percentage threshold (0.1-100.0) for corpus word coverage. Used to filter out low frequency words. The words kept in memory cover this %% of the corpus, and low frequency words beyond the threshold are discarded. This applies only to the word list, and forces a cache rebuild if specified.",
+		Usage:   "Percentage threshold (0.1-100.0) for corpus word coverage. Used to filter out low frequency words. The words kept in memory cover this % of the corpus, and low frequency words beyond the threshold are discarded. This applies only to the word list, and forces a cache rebuild if specified.",
 		Value:   98.0,
 		Action: func(c *cli.Context, value float64) error {
 			if value < 0.1 || value > 100.0 {
