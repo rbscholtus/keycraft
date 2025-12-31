@@ -111,14 +111,16 @@ func corpusWordLenDistStr(corpus *kc.Corpus) string {
 
 	t.AppendHeader(table.Row{"orderby", "Length", "Count", "%", "Cum%"})
 
-	maxLength := slices.Max(slices.Collect(maps.Keys(lengthCounts)))
+	if len(lengthCounts) > 0 {
+		maxLength := slices.Max(slices.Collect(maps.Keys(lengthCounts)))
 
-	cumPct := 0.0
-	for length := 1; length <= maxLength; length++ {
-		if count, exists := lengthCounts[length]; exists {
-			pct := float64(count) / float64(corpus.TotalWordsCount)
-			cumPct += pct
-			t.AppendRow(table.Row{-length, length, count, pct, cumPct})
+		cumPct := 0.0
+		for length := 1; length <= maxLength; length++ {
+			if count, exists := lengthCounts[length]; exists {
+				pct := float64(count) / float64(corpus.TotalWordsCount)
+				cumPct += pct
+				t.AppendRow(table.Row{-length, length, count, pct, cumPct})
+			}
 		}
 	}
 
