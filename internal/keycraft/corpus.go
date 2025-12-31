@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
@@ -200,7 +199,7 @@ func (c *Corpus) StringSorted(limit int) string {
 	return sb.String()
 }
 
-// String returns a string representation of the corpus showing the top 10 bigrams by default.
+// String returns a string representation of the corpus showing the top 10 n-grams by default.
 func (c *Corpus) String() string {
 	return c.StringSorted(10)
 }
@@ -211,7 +210,7 @@ func (c *Corpus) String() string {
 // If forceReload is true, it skips loading from JSON and always rebuilds from text.
 func NewCorpusFromFile(name, path string, forceReload bool, coveragePercent float64) (*Corpus, error) {
 	// Compute the JSON filename in the same directory as filename
-	jsonPath := filepath.Join(path + ".json")
+	jsonPath := path + ".json"
 
 	// If forceReload is false, try to load from JSON cache if it exists and is newer than source file
 	if !forceReload {
@@ -224,7 +223,7 @@ func NewCorpusFromFile(name, path string, forceReload bool, coveragePercent floa
 
 	// Otherwise, load from the text file and save JSON cache
 	c := NewCorpus(name)
-	if err := c.loadFromFile(path); err != nil {
+	if err := c.loadFromFileWithWords(path, coveragePercent); err != nil {
 		return nil, err
 	}
 	if err := c.SaveJSON(jsonPath); err != nil {
@@ -527,6 +526,37 @@ func (c *Corpus) TopSkipgrams(n int) []CountPair[Skipgram] {
 		return sorted[:n]
 	}
 	return sorted
+}
+
+// TopConsonantBigrams returns the top N most frequent bigrams containing only consonants,
+// along with the total count of all consonant-only bigrams.
+// Consonants are defined as letters excluding vowels (a, e, i, o, u).
+// If n <= 0 or exceeds the filtered count, returns all consonant-only bigrams.
+func (c *Corpus) TopConsonantBigrams(n int) ([]CountPair[Bigram], uint64) {
+	isVowel := func(r rune) bool {
+		r = unicode.ToLower(r)
+		return r == 'a' || r == 'e' || r == 'i' || r == 'o' || r == 'u'
+	}
+
+	isConsonant := func(r rune) bool {
+		return unicode.IsLetter(r) && !isVowel(r)
+	}
+
+	// Filter bigrams to only include consonant-only pairs
+	consonantBigrams := make(map[Bigram]uint64, len(c.Bigrams))
+	var totalCount uint64
+	for bigram, count := range c.Bigrams {
+		if isConsonant(bigram[0]) && isConsonant(bigram[1]) {
+			consonantBigrams[bigram] = count
+			totalCount += count
+		}
+	}
+
+	sorted := SortedMap(consonantBigrams)
+	if n > 0 && n < len(sorted) {
+		return sorted[:n], totalCount
+	}
+	return sorted, totalCount
 }
 
 // TopWords returns the top N most frequent words.
