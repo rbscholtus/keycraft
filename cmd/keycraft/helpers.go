@@ -12,9 +12,9 @@ import (
 )
 
 // getCorpusFromFlags loads the corpus specified by the --corpus flag,
-// considering the --coverage-threshold flag if set.
+// considering the --coverage flag if set.
 func getCorpusFromFlags(c *cli.Context) (*kc.Corpus, error) {
-	return loadCorpus(c.String("corpus"), c.IsSet("coverage-threshold"), c.Float64("coverage-threshold"))
+	return loadCorpus(c.String("corpus"), c.IsSet("coverage"), c.Float64("coverage"))
 }
 
 // getFingerLoadFromFlag parses and scales the --finger-load flag into percentages.
@@ -66,14 +66,14 @@ func loadWeightsFromFlags(c *cli.Context) (*kc.Weights, error) {
 }
 
 // loadCorpus loads a corpus from corpusDir.
-// forceReload bypasses cache, and coverageThreshold filters low-frequency words.
-func loadCorpus(filename string, forceReload bool, coverageThreshold float64) (*kc.Corpus, error) {
+// forceReload bypasses cache, and coverage filters low-frequency words.
+func loadCorpus(filename string, forceReload bool, coverage float64) (*kc.Corpus, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("corpus file is required")
 	}
 	corpusName := strings.TrimSuffix(filename, filepath.Ext(filename))
 	path := filepath.Join(corpusDir, filename)
-	return kc.NewCorpusFromFile(corpusName, path, forceReload, coverageThreshold)
+	return kc.NewCorpusFromFile(corpusName, path, forceReload, coverage)
 }
 
 // loadLayout loads a layout from layoutDir, automatically appending .klf if needed.

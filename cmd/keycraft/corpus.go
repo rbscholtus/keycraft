@@ -19,7 +19,7 @@ var corpusCommand = &cli.Command{
 	Name:    "corpus",
 	Aliases: []string{"c"},
 	Usage:   "Display statistics for a text corpus",
-	Flags:   flagsSlice("corpus", "corpus-rows", "coverage-threshold"),
+	Flags:   flagsSlice("corpus", "corpus-rows", "coverage"),
 	Action:  corpusAction,
 }
 

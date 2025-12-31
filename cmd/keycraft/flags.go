@@ -12,8 +12,8 @@ import (
 var validMetricSets []string = slices.Collect(maps.Keys(kc.MetricsMap))
 
 // appFlagsMap is a centralized map of CLI flags used across various commands.
-// It keeps flag definitions in one place, allowing commands to select only the flags they need,
-// promoting reusability and consistency.
+// It keeps flag definitions in one place, allowing commands to select only the
+// flags they need, promoting reusability and consistency.
 var appFlagsMap = map[string]cli.Flag{
 	"corpus": &cli.StringFlag{
 		Name:    "corpus",
@@ -24,7 +24,7 @@ var appFlagsMap = map[string]cli.Flag{
 	"corpus-rows": &cli.IntFlag{
 		Name:    "rows",
 		Aliases: []string{"r"},
-		Usage:   "Specify the maximum number of rows to display in data tables (must be at least 1).",
+		Usage:   "Specify the maximum number of rows to display in data tables.",
 		Value:   100,
 		Action: func(c *cli.Context, value int) error {
 			if value < 1 {
@@ -33,14 +33,16 @@ var appFlagsMap = map[string]cli.Flag{
 			return nil
 		},
 	},
-	"coverage-threshold": &cli.Float64Flag{
-		Name:    "coverage-threshold",
-		Aliases: []string{"ct"},
-		Usage:   "Percentage threshold (0.1-100.0) for corpus word coverage. Used to filter out low frequency words. The words kept in memory cover this % of the corpus, and low frequency words beyond the threshold are discarded. This applies only to the word list, and forces a cache rebuild if specified.",
-		Value:   98.0,
+	"coverage": &cli.Float64Flag{
+		Name: "coverage",
+		Usage: "Percentage (0.1-100.0) for corpus word coverage. Used to filter out " +
+			"low frequency words. The words kept in memory cover the specified " +
+			"percentage of the corpus. Applies only to word length frequency and word " +
+			"list. If specified, forces a corpus cache rebuild.",
+		Value: 98.0,
 		Action: func(c *cli.Context, value float64) error {
 			if value < 0.1 || value > 100.0 {
-				return fmt.Errorf("--coverage-threshold must be 0.1-100 (got %f)", value)
+				return fmt.Errorf("--coverage must be 0.1-100 (got %f)", value)
 			}
 			return nil
 		},
@@ -48,25 +50,31 @@ var appFlagsMap = map[string]cli.Flag{
 	"row-load": &cli.StringFlag{
 		Name:    "row-load",
 		Aliases: []string{"rl"},
-		Usage:   "Define ideal row load percentages. Provide 3 comma-separated floats for top row, home row, and bottom row. Values are scaled to sum to 100%.",
-		Value:   "18.5,73,8.5", // default: top, home, bottom
+		Usage: "Define ideal row load percentages. Provide 3 comma-separated floats " +
+			"for top row, home row, and bottom row. Values are scaled to sum to 100%.",
+		Value: "18.5,73,8.5", // default: top, home, bottom
 	},
 	"finger-load": &cli.StringFlag{
 		Name:    "finger-load",
 		Aliases: []string{"fl"},
-		Usage:   "Define ideal finger load percentages. Provide 4 comma-separated floats (F0-F3, mirrored to F9-F6) or 8 floats (F0-F3, F6-F9). Thumbs (F4/F5) are always 0.0. Values are scaled to sum to 100%.",
-		Value:   "7.5,11,16,15.5", // default 4-values mirrored
+		Usage: "Define ideal finger load percentages. Provide 4 comma-separated floats " +
+			"(F0-F3, mirrored to F9-F6) or 8 floats (F0-F3, F6-F9). Thumbs (F4/F5) are " +
+			"always 0.0. Values are scaled to sum to 100%.",
+		Value: "7.5,11,16,15.5", // default 4-values mirrored
 	},
 	"pinky-weights": &cli.StringFlag{
 		Name:    "pinky-weights",
 		Aliases: []string{"pw"},
-		Usage:   "Define pinky off-home penalty weights. Provide 6 comma-separated floats (left hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner; mirrored to right hand) or 12 floats (left then right). Higher values penalize more.",
-		Value:   "3,2,1,0,2,1", // default 6-values mirrored
+		Usage: "Define pinky off-home penalty weights. Provide 6 comma-separated floats " +
+			"(left hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, " +
+			"bottom-inner; mirrored to right hand) or 12 floats (left then right). " +
+			"Higher values penalize more.",
+		Value: "3,2,1,0,2,1", // default 6-values mirrored
 	},
 	"rows": &cli.IntFlag{
 		Name:    "rows",
 		Aliases: []string{"r"},
-		Usage:   "Specify the maximum number of rows to display in data tables (must be at least 1).",
+		Usage:   "Specify the maximum number of rows to display in data tables.",
 		Value:   10,
 		Action: func(c *cli.Context, value int) error {
 			if value < 1 {
@@ -78,40 +86,50 @@ var appFlagsMap = map[string]cli.Flag{
 	"weights-file": &cli.StringFlag{
 		Name:    "weights-file",
 		Aliases: []string{"wf"},
-		Usage:   "The text file containing custom weights for scoring layouts. Values provided via the '--weights' flag will override these file-based weights.",
-		Value:   "default.txt",
+		Usage: "The text file containing custom weights for scoring layouts. Values " +
+			"provided via the '--weights' flag will override these file-based weights.",
+		Value: "default.txt",
 	},
 	"weights": &cli.StringFlag{
 		Name:    "weights",
 		Aliases: []string{"w"},
-		Usage:   "Custom weights for scoring layouts, provided as a comma-separated string (e.g., 'sfb=-3.0,lsb=-2.0'). These values override any weights specified in a weights file.",
+		Usage: "Custom weights for scoring layouts, provided as a comma-separated " +
+			"string (e.g., 'sfb=-3.0,lsb=-2.0'). These values override any weights " +
+			"specified in a weights file.",
 	},
 	"metrics": &cli.StringFlag{
 		Name:    "metrics",
 		Aliases: []string{"m"},
-		Usage:   fmt.Sprintf("Specify which set of metrics to display. Available options: %v.", validMetricSets),
+		Usage:   fmt.Sprintf("Specify which set of metrics to display. %v.", validMetricSets),
 		Value:   "basic",
 	},
 	"deltas": &cli.StringFlag{
 		Name:    "deltas",
 		Aliases: []string{"d"},
-		Usage:   "Control how metric deltas are displayed: 'none' (no deltas), 'rows' (row-by-row differences), 'median' (difference relative to the median), or provide a '<layout>' name to compare against a specific base layout.",
-		Value:   "none",
+		Usage: "Control how metric deltas are displayed: 'none' (no deltas), 'rows' " +
+			"(row-by-row differences), 'median' (difference relative to the median), " +
+			"or provide a '<layout>' name to compare against a specific base layout.",
+		Value: "none",
 	},
 	"pins-file": &cli.StringFlag{
 		Name:    "pins-file",
 		Aliases: []string{"pf"},
-		Usage:   "The text file specifying keys to pin (keep in their current position) during optimization. If no file is provided, default keys ('~' and '_') are pinned.",
+		Usage: "The text file specifying keys to pin (keep in their current position) " +
+			"during optimization. If no file is provided, default keys ('~' and '_') " +
+			"are pinned.",
 	},
 	"pins": &cli.StringFlag{
 		Name:    "pins",
 		Aliases: []string{"p"},
-		Usage:   "Additional characters to pin to their current positions during optimization (e.g., 'aeiouy'). These are added to any keys specified in a pins file.",
+		Usage: "Additional characters to pin to their current positions during " +
+			"optimization (e.g., 'aeiouy'). These are added to any keys specified in " +
+			"a pins file.",
 	},
 	"free": &cli.StringFlag{
 		Name:    "free",
 		Aliases: []string{"f"},
-		Usage:   "Specify characters that are free to be moved during optimization. All other characters not explicitly listed here will be pinned.",
+		Usage: "Specify characters that are free to be moved during optimization. All " +
+			"other characters not explicitly listed here will be pinned.",
 	},
 	"generations": &cli.UintFlag{
 		Name:    "generations",
@@ -128,8 +146,9 @@ var appFlagsMap = map[string]cli.Flag{
 	"seed": &cli.Int64Flag{
 		Name:    "seed",
 		Aliases: []string{"s"},
-		Usage:   "Random seed for reproducible optimization results. If not specified, uses current Unix timestamp.",
-		Value:   0,
+		Usage: "Random seed for reproducible optimization results. If not specified, " +
+			"uses current Unix timestamp.",
+		Value: 0,
 	},
 	"log-file": &cli.StringFlag{
 		Name:    "log-file",
