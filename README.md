@@ -104,7 +104,7 @@ Now you should have something like:
 Now this should run! Proceed with the quick examples below.
 
 ```bash
-# View corpus statistics for the default corpus (shai)
+# View corpus statistics for the default corpus (Shai)
 keycraft c
 
 # View a built-in layout
@@ -114,7 +114,7 @@ keycraft v qwerty
 keycraft a qwerty colemak dvorak
 
 # Rank built-in layouts with custom weights (making SFB the dominant metric)
-# Note many metrics are considered negative are written with a -
+# Note many metrics are considered negative; they are written with a -
 keycraft r --weights sfb=-1000
 
 # Optimise the qwerty layout but keeping its signature keys in place
@@ -145,7 +145,7 @@ go install github.com/rbscholtus/keycraft/cmd/keycraft@latest
 ### Advanced Features
 
 - Supports 4x6 + 3 (x2) layouts (row-staggered, angle-modded, ortholinear, and column-staggered)
-- Supports 56 layout metrics (including row, column, and finger balance)
+- Supports 56 layout metrics (including hand, row, column, and finger stats)
 - Supports Euclidian distance specific to each physical layout type
 - Supports MonkeyRacer, Shai (default), and AKL corpus files out of the box
 - Supports a default corpus, eliminating the need to specify the corpus for every command
