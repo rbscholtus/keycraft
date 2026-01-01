@@ -38,6 +38,9 @@ func corpusAction(c *cli.Context) error {
 	fmt.Println(corpusWordLenDistStr(corpus))
 	fmt.Println()
 
+	fmt.Println(corpusWordsStr(corpus, nrows))
+	fmt.Println()
+
 	fmt.Println(corpusUnigramsStr(corpus, nrows))
 	fmt.Println()
 
@@ -51,9 +54,6 @@ func corpusAction(c *cli.Context) error {
 	fmt.Println()
 
 	fmt.Println(corpusSkipgramsStr(corpus, nrows))
-	fmt.Println()
-
-	fmt.Println(corpusWordsStr(corpus, nrows))
 
 	return nil
 }
