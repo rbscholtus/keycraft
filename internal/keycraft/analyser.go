@@ -66,18 +66,18 @@ func DefaultIdealFingerLoad() *[10]float64 {
 func DefaultPinkyWeights() *[12]float64 {
 	return &[12]float64{
 		// Left pinky
-		3.0, // top-outer (row 0, col 0)
-		2.0, // top-inner (row 0, col 1)
+		1.0, // top-outer (row 0, col 0)
+		1.0, // top-inner (row 0, col 1)
 		1.0, // home-outer (row 1, col 0)
 		0.0, // home-inner (row 1, col 1)
-		2.0, // bottom-outer (row 2, col 0)
+		1.0, // bottom-outer (row 2, col 0)
 		1.0, // bottom-inner (row 2, col 1)
 		// Right pinky (mirrored)
-		3.0, // top-outer (row 0, col 11)
-		2.0, // top-inner (row 0, col 10)
+		1.0, // top-outer (row 0, col 11)
+		1.0, // top-inner (row 0, col 10)
 		1.0, // home-outer (row 1, col 11)
 		0.0, // home-inner (row 1, col 10)
-		2.0, // bottom-outer (row 2, col 11)
+		1.0, // bottom-outer (row 2, col 11)
 		1.0, // bottom-inner (row 2, col 10)
 	}
 }
