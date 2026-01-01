@@ -212,7 +212,7 @@ func DoLayoutRankings(layoutsDir string, layoutFiles []string, corpus *Corpus, i
 	}
 
 	// Display the ranking table
-	renderTable(layoutScores, metrics, weights, metricsSet == "extended", deltas, base)
+	renderTable(layoutScores, metrics, weights, metricsSet != "fingers", deltas, base)
 
 	return nil
 }
