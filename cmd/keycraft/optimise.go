@@ -10,12 +10,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// optimiseCommand defines the "optimise" CLI command for running simulated annealing
+// optimiseCommand defines the "optimise" CLI command for running Breakout Local Search (BLS)
 // optimization on a keyboard layout.
 var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Aliases:   []string{"o"},
-	Usage:     "Optimise a keyboard layout using simulated annealing",
+	Usage:     "Optimise a keyboard layout using Breakout Local Search (BLS)",
 	Flags:     flagsSlice("corpus", "row-load", "finger-load", "pinky-weights", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed", "log-file"),
 	ArgsUsage: "<layout>",
 	Before:    validateOptFlags,
@@ -30,7 +30,7 @@ func validateOptFlags(c *cli.Context) error {
 	return nil
 }
 
-// optimiseAction performs layout optimization using simulated annealing,
+// optimiseAction performs layout optimization using Breakout Local Search (BLS),
 // then analyzes and ranks the original vs optimized layouts.
 func optimiseAction(c *cli.Context) error {
 	corpus, err := getCorpusFromFlags(c)
