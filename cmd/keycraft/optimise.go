@@ -2,28 +2,27 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
-	"slices"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/urfave/cli/v2"
 )
 
-// validAcceptFuncs lists supported strategies for the accept-worse decision
-// used during optimisation passes.
-var validAcceptFuncs = []string{"always", "drop-slow", "linear", "drop-fast", "never"}
-
+// optimiseCommand defines the "optimise" CLI command for running Breakout Local Search (BLS)
+// optimization on a keyboard layout.
 var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Aliases:   []string{"o"},
-	Usage:     "Optimise a keyboard layout using simulated annealing",
-	Flags:     flagsSlice("corpus", "finger-load", "weights-file", "weights", "pins-file", "pins", "free", "generations", "accept-worse"),
+	Usage:     "Optimise a keyboard layout using Breakout Local Search (BLS)",
+	Flags:     flagsSlice("corpus", "row-load", "finger-load", "pinky-weights", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed", "log-file"),
 	ArgsUsage: "<layout>",
 	Before:    validateOptFlags,
 	Action:    optimiseAction,
 }
 
-// validateViewFlags validates CLI flags before running the view command.
+// validateOptFlags validates CLI flags before running the optimise command.
 func validateOptFlags(c *cli.Context) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected exactly 1 layout, got %d", c.Args().Len())
@@ -31,13 +30,15 @@ func validateOptFlags(c *cli.Context) error {
 	return nil
 }
 
-// optimiseAction performs optimisation for a single layout file:
-//   - loads corpus, weights and pins
-//   - validates accept-function and generation count
-//   - runs optimisation and persists the best layout
-//   - runs analysis and ranking on original vs optimized layouts
+// optimiseAction performs layout optimization using Breakout Local Search (BLS),
+// then analyzes and ranks the original vs optimized layouts.
 func optimiseAction(c *cli.Context) error {
 	corpus, err := getCorpusFromFlags(c)
+	if err != nil {
+		return err
+	}
+
+	rowBal, err := getRowLoadFromFlag(c)
 	if err != nil {
 		return err
 	}
@@ -47,20 +48,27 @@ func optimiseAction(c *cli.Context) error {
 		return err
 	}
 
-	weights, err := loadWeightsFromFlags(c)
+	pinkyWeights, err := getPinkyWeightsFromFlag(c)
 	if err != nil {
 		return err
 	}
 
-	acceptFunction := c.String("accept-worse")
-	if !slices.Contains(validAcceptFuncs, acceptFunction) {
-		return fmt.Errorf("invalid accept function: %s. Must be one of: %v", acceptFunction, validAcceptFuncs)
+	weights, err := loadWeightsFromFlags(c)
+	if err != nil {
+		return err
 	}
 
 	numGenerations := c.Uint("generations")
 	if numGenerations <= 0 {
 		return fmt.Errorf("number of generations must be above 0. Got: %d", numGenerations)
 	}
+
+	maxTime := c.Uint("maxtime")
+	if maxTime <= 0 {
+		return fmt.Errorf("maximum time must be above 0. Got: %d", maxTime)
+	}
+
+	seed := c.Int64("seed")
 
 	layoutFile := c.Args().First()
 	layout, err := loadLayout(layoutFile)
@@ -72,11 +80,42 @@ func optimiseAction(c *cli.Context) error {
 	if pinsPath != "" {
 		pinsPath = filepath.Join(pinsDir, pinsPath)
 	}
-	if err := layout.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free")); err != nil {
+	pinned, err := kc.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free"), layout)
+	if err != nil {
 		return err
 	}
 
-	best := layout.Optimise(corpus, fingerBal, weights, numGenerations, acceptFunction)
+	// Set up log file if specified
+	var logFile io.Writer
+	logFilePath := c.String("log-file")
+	if logFilePath != "" {
+		f, err := os.Create(logFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to create log file %s: %v", logFilePath, err)
+		}
+		defer kc.CloseFile(f)
+		logFile = f
+	}
+
+	// Run optimization with specified row and finger balance
+	best, err := kc.OptimizeLayoutBLS(
+		layout,
+		layoutDir,
+		corpus,
+		weights,
+		rowBal,              // ideal row load distribution
+		fingerBal,           // ideal finger load distribution
+		pinkyWeights,        // pinky off-home penalty weights
+		pinned,              // pinned keys
+		int(numGenerations), // max iterations
+		int(maxTime),        // max time in minutes
+		seed,                // random seed
+		os.Stdout,           // console output
+		logFile,             // JSONL log file
+	)
+	if err != nil {
+		return err
+	}
 
 	// Save best layout to file
 	bestPath := filepath.Join(layoutDir, best.Name+".klf")
@@ -88,12 +127,12 @@ func optimiseAction(c *cli.Context) error {
 	layoutsToCompare := []string{layout.Name, best.Name}
 
 	// Call DoAnalysis with the layouts
-	if err := DoAnalysis(layoutsToCompare, corpus, fingerBal, false, 0); err != nil {
+	if err := DoAnalysis(layoutsToCompare, corpus, rowBal, fingerBal, pinkyWeights, false, 0); err != nil {
 		return fmt.Errorf("failed to perform layout analysis: %v", err)
 	}
 
 	// Call DoLayoutRankings with the layouts
-	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, fingerBal, weights, "extended", layout.Name); err != nil {
+	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, rowBal, fingerBal, pinkyWeights, weights, "extended", layout.Name); err != nil {
 		return fmt.Errorf("failed to perform layout rankings: %v", err)
 	}
 

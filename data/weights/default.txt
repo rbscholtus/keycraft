@@ -6,7 +6,7 @@ LSB = -4.0
 FSB = -2.666
 HSB = -1.333
 
-SFS = -2.0
+SFS = -3.0
 LSS = -1.0
 FSS = -0.666
 HSS = -0.333
@@ -35,6 +35,7 @@ RED-SFS  = -0.001
 RED-NML  = -2
 
 IN:OUT = 0
+FLW    = 0
+RBL    = -1.0
 FBL    = -2.0
 POH    = -2.0
-FLW    = 0

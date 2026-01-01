@@ -13,21 +13,25 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// experimentCommand defines the "experiment" CLI command.
+// This command is intended for developer use to run various experiments.
 var experimentCommand = &cli.Command{
 	Name:      "experiment",
 	Aliases:   []string{"x"},
-	Usage:     "Run experiments (for the developer)",
+	Usage:     "Run experiments (for developer use)",
 	ArgsUsage: "<layout.klf>",
-	Flags:     flagsSlice("corpus", "finger-load", "weights-file", "weights", "free", "generations", "accept-worse"),
+	Flags:     flagsSlice("corpus", "finger-load", "weights-file", "weights", "free", "generations"),
 	Action:    DoExperiment3,
 }
 
+// KeyInfo represents the position and finger assignment of a key in a layout.
 type KeyInfo struct {
 	Row    int    `json:"row"`
 	Col    int    `json:"col"`
 	Finger string `json:"finger"`
 }
 
+// Layout represents a keyboard layout with metadata and key mappings.
 type Layout struct {
 	Name   string `json:"name"`
 	User   any    `json:"user"`
@@ -37,8 +41,9 @@ type Layout struct {
 	Likes  uint
 }
 
+// DoExperiment3 processes and analyzes layout data from external sources.
+// It loads author and like data, filters layouts, and prints statistics.
 func DoExperiment3(c *cli.Context) (err error) {
-	// Load authors.json
 	authorsFile := "./authors.json"
 	authorsData, err := os.ReadFile(authorsFile)
 	if err != nil {
@@ -48,13 +53,11 @@ func DoExperiment3(c *cli.Context) (err error) {
 	if err := json.Unmarshal(authorsData, &authorsMap); err != nil {
 		return fmt.Errorf("error parsing %s: %v", authorsFile, err)
 	}
-	// Reverse lookup: from int64 to string
 	reverseAuthors := make(map[any]string)
 	for name, id := range authorsMap {
 		reverseAuthors[id] = name
 	}
 
-	// Load likes.json
 	likesFile := "./likes.json"
 	likesData, err := os.ReadFile(likesFile)
 	if err != nil {
@@ -69,7 +72,6 @@ func DoExperiment3(c *cli.Context) (err error) {
 		likesMap[name] = uint(len(numbers))
 	}
 
-	// load layouts
 	dir := "./cmini"
 
 	files, err := os.ReadDir(dir)
@@ -102,7 +104,6 @@ func DoExperiment3(c *cli.Context) (err error) {
 			continue
 		}
 
-		// Check if all letters a-z are present in layout.Keys
 		if len(layout.Keys) < 26 {
 			continue
 		}
@@ -117,24 +118,18 @@ func DoExperiment3(c *cli.Context) (err error) {
 			continue
 		}
 
-		// Assign likes from likesMap
 		layout.Likes = likesMap[layout.Name]
 
-		// Assign author from reverseAuthors map if possible
 		if authorName, ok := reverseAuthors[layout.User]; ok {
 			layout.Author = authorName
 		}
 
-		// Skip layouts with 0 likes
 		if layout.Likes == 0 {
 			continue
 		}
 		layouts = append(layouts, layout)
 	}
 
-	// godump.Dump(layouts[0].Keys)
-
-	// Sort layouts by Likes descending
 	slices.SortFunc(layouts, func(a, b Layout) int {
 		if a.Likes > b.Likes {
 			return -1
@@ -150,13 +145,11 @@ func DoExperiment3(c *cli.Context) (err error) {
 			l.Name, l.Author, l.Board, len(l.Keys), l.Likes)
 	}
 
-	// Count how many layouts each author has authored
 	authorCounts := make(map[string]int)
 	for _, layout := range layouts {
 		authorCounts[layout.Author]++
 	}
 
-	// Print authors and counts, sorted by count descending
 	fmt.Println("\nAuthors:")
 	type authorCount struct {
 		Author string
@@ -182,6 +175,7 @@ func DoExperiment3(c *cli.Context) (err error) {
 	return
 }
 
+// ExperimentAction analyzes distance metrics between key pairs on a layout.
 func ExperimentAction(c *cli.Context) error {
 	_, err := loadCorpus(c.String("corpus"), false, 98)
 	layout, err2 := loadLayout(c.Args().First())
@@ -213,8 +207,6 @@ func ExperimentAction(c *cli.Context) error {
 		}
 	}
 
-	// fmt.Println(tw.Render())
-
 	fmt.Println(layout)
 	for _, lsb := range layout.LSBs {
 		bi := string(layout.Runes[lsb.KeyIdx1]) + string(layout.Runes[lsb.KeyIdx2])
@@ -224,14 +216,17 @@ func ExperimentAction(c *cli.Context) error {
 	return nil
 }
 
+/* // ExperimentAction2 runs layout optimization experiments with pin variations.
 func ExperimentAction2(c *cli.Context) error {
 	fmt.Println("Running experiment...")
 
-	// Load the corpus used for analysing layouts.
 	corpus, err := loadCorpus(c.String("corpus"), false, 98)
 	if err != nil {
 		return err
 	}
+
+	// Use default row load for experiments
+	rowLoad := kc.DefaultIdealRowLoad()
 
 	fbStr := c.String("finger-load")
 	fingerBal, err := parseFingerLoad(fbStr)
@@ -281,9 +276,8 @@ func ExperimentAction2(c *cli.Context) error {
 			return err
 		}
 
-		best := layout.Optimise(corpus, fingerBal, weights, numGenerations, acceptFunction)
+		best := layout.Optimise(corpus, rowLoad, fingerBal, weights, numGenerations, acceptFunction)
 
-		// Save best layout to file
 		name := filepath.Base(layout.Name)
 		ext := strings.ToLower(filepath.Ext(name))
 		if ext == ".klf" {
@@ -297,8 +291,9 @@ func ExperimentAction2(c *cli.Context) error {
 	}
 
 	return nil
-}
+} */
 
+// generateVariations generates all combinations created by removing k characters from s.
 func generateVariations(s string, k int) []string {
 	var results []string
 	n := len(s)
@@ -306,7 +301,6 @@ func generateVariations(s string, k int) []string {
 	var comb func(start, depth int, indices []int)
 	comb = func(start, depth int, indices []int) {
 		if depth == k {
-			// create a map for quick lookup of indices to remove
 			remove := make(map[int]bool)
 			for _, idx := range indices {
 				remove[idx] = true
@@ -328,11 +322,10 @@ func generateVariations(s string, k int) []string {
 	return results
 }
 
-// countRuneDifferences compares two layouts by their Runes slices
-// and returns the number of positions where the rune differs.
+// countRuneDifferences returns the number of positions where two layouts differ.
+// Returns -1 if the layouts have different lengths.
 func countRuneDifferences(base, other *kc.SplitLayout) int {
 	if len(base.Runes) != len(other.Runes) {
-		// not directly comparable
 		return -1
 	}
 	changed := 0
@@ -344,6 +337,7 @@ func countRuneDifferences(base, other *kc.SplitLayout) int {
 	return changed
 }
 
+// compareAllQwertyLayouts compares qwerty.klf against all qwerty*.klf variants.
 func compareAllQwertyLayouts() error {
 	baseLayoutPath := filepath.Join(layoutDir, "qwerty.klf")
 	base, err := loadLayout("qwerty.klf")
@@ -371,11 +365,11 @@ func compareAllQwertyLayouts() error {
 	return nil
 }
 
+// DoExperiment2 analyzes and categorizes trigram statistics for a layout.
 func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 	stats := make(map[string]uint64)
 
 	for tri, cnt := range corp.Trigrams {
-		// Cross-hand trigrams
 		add2Roll := func(h, fA, fB uint8) {
 			switch {
 			case fA == fB:
@@ -402,14 +396,12 @@ func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 		switch h0 {
 		case h2:
 			if h0 != h1 {
-				// ALT or ALT-SFS
 				if f0 == f2 && diffIdx02 {
 					stats["ALT-SFS"] += cnt
 				} else {
 					stats["ALT"] += cnt
 				}
 			} else {
-				// One-hand trigrams
 				switch {
 				case f0 == f1 || f1 == f2:
 					stats["3RL-SFB"] += cnt
@@ -433,12 +425,11 @@ func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 			}
 		case h1:
 			add2Roll(h0, f0, f1)
-		default: // h1 == h2
+		default:
 			add2Roll(h1, f1, f2)
 		}
 	}
 
-	// Print stats
 	tot := 0.0
 	for k, v := range stats {
 		tot += float64(v)
@@ -447,140 +438,17 @@ func DoExperiment2(corp *kc.Corpus, lay *kc.SplitLayout) {
 	fmt.Println(float64(tot) / float64(corp.TotalTrigramsCount) * 100)
 }
 
+// DoExperiment1 prints basic corpus information.
 func DoExperiment1(corp *kc.Corpus) {
-	// a := ly.SortedMap(corp.Unigrams)
-	// for _, v := range a[:10] {
-	// 	fmt.Println(v.Key.String(), " ", v.Count)
-	// }
 	fmt.Println(corp)
-	// var fav *ly.KeyInfo
-
-	// keys := [42]ly.KeyInfo{}
-	// for i := range keys {
-	// 	keys[i].Column = I2col(i)
-	// 	keys[i].Row = I2row(i)
-	// 	if i == 17 {
-	// 		fav = &keys[i]
-	// 	}
-	// }
-	// for _, k := range keys {
-	// 	fmt.Println(k)
-	// }
-	// fmt.Println(*fav)
-	// fmt.Println(fav)
-	// fmt.Println(fav.Row)
-
-	// for i := range 42 {
-	// 	ik := ly.NewKeyInfo(uint8(i/12), uint8(i%12))
-	// 	for j := range 42 {
-	// 		if i == j {
-	// 			continue
-	// 		}
-	// 		jk := ly.NewKeyInfo(uint8(j/12), uint8(j%12))
-	// 		if ik.Finger == jk.Finger {
-	// 			// fmt.Printf("SFB: %d,%d: %v %v\n", i, j, ik, jk)
-	// 		}
-	// 	}
-	// }
-
 }
 
-// // Standard keyboard offsets
-// var rowStagOffsets = [4]float64{
-// 	0, 0.25, 0.75, 0,
-// }
-
-// // Corne-style offsets
-// var colStagOffsets = [12]float64{
-// 	0.35, 0.35, 0.1, 0, 0.1, 0.2, 0.2, 0.1, 0, 0.1, 0.35, 0.35,
-// }
-
-// // Get the x "coordinate", which is just the column for ortho and colstag
-// func getAdjustedColumn(row uint8, column uint8) float64 {
-// 	return float64(column)
-// }
-
-// // Get the y "coordinate", which is adjusted for col-staggered keyboards
-// func getAdjustedRowStaggered(row uint8, column uint8) float64 {
-// 	return float64(row) + colStagOffsets[column]
-// }
-
-// // Get the y "coordinate", which is just the row for ortho and rowstag
-// func getAdjustedRow(row uint8, column uint8) float64 {
-// 	return float64(row)
-// }
-
-// type KeyPairDistance struct {
-// 	rowDist  float64
-// 	colDist  float64
-// 	distance float64
-// }
-
-// func doExperiment(corp *ly.Corpus) {
-// 	ltype := ly.ORTHO
-
-// 	// How to calculate adjusted row and col
-// 	var getAdjRowDist, getAdjColDist func(uint8, uint8, uint8, uint8) float64
-// 	switch ltype {
-// 	case ly.ROWSTAG:
-// 		getAdjRowDist, getAdjColDist = AbsRowDist, AbsColDistAdj
-// 	case ly.COLSTAG:
-// 		getAdjRowDist, getAdjColDist = AbsRowDistAdj, AbsColDist
-// 	default:
-// 		getAdjRowDist, getAdjColDist = AbsRowDist, AbsColDist
-// 	}
-
-// 	var k1, k2 uint8
-// 	for k1 = range 42 {
-// 		row1, col1 := k1/12, k1%12
-// 		for k2 = range 42 {
-// 			if k1 == k2 {
-// 				continue
-// 			}
-// 			row2, col2 := k2/12, k2%12
-
-// 			// skip if we on different hands
-// 			if ((row1 < 3 && col1 < 6) || (row1 >= 3 && col1 < 3)) !=
-// 				((row2 < 3 && col2 < 6) || (row2 >= 3 && col2 < 3)) {
-// 				continue
-// 			}
-
-// 			// calculate distances
-// 			dx := getAdjRowDist(row1, col1, row2, col2)
-// 			dy := getAdjColDist(row1, col1, row2, col2)
-// 			dist := math.Sqrt(dx*dx + dy*dy)
-// 			pair := KeyPairDistance{
-// 				rowDist:  dy,
-// 				colDist:  dx,
-// 				distance: dist,
-// 			}
-// 			fmt.Println(pair)
-// 		}
-// 	}
-// }
-
-// func AbsRowDist(row1, col1, row2, col2 uint8) float64 {
-// 	return math.Abs(float64(row1) - float64(row2))
-// }
-
-// func AbsRowDistAdj(row1, col1, row2, col2 uint8) float64 {
-// 	return math.Abs((float64(row1) + colStagOffsets[col1] -
-// 		(float64(row2) + colStagOffsets[col2])))
-// }
-
-// func AbsColDist(row1, col1, row2, col2 uint8) float64 {
-// 	return math.Abs(float64(col1) - float64(col2))
-// }
-
-// func AbsColDistAdj(row1, col1, row2, col2 uint8) float64 {
-// 	return math.Abs((float64(col1) + rowStagOffsets[row1] -
-// 		(float64(col2) + rowStagOffsets[row2])))
-// }
-
+// I2col converts a linear key index 'i' to its corresponding column index (0-11).
 func I2col[T ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64](i T) uint8 {
 	return uint8(i % 12)
 }
 
+// I2row converts a linear key index 'i' to its corresponding row index (0-3).
 func I2row[T ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64](i T) uint8 {
 	return uint8(i / 12)
 }
