@@ -35,8 +35,7 @@ RED-SFS  = -0.001
 RED-NML  = -2
 
 IN:OUT = 0
+FLW    = 0
 RBL    = -1.0
 FBL    = -2.0
-POH    = -0.001
-POW    = -8.0
-FLW    = 0
+POH    = -2.0

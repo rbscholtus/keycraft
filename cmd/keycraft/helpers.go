@@ -217,7 +217,7 @@ func parsePinkyWeights(s string) (*[12]float64, error) {
 
 	// If the user provided 6 values, mirror them to create the 12-value representation.
 	if len(parts) == 6 {
-		for i := 0; i < 6; i++ {
+		for i := range 6 {
 			parts = append(parts, parts[i])
 		}
 	}

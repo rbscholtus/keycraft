@@ -69,7 +69,7 @@ var appFlagsMap = map[string]cli.Flag{
 			"(left hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, " +
 			"bottom-inner; mirrored to right hand) or 12 floats (left then right). " +
 			"Higher values penalize more.",
-		Value: "3,2,1,0,2,1", // default 6-values mirrored
+		Value: "1,1,1,0,1,1", // default 6-values mirrored
 	},
 	"rows": &cli.IntFlag{
 		Name:    "rows",

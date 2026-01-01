@@ -10,9 +10,10 @@ import (
 var MetricsMap = map[string][]string{
 	"basic": {
 		"SFB", "LSB", "FSB", "HSB",
-		"SFS", // "LSS", "FSS", "HSS",
+		"SFS",
 		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
-		"IN:OUT", "RBL", "FBL", "POH", "POW", "FLW",
+		"IN:OUT", "FLW",
+		"POH",
 	},
 	"extended": {
 		"SFB", "LSB", "FSB", "HSB",
@@ -21,13 +22,14 @@ var MetricsMap = map[string][]string{
 		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
 		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
 		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
-		"IN:OUT", "RBL", "FBL", "POH", "POW", "FLW",
+		"IN:OUT", "FLW",
+		"RBL", "FBL", "POH",
 	},
 	"fingers": {
-		"H0", "H1",
-		"R0", "R1", "R2", "R3",
 		"F0", "F1", "F2", "F3", "F4",
+		"H0", "H1",
 		"F5", "F6", "F7", "F8", "F9",
+		"R0", "R1", "R2", "R3",
 	},
 }
 
@@ -146,7 +148,6 @@ func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealRowLoad *[3]float64, 
 // with special handling for pinkies (only positive deviations count).
 func (an *Analyser) analyseHand() {
 	var totalUnigramCount uint64
-	var pinkyOffHomeCount uint64
 	var pinkyOffWeighted float64
 	var handCount [2]uint64
 	var fingerCount [10]uint64
@@ -182,10 +183,7 @@ func (an *Analyser) analyseHand() {
 		// Count main row keys (rows 0-2) for balance calculations
 		if key.Row < 3 {
 			totalUnigramCount += uniCnt
-			if (key.Finger == LP || key.Finger == RP) && key.Row != 1 {
-				pinkyOffHomeCount += uniCnt
-			}
-			// POW: weighted pinky penalty
+			// POH: weighted pinky penalty
 			if key.Finger == LP || key.Finger == RP {
 				if idx, ok := pofIndex[[2]uint8{key.Row, key.Column}]; ok {
 					pinkyOffWeighted += an.PinkyWeights[idx] * float64(uniCnt)
@@ -205,8 +203,7 @@ func (an *Analyser) analyseHand() {
 		totFactor = 100 / float64(totalUnigramCount)
 	}
 
-	an.Metrics["POH"] = float64(pinkyOffHomeCount) * totFactor
-	an.Metrics["POW"] = pinkyOffWeighted * totFactor
+	an.Metrics["POH"] = pinkyOffWeighted * totFactor
 	for i, c := range handCount {
 		an.Metrics["H"+strconv.Itoa(i)] = float64(c) * totFactor
 	}

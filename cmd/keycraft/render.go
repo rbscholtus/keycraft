@@ -294,15 +294,15 @@ func MetricsString(an *kc.Analyser) string {
 			fmt.Sprintf(".SFS: %.2f%%", an.Metrics["RED-SFS"]),
 		},
 		{
-			fmt.Sprintf("RBL: %.2f", an.Metrics["RBL"]),
-			fmt.Sprintf("FBL: %.2f%%", an.Metrics["FBL"]),
-			fmt.Sprintf("POH: %.2f%%", an.Metrics["POH"]),
-			fmt.Sprintf("POW: %.2f%%", an.Metrics["POW"]),
-		},
-		{
 			fmt.Sprintf("I:O: %.2f", an.Metrics["IN:OUT"]),
 			fmt.Sprintf("FLW: %.2f%%", an.Metrics["FLW"]),
 			"",
+			"",
+		},
+		{
+			fmt.Sprintf("RBL: %.2f", an.Metrics["RBL"]),
+			fmt.Sprintf("FBL: %.2f%%", an.Metrics["FBL"]),
+			fmt.Sprintf("POH: %.2f%%", an.Metrics["POH"]),
 			"",
 		},
 	}
