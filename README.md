@@ -194,11 +194,10 @@ The following metrics are currently supported by Keycraft. Spaces in the corpus 
 | RED-NML  | Redirections — Other                | "ion", "ate", "ere" |
 | IN:OUT   | Inward:Outward rolls ratio          |          |
 | FLW      | Flowiness                           |          |
-| H0,H1    | Left-hand, Right-hand usage         |          |
 | RBL      | Row Balance                         |          |
 | FBL      | Finger Balance                      |          |
 | POH      | Pinky Off Home (Weighted)           |          |
-| Not shown | Row, column, and finger balance    |          |
+| Not shown | Hand, row, column, and finger stats |          |
 
 
 
@@ -258,7 +257,7 @@ Redirections - All three keys on one hand
 - FBL - cumulative absolute deviation (percentage points) from the ideal finger-load distribution
 - POH - percentage of unigram frequency typed with a pinky while off the home row key, weighted using position-specific weights that penalize some pinky positions more heavily than others
 
-##### Reference Row-load distribution
+#### Reference Row-load distribution
 
 More detail coming.
 
@@ -266,13 +265,31 @@ More detail coming.
 |--------------:|:-------:|:--------:|:----------:|
 | Reference (%) | 18.5    | 73.0     | 8.5        |
 
-##### Ideal Finger-load distribution
+#### Ideal Finger-load distribution
 
 More detail coming.
 
 |               | Left-Pinky | Left-Ring | Left-Middle | Left-Index | Right-Index | Right-Middle | Right-Ring | Right-Pinky |
 |--------------:|:----------:|:---------:|:-----------:|:----------:|:-----------:|:------------:|:----------:|:-----------:|
 | Ideal load (%)| 7.5        | 11.0      | 16.0        | 15.5       | 15.5        | 16.0         | 11.0       | 7.5         |
+
+
+#### Pinky Off Home (POH) weights
+
+The weights for calculating POH can be specified on the command-line. This can be used to penalize certain pinky keys more than others, for example the key in the top-right.
+
+The default weights resemble the Pinky Off stat used by getreuer and are shown below:
+```
+╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮    
+│   │1.0│1.0│   │   │   │  │   │   │   │   │1.0│1.0│    
+╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮ ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮   
+ │   │1.0│ 0 │   │   │   │  │   │   │   │   │ 0 │1.0│   
+ ╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮ 
+   │   │1.0│1.0│   │   │   │  │   │   │   │   │1.0│1.0│ 
+   ╰───┴───┴───┼───┼───┼───┤  ├───┼───┼───┼───┴───┴───╯ 
+               │   │   │   │  │   │   │   │             
+               ╰───┴───┴───╯  ╰───┴───┴───╯             
+```
 
 #### Hand balance metrics
 
