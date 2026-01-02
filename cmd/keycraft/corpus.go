@@ -50,6 +50,9 @@ func corpusAction(c *cli.Context) error {
 	fmt.Println(corpusBigramConsonStr(corpus, nrows))
 	fmt.Println()
 
+	fmt.Println(corpusDoubleLettersStr(corpus, nrows))
+	fmt.Println()
+
 	fmt.Println(corpusTrigramsStr(corpus, nrows))
 	fmt.Println()
 
@@ -161,7 +164,7 @@ func corpusWordFrequencyString(corpus *kc.Corpus) string {
 		return pairs[i].count > pairs[j].count
 	})
 
-	uniqueWords := uint64(len(corpus.Words))
+	uniqueWords := len(corpus.Words)
 
 	for _, pair := range pairs {
 		pct := float64(pair.count) / float64(uniqueWords)
@@ -212,7 +215,8 @@ func corpusUnigramsStr(corpus *kc.Corpus, nrows int) string {
 		cumPct += pct
 		t.AppendRow(table.Row{pair.Count, char, pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top-%d Unigrams (Total %s)", len(topUnigrams), Comma(corpus.TotalUnigramsCount))
+	title := fmt.Sprintf("Top-%d Unigrams (Total %s occurrences of %s unigrams)",
+		len(topUnigrams), Comma(corpus.TotalUnigramsCount), Comma(len(corpus.Unigrams)))
 	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
 
@@ -228,24 +232,57 @@ func corpusBigramsStr(corpus *kc.Corpus, nrows int) string {
 		cumPct += pct
 		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top-%d Bigrams (Total %s)", len(topBigrams), Comma(corpus.TotalBigramsCount))
+	title := fmt.Sprintf("Top-%d Bigrams (Total %s occurrences of %s bigrams)",
+		len(topBigrams), Comma(corpus.TotalBigramsCount), Comma(len(corpus.Bigrams)))
 	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
 
 // corpusBigramConsonStr renders the top consonant-only bigrams as paginated tables.
 func corpusBigramConsonStr(corpus *kc.Corpus, nrows int) string {
-	topConsonantBigrams, totalConsonantBigramsCount := corpus.TopConsonantBigrams(nrows)
+	topConsonantBigrams, totalConsOnly, uniqueConsOnly := corpus.TopConsonantBigrams(nrows)
 	rowsPerTable, numTables := calculatePagination(len(topConsonantBigrams))
 
 	t := createSimpleTable()
 	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Name: "orderby", Hidden: true},
+		{Name: "Count", Transformer: Thousands},
+		{Name: "%", Transformer: Percentage3},
+		{Name: "Cum%", Transformer: Percentage3},
+	})
 	cumPct := 0.0
 	for _, pair := range topConsonantBigrams {
-		pct := float64(pair.Count) / float64(totalConsonantBigramsCount)
+		pct := float64(pair.Count) / float64(corpus.TotalBigramsCount)
 		cumPct += pct
 		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top-%d Consonant-Only Bigrams (Total %s)", len(topConsonantBigrams), Comma(totalConsonantBigramsCount))
+	title := fmt.Sprintf("Top-%d Consonant-Only Bigrams (Total %s occurrences of %s bigrams)",
+		len(topConsonantBigrams), Comma(totalConsOnly), Comma(uniqueConsOnly))
+	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
+}
+
+// corpusDoubleLettersStr renders the top double-letter bigrams as paginated tables.
+func corpusDoubleLettersStr(corpus *kc.Corpus, nrows int) string {
+	topDoubleLetters, totalDouble, uniqueDouble := corpus.TopDoubleLetters(nrows)
+	rowsPerTable, numTables := calculatePagination(len(topDoubleLetters))
+
+	t := createSimpleTable()
+	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Name: "orderby", Hidden: true},
+		{Name: "Count", Transformer: Thousands},
+		{Name: "%", Transformer: Percentage3},
+		{Name: "Cum%", Transformer: Percentage3},
+	})
+
+	cumPct := 0.0
+	for _, pair := range topDoubleLetters {
+		pct := float64(pair.Count) / float64(corpus.TotalBigramsCount)
+		cumPct += pct
+		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
+	}
+	title := fmt.Sprintf("Top-%d Double-Letter Bigrams (Total %s occurrences of %s bigrams)",
+		len(topDoubleLetters), Comma(totalDouble), Comma(uniqueDouble))
 	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
 
@@ -261,7 +298,8 @@ func corpusTrigramsStr(corpus *kc.Corpus, nrows int) string {
 		cumPct += pct
 		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top-%d Trigrams (Total %s)", len(topTrigrams), Comma(corpus.TotalTrigramsCount))
+	title := fmt.Sprintf("Top-%d Trigrams (Total %s occurrences of %s trigrams)",
+		len(topTrigrams), Comma(corpus.TotalTrigramsCount), Comma(len(corpus.Trigrams)))
 	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
 
@@ -277,7 +315,8 @@ func corpusSkipgramsStr(corpus *kc.Corpus, nrows int) string {
 		cumPct += pct
 		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top-%d Skipgrams (Total %s)", len(topSkipgrams), Comma(corpus.TotalSkipgramsCount))
+	title := fmt.Sprintf("Top-%d Skipgrams (Total %s occurrences of %s skipgrams)",
+		len(topSkipgrams), Comma(corpus.TotalSkipgramsCount), Comma(len(corpus.Skipgrams)))
 	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }
 
@@ -293,6 +332,7 @@ func corpusWordsStr(corpus *kc.Corpus, nrows int) string {
 		cumPct += pct
 		t.AppendRow(table.Row{pair.Count, pair.Key, pair.Count, pct, cumPct})
 	}
-	title := fmt.Sprintf("Top-%d Words (Total %s)", len(topWords), Comma(corpus.TotalWordsCount))
+	title := fmt.Sprintf("Top-%d Words (Total %s occurrences of %s words)",
+		len(topWords), Comma(corpus.TotalWordsCount), Comma(len(corpus.Words)))
 	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
 }

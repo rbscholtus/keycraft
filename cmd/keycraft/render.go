@@ -334,11 +334,15 @@ func EmptyStyle() table.Style {
 	return s
 }
 
-// Comma formats a uint64 with thousand separators.
-func Comma(v uint64) string {
+// Comma formats a numeric value with thousand separators.
+// Accepts integer types (int, int32, int64, uint, uint32, uint64) via generics.
+func Comma[T ~int | ~int32 | ~int64 | ~uint | ~uint32 | ~uint64](v T) string {
+	// Convert to uint64 for processing
+	val := uint64(v)
+
 	// Calculate the number of digits and commas needed.
 	var count byte
-	for n := v; n != 0; n = n / 10 {
+	for n := val; n != 0; n = n / 10 {
 		count++
 	}
 	count += (count - 1) / 3
@@ -349,9 +353,9 @@ func Comma(v uint64) string {
 
 	// Populate the output slice with digits and commas.
 	var counter byte
-	for v > 9 {
-		output[j] = byte(v%10) + '0'
-		v = v / 10
+	for val > 9 {
+		output[j] = byte(val%10) + '0'
+		val = val / 10
 		j--
 		if counter == 2 {
 			counter = 0
@@ -362,7 +366,7 @@ func Comma(v uint64) string {
 		}
 	}
 
-	output[j] = byte(v) + '0'
+	output[j] = byte(val) + '0'
 
 	return string(output)
 }
@@ -399,6 +403,14 @@ func Angle(val any) string {
 func Percentage(val any) string {
 	if number, ok := val.(float64); ok {
 		return fmt.Sprintf("%.2f%%", 100*number)
+	}
+	return fmt.Sprintf("%v", val)
+}
+
+// Percentage3 formats a fractional value (0..1) as a percentage with three decimals.
+func Percentage3(val any) string {
+	if number, ok := val.(float64); ok {
+		return fmt.Sprintf("%.3f%%", 100*number)
 	}
 	return fmt.Sprintf("%v", val)
 }

@@ -429,7 +429,7 @@ func (c *Corpus) pruneWordsByCoverage(coveragePercent float64) {
 	targetCount := uint64(float64(c.TotalWordsCount) * coveragePercent / 100.0)
 
 	// Accumulate words until target is reached
-	newWords := make(map[string]uint64)
+	newWords := make(map[string]uint64, len(c.Words)/10)
 	var coveredCount uint64
 	var keptWords int
 
@@ -529,10 +529,10 @@ func (c *Corpus) TopSkipgrams(n int) []CountPair[Skipgram] {
 }
 
 // TopConsonantBigrams returns the top N most frequent bigrams containing only consonants,
-// along with the total count of all consonant-only bigrams.
+// along with the total count of all consonant-only bigram occurrences and the number of unique consonant-only bigrams.
 // Consonants are defined as letters excluding vowels (a, e, i, o, u).
 // If n <= 0 or exceeds the filtered count, returns all consonant-only bigrams.
-func (c *Corpus) TopConsonantBigrams(n int) ([]CountPair[Bigram], uint64) {
+func (c *Corpus) TopConsonantBigrams(n int) ([]CountPair[Bigram], uint64, int) {
 	isVowel := func(r rune) bool {
 		r = unicode.ToLower(r)
 		return r == 'a' || r == 'e' || r == 'i' || r == 'o' || r == 'u'
@@ -542,21 +542,52 @@ func (c *Corpus) TopConsonantBigrams(n int) ([]CountPair[Bigram], uint64) {
 		return unicode.IsLetter(r) && !isVowel(r)
 	}
 
-	// Filter bigrams to only include consonant-only pairs
-	consonantBigrams := make(map[Bigram]uint64, len(c.Bigrams))
+	// Filter bigrams directly into a slice
+	pairs := make([]CountPair[Bigram], 0, 512)
 	var totalCount uint64
 	for bigram, count := range c.Bigrams {
 		if isConsonant(bigram[0]) && isConsonant(bigram[1]) {
-			consonantBigrams[bigram] = count
+			pairs = append(pairs, CountPair[Bigram]{bigram, count})
 			totalCount += count
 		}
 	}
 
-	sorted := SortedMap(consonantBigrams)
-	if n > 0 && n < len(sorted) {
-		return sorted[:n], totalCount
+	// Sort by count descending
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Count > pairs[j].Count
+	})
+
+	uniqueCount := len(pairs)
+	if n > 0 && n < len(pairs) {
+		return pairs[:n], totalCount, uniqueCount
 	}
-	return sorted, totalCount
+	return pairs, totalCount, uniqueCount
+}
+
+// TopDoubleLetters returns the top N most frequent bigrams where both runes are equal,
+// along with the total count of all double-letter bigram occurrences and the number of unique double-letter bigrams.
+// If n <= 0 or exceeds the total count, returns all double-letter bigrams.
+func (c *Corpus) TopDoubleLetters(n int) ([]CountPair[Bigram], uint64, int) {
+	// Filter bigrams directly into a slice
+	pairs := make([]CountPair[Bigram], 0, 64)
+	var totalCount uint64
+	for bigram, count := range c.Bigrams {
+		if bigram[0] == bigram[1] {
+			pairs = append(pairs, CountPair[Bigram]{bigram, count})
+			totalCount += count
+		}
+	}
+
+	// Sort by count descending
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Count > pairs[j].Count
+	})
+
+	uniqueCount := len(pairs)
+	if n > 0 && n < len(pairs) {
+		return pairs[:n], totalCount, uniqueCount
+	}
+	return pairs, totalCount, uniqueCount
 }
 
 // TopWords returns the top N most frequent words.

@@ -76,7 +76,7 @@ func BenchmarkTopConsonantBigrams(b *testing.B) {
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
 			for b.Loop() {
-				_, _ = corpus.TopConsonantBigrams(bm.nrows)
+				_, _, _ = corpus.TopConsonantBigrams(bm.nrows)
 			}
 		})
 	}
