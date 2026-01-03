@@ -161,7 +161,7 @@ func buildDisplayOptions(c *cli.Context) (RankingDisplayOptions, error) {
 		OutputFormat:   outputFmt,
 		MetricsOption:  metricsOpt,
 		CustomMetrics:  customMetrics,
-		ShowWeights:    metricsOpt != MetricsFingers,
+		ShowWeights:    true,
 		Weights:        weights,
 		DeltasOption:   deltasOpt,
 		BaseLayoutName: baseLayoutName,
