@@ -39,7 +39,7 @@ func OptimizeLayoutBLS(
 	weights *Weights,
 	rowBal *[3]float64,
 	fingerBal *[10]float64,
-	pinkyWeights *[12]float64,
+	pinkyPenalties *[12]float64,
 	pinned *PinnedKeys,
 	maxIterations int,
 	maxTimeMinutes int,
@@ -84,12 +84,12 @@ func OptimizeLayoutBLS(
 		idealFingerLoad = DefaultIdealFingerLoad()
 	}
 
-	idealPinkyWeights := pinkyWeights
-	if idealPinkyWeights == nil {
-		idealPinkyWeights = DefaultPinkyWeights()
+	idealPinkyPenalties := pinkyPenalties
+	if idealPinkyPenalties == nil {
+		idealPinkyPenalties = DefaultPinkyPenalties()
 	}
 
-	scorer, err := NewScorer(layoutsDir, corpus, idealRowLoad, idealFingerLoad, idealPinkyWeights, weights)
+	scorer, err := NewScorer(layoutsDir, corpus, idealRowLoad, idealFingerLoad, idealPinkyPenalties, weights)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scorer: %w", err)
 	}

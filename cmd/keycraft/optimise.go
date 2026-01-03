@@ -16,7 +16,7 @@ var optimiseCommand = &cli.Command{
 	Name:      "optimise",
 	Aliases:   []string{"o"},
 	Usage:     "Optimise a keyboard layout using Breakout Local Search (BLS)",
-	Flags:     flagsSlice("corpus", "row-load", "finger-load", "pinky-weights", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed", "log-file"),
+	Flags:     flagsSlice("corpus", "row-load", "finger-load", "pinky-penalties", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed", "log-file"),
 	ArgsUsage: "<layout>",
 	Before:    validateOptFlags,
 	Action:    optimiseAction,
@@ -48,7 +48,7 @@ func optimiseAction(c *cli.Context) error {
 		return err
 	}
 
-	pinkyWeights, err := getPinkyWeightsFromFlag(c)
+	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func optimiseAction(c *cli.Context) error {
 		weights,
 		rowBal,              // ideal row load distribution
 		fingerBal,           // ideal finger load distribution
-		pinkyWeights,        // pinky off-home penalty weights
+		pinkyPenalties,      // pinky off-home penalty weights
 		pinned,              // pinned keys
 		int(numGenerations), // max iterations
 		int(maxTime),        // max time in minutes
@@ -127,13 +127,37 @@ func optimiseAction(c *cli.Context) error {
 	layoutsToCompare := []string{layout.Name, best.Name}
 
 	// Call DoAnalysis with the layouts
-	if err := DoAnalysis(layoutsToCompare, corpus, rowBal, fingerBal, pinkyWeights, false, 0); err != nil {
+	if err := DoAnalysis(layoutsToCompare, corpus, rowBal, fingerBal, pinkyPenalties, false, 0); err != nil {
 		return fmt.Errorf("failed to perform layout analysis: %v", err)
 	}
 
-	// Call DoLayoutRankings with the layouts
-	if err := kc.DoLayoutRankings(layoutDir, layoutsToCompare, corpus, rowBal, fingerBal, pinkyWeights, weights, "extended", layout.Name); err != nil {
-		return fmt.Errorf("failed to perform layout rankings: %v", err)
+	// Perform layout ranking using new architecture
+	input := kc.RankingInput{
+		LayoutsDir:     layoutDir,
+		LayoutFiles:    layoutsToCompare,
+		Corpus:         corpus,
+		IdealRowLoad:   rowBal,
+		IdealFgrLoad:   fingerBal,
+		PinkyPenalties: pinkyPenalties,
+		Weights:        weights,
+	}
+
+	result, err := kc.ComputeRankings(input)
+	if err != nil {
+		return fmt.Errorf("failed to compute layout rankings: %v", err)
+	}
+
+	displayOpts := RankingDisplayOptions{
+		OutputFormat:   OutputTable,
+		MetricsOption:  MetricsWeighted,
+		ShowWeights:    true,
+		Weights:        weights,
+		DeltasOption:   DeltasCustom,
+		BaseLayoutName: layout.Name,
+	}
+
+	if err := RenderRankingTable(result, displayOpts); err != nil {
+		return fmt.Errorf("failed to render layout rankings: %v", err)
 	}
 
 	return nil

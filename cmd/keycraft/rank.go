@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -16,85 +15,179 @@ import (
 var rankCommand = &cli.Command{
 	Name:      "rank",
 	Aliases:   []string{"r"},
-	Usage:     "Rank keyboard layouts and optionally view deltas",
-	Flags:     flagsSlice("metrics", "deltas", "corpus", "row-load", "finger-load", "pinky-weights", "weights-file", "weights"),
+	Usage:     "Rank keyboard layouts, view detailed metrics, and view deltas",
+	Flags:     flagsSlice("metrics", "deltas", "output", "corpus", "row-load", "finger-load", "pinky-penalties", "weights-file", "weights"),
 	ArgsUsage: "<layout1> <layout2> ...",
 	Action:    rankAction,
 }
 
 // rankAction handles the rank command, loading data and displaying layout rankings.
 func rankAction(c *cli.Context) error {
-	metrics, err := getMetricsFromFlag(c)
+	// 1. Build display options (includes loading weights)
+	displayOpts, err := buildDisplayOptions(c)
 	if err != nil {
 		return err
 	}
 
-	deltas, baseLayout, err := getDeltasFromFlag(c)
+	// 2. Parse all CLI flags and build input (using weights from displayOpts)
+	input, err := buildRankingInput(c, displayOpts.Weights)
 	if err != nil {
 		return err
 	}
 
+	// 3. Compute rankings (business logic)
+	rankings, err := kc.ComputeRankings(input)
+	if err != nil {
+		return err
+	}
+
+	// 4. Render results (presentation layer)
+	return RenderRankingTable(rankings, displayOpts)
+}
+
+// buildRankingInput gathers all input parameters.
+func buildRankingInput(c *cli.Context, weights *kc.Weights) (kc.RankingInput, error) {
 	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
-		return err
+		return kc.RankingInput{}, err
 	}
 
 	rowLoad, err := getRowLoadFromFlag(c)
 	if err != nil {
-		return err
+		return kc.RankingInput{}, err
 	}
 
 	fingerBal, err := getFingerLoadFromFlag(c)
 	if err != nil {
-		return err
+		return kc.RankingInput{}, err
 	}
 
-	pinkyWeights, err := getPinkyWeightsFromFlag(c)
+	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
 	if err != nil {
-		return err
+		return kc.RankingInput{}, err
 	}
 
-	weights, err := loadWeightsFromFlags(c)
-	if err != nil {
-		return err
+	// Check if deltas references a specific layout (not "none", "rows", or "median")
+	deltasValue := c.String("deltas")
+	deltasValueLower := strings.ToLower(deltasValue)
+	var baseLayout string
+	if deltasValueLower != "none" && deltasValueLower != "rows" && deltasValueLower != "median" {
+		baseLayout = deltasValue
 	}
 
 	layouts, err := getLayoutsFromArgs(c, baseLayout)
 	if err != nil {
-		return err
+		return kc.RankingInput{}, err
 	}
 
-	// Perform the layout comparison and display results
-	return kc.DoLayoutRankings(layoutDir, layouts, corpus, rowLoad, fingerBal, pinkyWeights, weights, metrics, deltas)
+	return kc.RankingInput{
+		LayoutsDir:     layoutDir,
+		LayoutFiles:    layouts,
+		Corpus:         corpus,
+		IdealRowLoad:   rowLoad,
+		IdealFgrLoad:   fingerBal,
+		PinkyPenalties: pinkyPenalties,
+		Weights:        weights,
+	}, nil
 }
 
-// getMetricsFromFlag validates the --metrics flag and returns the metric set name.
-func getMetricsFromFlag(c *cli.Context) (string, error) {
-	m := strings.ToLower(c.String("metrics"))
-
-	if _, ok := kc.MetricsMap[m]; !ok {
-		opts := slices.Collect(maps.Keys(kc.MetricsMap))
-		return "", fmt.Errorf("invalid metrics mode %q; must be one of %v", m, opts)
+// buildDisplayOptions gathers display configuration.
+func buildDisplayOptions(c *cli.Context) (RankingDisplayOptions, error) {
+	// Load weights for display and delta coloring
+	weights, err := loadWeightsFromFlags(c)
+	if err != nil {
+		return RankingDisplayOptions{}, err
 	}
 
-	return m, nil
-}
+	// Parse output format
+	outputFmt := OutputTable
+	if c.IsSet("output") {
+		switch strings.ToLower(c.String("output")) {
+		case "table":
+			outputFmt = OutputTable
+		case "html":
+			outputFmt = OutputHTML
+		case "csv":
+			outputFmt = OutputCSV
+		default:
+			return RankingDisplayOptions{}, fmt.Errorf("invalid output format; must be one of: table, html, csv")
+		}
+	}
 
-// getDeltasFromFlag parses the --deltas flag.
-// Returns "none", "rows", "median", or a layout name to use as baseline.
-func getDeltasFromFlag(c *cli.Context) (deltas string, baseLayout string, err error) {
-	val := c.String("deltas")
-	lower := strings.ToLower(val)
+	metricsValue := strings.ToLower(c.String("metrics"))
 
-	switch lower {
-	case "none", "rows", "median":
-		deltas = lower
+	var metricsOpt MetricsOption
+	var customMetrics []string
+
+	// Check if it's "weighted" (special case - computed dynamically)
+	if metricsValue == "weighted" {
+		metricsOpt = MetricsWeighted
+	} else if _, ok := kc.MetricsMap[metricsValue]; ok {
+		// Check if it's a predefined metrics set
+		metricsOpt = MetricsOption(metricsValue)
+	} else {
+		// Treat as custom comma-separated list
+		metricsOpt = MetricsCustom
+		customMetrics = strings.Split(metricsValue, ",")
+		for i := range customMetrics {
+			customMetrics[i] = strings.TrimSpace(customMetrics[i])
+			customMetrics[i] = strings.ToUpper(customMetrics[i])
+		}
+
+		// Validate that all custom metrics exist
+		if err := validateMetrics(customMetrics); err != nil {
+			return RankingDisplayOptions{}, err
+		}
+	}
+
+	deltasValue := c.String("deltas")
+	deltasValueLower := strings.ToLower(deltasValue)
+	var deltasOpt DeltasOption
+	var baseLayoutName string
+
+	switch deltasValueLower {
+	case "none":
+		deltasOpt = DeltasNone
+	case "rows":
+		deltasOpt = DeltasRows
+	case "median":
+		deltasOpt = DeltasMedian
 	default:
-		deltas = ensureNoKlf(val)
-		baseLayout = deltas
+		deltasOpt = DeltasCustom
+		baseLayoutName = ensureNoKlf(deltasValue)
 	}
 
-	return
+	return RankingDisplayOptions{
+		OutputFormat:   outputFmt,
+		MetricsOption:  metricsOpt,
+		CustomMetrics:  customMetrics,
+		ShowWeights:    metricsOpt != MetricsFingers,
+		Weights:        weights,
+		DeltasOption:   deltasOpt,
+		BaseLayoutName: baseLayoutName,
+	}, nil
+}
+
+// validateMetrics checks that all provided metrics exist in the "all" metrics set.
+func validateMetrics(metrics []string) error {
+	allMetrics := kc.MetricsMap["all"]
+	validMetrics := make(map[string]bool, len(allMetrics))
+	for _, m := range allMetrics {
+		validMetrics[m] = true
+	}
+
+	var invalid []string
+	for _, metric := range metrics {
+		if !validMetrics[metric] {
+			invalid = append(invalid, metric)
+		}
+	}
+
+	if len(invalid) > 0 {
+		return fmt.Errorf("invalid metric(s): %v; run with --metrics=all to see all available metrics", invalid)
+	}
+
+	return nil
 }
 
 // getLayoutsFromArgs returns layouts from CLI args, or all .klf files if no args provided.

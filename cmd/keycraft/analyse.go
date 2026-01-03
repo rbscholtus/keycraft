@@ -16,7 +16,7 @@ var analyseCommand = &cli.Command{
 	Name:      "analyse",
 	Aliases:   []string{"a"},
 	Usage:     "Analyse one or more keyboard layouts in detail",
-	Flags:     flagsSlice("rows", "corpus", "row-load", "finger-load", "pinky-weights"),
+	Flags:     flagsSlice("rows", "corpus", "row-load", "finger-load", "pinky-penalties"),
 	ArgsUsage: "<layout1> <layout2> ...",
 	Before:    validateAnalyseFlags,
 	Action:    analyseAction,
@@ -49,7 +49,7 @@ func analyseAction(c *cli.Context) error {
 		return err
 	}
 
-	pinkyWeights, err := getPinkyWeightsFromFlag(c)
+	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func analyseAction(c *cli.Context) error {
 	layouts := getLayoutArgs(c)
 
 	// Run detailed analysis on all specified layouts with the given corpus and loads.
-	if err := DoAnalysis(layouts, corpus, rowLoad, fingerBal, pinkyWeights, true, c.Int("rows")); err != nil {
+	if err := DoAnalysis(layouts, corpus, rowLoad, fingerBal, pinkyPenalties, true, c.Int("rows")); err != nil {
 		return err
 	}
 
@@ -67,7 +67,7 @@ func analyseAction(c *cli.Context) error {
 // DoAnalysis loads analysers for the provided layouts, generates overview
 // rows (board, hand, row, stats), and optionally appends detailed metric
 // tables. The rendered table output is printed to stdout.
-func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, rowLoad *[3]float64, fgrLoad *[10]float64, pinkyWeights *[12]float64, dataTables bool, nRows int) error {
+func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, rowLoad *[3]float64, fgrLoad *[10]float64, pinkyPenalties *[12]float64, dataTables bool, nRows int) error {
 	// load an analyser for each layout
 	analysers := make([]*kc.Analyser, 0, len(layoutFilenames))
 	for _, fn := range layoutFilenames {
@@ -75,7 +75,7 @@ func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, rowLoad *[3]float64
 		if err != nil {
 			return err
 		}
-		an := kc.NewAnalyser(layout, corpus, rowLoad, fgrLoad, pinkyWeights)
+		an := kc.NewAnalyser(layout, corpus, rowLoad, fgrLoad, pinkyPenalties)
 		analysers = append(analysers, an)
 	}
 

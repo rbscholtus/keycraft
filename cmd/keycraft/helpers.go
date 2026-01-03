@@ -47,12 +47,12 @@ func getRowLoadFromFlag(c *cli.Context) (*[3]float64, error) {
 	return vals, nil
 }
 
-// getPinkyWeightsFromFlag parses the --pinky-weights flag into penalty weights.
+// getPinkyPenaltiesFromFlag parses the --pinky-penalties flag into penalty weights.
 // Accepts 6 values (mirrored for both hands) or 12 values (left then right).
 // Values are not scaled (used as-is for penalty calculations).
-func getPinkyWeightsFromFlag(c *cli.Context) (*[12]float64, error) {
-	pwStr := c.String("pinky-weights")
-	return parsePinkyWeights(pwStr)
+func getPinkyPenaltiesFromFlag(c *cli.Context) (*[12]float64, error) {
+	ppStr := c.String("pinky-penalties")
+	return parsePinkyPenalties(ppStr)
 }
 
 // loadWeightsFromFlags loads weights from the --weights-file and --weights flags.
@@ -201,13 +201,13 @@ func scaleFingerLoad(vals *[10]float64) error {
 	return nil
 }
 
-// parsePinkyWeights parses pinky weight values from a comma-separated string.
+// parsePinkyPenalties parses pinky penalty values from a comma-separated string.
 // Accepts 6 values (mirrored to 12) or 12 values directly.
 // Order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner.
-func parsePinkyWeights(s string) (*[12]float64, error) {
+func parsePinkyPenalties(s string) (*[12]float64, error) {
 	parts := strings.Split(s, ",")
 	if len(parts) != 6 && len(parts) != 12 {
-		return nil, fmt.Errorf("pinky-weights must have 6 or 12 comma-separated values (got %d)", len(parts))
+		return nil, fmt.Errorf("pinky-penalties must have 6 or 12 comma-separated values (got %d)", len(parts))
 	}
 	for i := range parts {
 		parts[i] = strings.TrimSpace(parts[i])
@@ -222,11 +222,11 @@ func parsePinkyWeights(s string) (*[12]float64, error) {
 	var pinkyVals [12]float64
 	for i, p := range parts {
 		if p == "" {
-			return nil, fmt.Errorf("empty value in pinky-weights at position %d", i)
+			return nil, fmt.Errorf("empty value in pinky-penalties at position %d", i)
 		}
 		v, err := strconv.ParseFloat(p, 64)
 		if err != nil {
-			return nil, fmt.Errorf("invalid float in pinky-weights at position %d: %v", i, err)
+			return nil, fmt.Errorf("invalid float in pinky-penalties at position %d: %v", i, err)
 		}
 		pinkyVals[i] = v
 	}

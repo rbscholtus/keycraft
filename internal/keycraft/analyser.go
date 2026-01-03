@@ -29,7 +29,28 @@ var MetricsMap = map[string][]string{
 		"F0", "F1", "F2", "F3", "F4",
 		"H0", "H1",
 		"F5", "F6", "F7", "F8", "F9",
+	},
+	"all": {
+		// Bigram metrics
+		"SFB", "LSB", "FSB", "HSB",
+		"SFS", "LSS", "FSS", "HSS",
+		// Trigram metrics
+		"ALT", "ALT-NML", "ALT-SFS",
+		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
+		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
+		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
+		// Flow metrics
+		"IN:OUT", "FLW",
+		// Balance metrics
+		"RBL", "FBL", "POH",
+		// Hand distribution
+		"H0", "H1",
+		// Finger distribution
+		"F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9",
+		// Row distribution
 		"R0", "R1", "R2", "R3",
+		// Column distribution
+		"C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11",
 	},
 }
 
@@ -60,10 +81,10 @@ func DefaultIdealFingerLoad() *[10]float64 {
 	}
 }
 
-// DefaultPinkyWeights returns the default pinky off-home penalty weights.
+// DefaultPinkyPenalties returns the default pinky off-home penalty weights.
 // Order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner.
 // Left hand uses columns 0 (outer) and 1 (inner), right hand uses columns 11 (outer) and 10 (inner).
-func DefaultPinkyWeights() *[12]float64 {
+func DefaultPinkyPenalties() *[12]float64 {
 	return &[12]float64{
 		// Left pinky
 		1.0, // top-outer (row 0, col 0)
@@ -105,36 +126,36 @@ type TrigramInfo struct {
 // Analyser computes ergonomic metrics for a keyboard layout using corpus n-gram frequencies.
 // Metrics are stored as percentages or ratios in the Metrics map.
 type Analyser struct {
-	Layout       *SplitLayout       // The keyboard layout being analyzed
-	Corpus       *Corpus            // Text corpus for n-gram frequencies
-	IdealRowLoad *[3]float64        // Target row load distribution (percentages for top, home, bottom)
-	IdealfgrLoad *[10]float64       // Target finger load distribution (percentages for F0-F9)
-	PinkyWeights *[12]float64       // Pinky off-home penalty weights (6 per hand)
-	Metrics      map[string]float64 // Computed metrics (e.g., "SFB", "ALT", "FBL")
+	Layout         *SplitLayout       // The keyboard layout being analyzed
+	Corpus         *Corpus            // Text corpus for n-gram frequencies
+	IdealRowLoad   *[3]float64        // Target row load distribution (percentages for top, home, bottom)
+	IdealfgrLoad   *[10]float64       // Target finger load distribution (percentages for F0-F9)
+	PinkyPenalties *[12]float64       // Pinky off-home penalty weights (6 per hand)
+	Metrics        map[string]float64 // Computed metrics (e.g., "SFB", "ALT", "FBL")
 
 	// Pre-filtered n-grams (injected by Scorer to avoid redundant filtering)
 	relevantTrigrams []TrigramInfo // Only trigrams with all 3 runes on layout
 }
 
 // NewAnalyser creates an Analyser and computes all metrics for the given layout.
-// If idealRowLoad, idealfgrLoad, or pinkyWeights are nil, uses defaults.
-func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyWeights *[12]float64) *Analyser {
+// If idealRowLoad, idealfgrLoad, or pinkyPenalties are nil, uses defaults.
+func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyPenalties *[12]float64) *Analyser {
 	if idealRowLoad == nil {
 		idealRowLoad = DefaultIdealRowLoad()
 	}
 	if idealfgrLoad == nil {
 		idealfgrLoad = DefaultIdealFingerLoad()
 	}
-	if pinkyWeights == nil {
-		pinkyWeights = DefaultPinkyWeights()
+	if pinkyPenalties == nil {
+		pinkyPenalties = DefaultPinkyPenalties()
 	}
 	an := &Analyser{
-		Layout:       layout,
-		Corpus:       corpus,
-		IdealRowLoad: idealRowLoad,
-		IdealfgrLoad: idealfgrLoad,
-		PinkyWeights: pinkyWeights,
-		Metrics:      make(map[string]float64, 60),
+		Layout:         layout,
+		Corpus:         corpus,
+		IdealRowLoad:   idealRowLoad,
+		IdealfgrLoad:   idealfgrLoad,
+		PinkyPenalties: pinkyPenalties,
+		Metrics:        make(map[string]float64, 60),
 	}
 	an.analyseHand()
 	an.analyseBigrams()
@@ -186,7 +207,7 @@ func (an *Analyser) analyseHand() {
 			// POH: weighted pinky penalty
 			if key.Finger == LP || key.Finger == RP {
 				if idx, ok := pofIndex[[2]uint8{key.Row, key.Column}]; ok {
-					pinkyOffWeighted += an.PinkyWeights[idx] * float64(uniCnt)
+					pinkyOffWeighted += an.PinkyPenalties[idx] * float64(uniCnt)
 				}
 			}
 			handCount[key.Hand] += uniCnt
