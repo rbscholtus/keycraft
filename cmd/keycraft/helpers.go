@@ -158,9 +158,7 @@ func parseFingerLoad(s string) (*[10]float64, error) {
 	// If the user provided 4 values, mirror them to create the 8-value representation.
 	// We append reversed order so after inserting thumb zeros the indices map to F0..F9.
 	if len(parts) == 4 {
-		for i := len(parts) - 1; i >= 0; i-- {
-			parts = append(parts, parts[i])
-		}
+		parts = append(parts, parts[3], parts[2], parts[1], parts[0])
 	}
 	parts = slices.Insert(parts, 4, "0.0", "0.0")
 
@@ -217,9 +215,7 @@ func parsePinkyWeights(s string) (*[12]float64, error) {
 
 	// If the user provided 6 values, mirror them to create the 12-value representation.
 	if len(parts) == 6 {
-		for i := range 6 {
-			parts = append(parts, parts[i])
-		}
+		parts = append(parts, parts...)
 	}
 
 	// convert values to float64
