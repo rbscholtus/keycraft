@@ -79,12 +79,26 @@ func (w *Weights) AddWeightsFromString(weightsStr string) error {
 	}
 
 	weightsStr = strings.ToUpper(strings.TrimSpace(weightsStr))
+
+	// Build a set of valid metrics for validation
+	allMetrics := MetricsMap["all"]
+	validMetrics := make(map[string]bool, len(allMetrics))
+	for _, m := range allMetrics {
+		validMetrics[m] = true
+	}
+
 	for pair := range strings.SplitSeq(weightsStr, ",") {
 		parts := strings.Split(pair, "=")
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid weights format: %s", pair)
 		}
 		metric := strings.TrimSpace(parts[0])
+
+		// Validate that the metric exists
+		if !validMetrics[metric] {
+			return fmt.Errorf("invalid metric %q; run with --metrics=all to see all available metrics", metric)
+		}
+
 		weight, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
 		if err != nil {
 			return fmt.Errorf("invalid weight value for metric %s", metric)
