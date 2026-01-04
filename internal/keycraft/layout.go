@@ -81,10 +81,10 @@ type SplitLayout struct {
 	KeyInfos         [95]KeyInfo                  // fast lookup for ASCII runes (32-126, indexed by rune-32)
 	KeyInfoValid     [95]bool                     // validity bitmap for KeyInfos array
 	KeyPairDistances *map[KeyPair]KeyPairDistance // cache of distances between key index pairs
-	SFBs             []SFBInfo                    // same-finger bigram key-pairs (pre-computed for performance)
-	LSBs             []LSBInfo                    // notable lateral-stretch bigram key-pairs
-	FScissors        []ScissorInfo                // notable full scissor key-pairs
-	HScissors        []ScissorInfo                // notable half scissor key-pairs
+	SFBs             []SFBInfo                    // cache of notable same-finger bigram key-pairs
+	LSBs             []LSBInfo                    // cache of notable lateral-stretch bigram key-pairs
+	FScissors        []ScissorInfo                // cache of notable full scissor key-pairs
+	HScissors        []ScissorInfo                // cache of notable half scissor key-pairs
 }
 
 // NewSplitLayout creates a new split layout and initializes precomputed ergonomic patterns
@@ -108,6 +108,7 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo
 		}
 	}
 
+	// pre-calculate caches
 	sl.initSFBs()
 	sl.initLSBs()
 	sl.initFScissors()
@@ -173,6 +174,8 @@ func (sl *SplitLayout) Swap(idx1, idx2 uint8) {
 	if r1 == 0 || r2 == 0 {
 		panic(fmt.Sprintf("can't swap unused key at index %d or %d", idx1, idx2))
 	}
+
+	// Update Runes slice
 	sl.Runes[idx1], sl.Runes[idx2] = r2, r1
 
 	// Update RuneInfo map
@@ -182,13 +185,16 @@ func (sl *SplitLayout) Swap(idx1, idx2 uint8) {
 	if r1 >= 32 && r1 < 127 {
 		idx := r1 - 32
 		sl.KeyInfos[idx] = sl.RuneInfo[r1]
-		sl.KeyInfoValid[idx] = true
+		//sl.KeyInfoValid[idx] = true
 	}
 	if r2 >= 32 && r2 < 127 {
 		idx := r2 - 32
 		sl.KeyInfos[idx] = sl.RuneInfo[r2]
-		sl.KeyInfoValid[idx] = true
+		//sl.KeyInfoValid[idx] = true
 	}
+
+	// We don't need to re-calculate the caches because unused keys are
+	// still unused, and used keys are still used.
 }
 
 func (sl *SplitLayout) String() string {
@@ -672,10 +678,10 @@ func (sl *SplitLayout) initHScissors() {
 	sl.initScissorPairs(configs, &sl.HScissors)
 }
 
-// Mirror swaps keys between left and right hands, creating a horizontally mirrored layout.
-// For each row of 12 keys, key positions are swapped: 0↔11, 1↔10, 2↔9, 3↔8, 4↔7, 5↔6.
-// For the 6 thumb keys, positions are swapped: 36↔41, 37↔40, 38↔39.
-func (sl *SplitLayout) Mirror() {
+// FlipHorizontal reverses the entire keyboard horizontally (complete mirror image).
+// Each row is completely reversed: position 0↔11, 1↔10, 2↔9, 3↔8, 4↔7, 5↔6.
+// Thumb row is also reversed: position 36↔41, 37↔40, 38↔39.
+func (sl *SplitLayout) FlipHorizontal() {
 	// Mirror main rows (3 rows of 12 keys each)
 	for row := range 3 {
 		base := row * 12
