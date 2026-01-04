@@ -143,6 +143,7 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 	colConfigs := []table.ColumnConfig{
 		{Name: "Index", Align: text.AlignRight},
 		{Name: "Name", Align: text.AlignLeft},
+		{Name: "Th", Align: text.AlignCenter},
 		{Name: "Score", Align: text.AlignRight},
 	}
 	for _, metric := range metrics {
@@ -155,7 +156,7 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 	tw.SetColumnConfigs(colConfigs)
 
 	// Build header row
-	header := table.Row{"#", "Name", "Score"}
+	header := table.Row{"#", "Name", "Th", "Score"}
 	for _, metric := range metrics {
 		header = append(header, metric)
 	}
@@ -163,7 +164,7 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 
 	// Add weight row if requested
 	if opts.ShowWeights {
-		weightRow := table.Row{"", "Weight", ""}
+		weightRow := table.Row{"", "Weight", "", ""}
 		for _, metric := range metrics {
 			weight := opts.Weights.Get(metric)
 			weightRow = append(weightRow, fmt.Sprintf("%.2f", weight))
@@ -198,7 +199,8 @@ func addDataRows(tw table.Writer, scores []kc.LayoutScore, metrics []string, opt
 
 	for i, score := range scores {
 		// Build data row for this layout
-		dataRow := table.Row{rowIdx, score.Name, fmt.Sprintf("%+.2f", score.Score)}
+		thumbChars := getThumbChars(&score)
+		dataRow := table.Row{rowIdx, score.Name, thumbChars, fmt.Sprintf("%+.2f", score.Score)}
 		currMetrics := extractMetrics(&score, metrics)
 		for j, metric := range metrics {
 			dataRow = append(dataRow, formatMetricValue(metric, currMetrics[j]))
@@ -206,7 +208,7 @@ func addDataRows(tw table.Writer, scores []kc.LayoutScore, metrics []string, opt
 
 		// Add delta row showing differences from previous, median, or base layout
 		if i > 0 && opts.DeltasOption != DeltasNone {
-			deltaRow := table.Row{"", "", ""}
+			deltaRow := table.Row{"", "", "", ""}
 			for idx, currMetric := range currMetrics {
 				var delta float64
 				if opts.DeltasOption == DeltasCustom || opts.DeltasOption == DeltasMedian {
@@ -238,13 +240,43 @@ func extractMetrics(score *kc.LayoutScore, metrics []string) []float64 {
 	return result
 }
 
+// getThumbChars extracts thumb characters (indexes 36-41) with special formatting.
+// Non-printable characters become spaces, spaces become ␣, and outer empty positions are trimmed.
+func getThumbChars(score *kc.LayoutScore) string {
+	if score.Analyser.Layout == nil {
+		return ""
+	}
+
+	var thumb [6]rune
+
+	for i := 36; i <= 41; i++ {
+		r := score.Analyser.Layout.Runes[i]
+		if r < ' ' {
+			thumb[i-36] = ' '
+		} else if r == ' ' {
+			thumb[i-36] = '␣'
+		} else {
+			thumb[i-36] = r
+		}
+	}
+
+	// Trim outer empty positions for cleaner display
+	if thumb[0] == ' ' && thumb[5] == ' ' {
+		if thumb[1] == ' ' && thumb[4] == ' ' {
+			return string(thumb[2:4])
+		}
+		return string(thumb[1:5])
+	}
+	return string(thumb[:])
+}
+
 // renderCSV outputs rankings in CSV format.
 func renderCSV(w io.Writer, scores []kc.LayoutScore, metrics []string, opts RankingDisplayOptions) error {
 	writer := csv.NewWriter(w)
 	defer writer.Flush()
 
 	// Write header row
-	header := []string{"Rank", "Name", "Score"}
+	header := []string{"Rank", "Name", "Th", "Score"}
 	header = append(header, metrics...)
 	if err := writer.Write(header); err != nil {
 		return err
@@ -252,7 +284,7 @@ func renderCSV(w io.Writer, scores []kc.LayoutScore, metrics []string, opts Rank
 
 	// Optionally write weight row
 	if opts.ShowWeights {
-		weightRow := []string{"", "Weight", ""}
+		weightRow := []string{"", "Weight", "", ""}
 		for _, metric := range metrics {
 			weight := opts.Weights.Get(metric)
 			weightRow = append(weightRow, fmt.Sprintf("%.2f", weight))
@@ -284,9 +316,11 @@ func renderCSV(w io.Writer, scores []kc.LayoutScore, metrics []string, opts Rank
 
 	for i, score := range scores {
 		// Build data row
+		thumbChars := getThumbChars(&score)
 		dataRow := []string{
 			fmt.Sprintf("%d", rowIdx),
 			score.Name,
+			thumbChars,
 			fmt.Sprintf("%.2f", score.Score),
 		}
 		currMetrics := extractMetrics(&score, metrics)
@@ -296,7 +330,7 @@ func renderCSV(w io.Writer, scores []kc.LayoutScore, metrics []string, opts Rank
 
 		// Write delta row if needed
 		if i > 0 && opts.DeltasOption != DeltasNone {
-			deltaRow := []string{"", "", ""}
+			deltaRow := []string{"", "", "", ""}
 			for idx, currMetric := range currMetrics {
 				var delta float64
 				if opts.DeltasOption == DeltasCustom || opts.DeltasOption == DeltasMedian {
