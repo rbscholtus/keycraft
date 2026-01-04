@@ -127,7 +127,7 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 	tw.SetStyle(table.StyleRounded)
 	tw.Style().Box.PaddingLeft = ""
 	tw.Style().Box.PaddingRight = ""
-	tw.Style().Title.Align = text.AlignCenter
+	tw.Style().Title.Align = text.AlignLeft
 
 	// Set title based on delta mode
 	switch opts.DeltasOption {
