@@ -29,6 +29,7 @@ func main() {
 			analyseCommand,
 			rankCommand,
 			optimiseCommand,
+			flipCommand,
 			// experimentCommand (under development)
 		},
 	}
