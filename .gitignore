@@ -28,6 +28,7 @@ vendor/
 /data/layouts2
 *-opt*.klf
 *-best*.klf
+*-flipped*.klf
 _cleanuipman
 /keycraft
 /main
