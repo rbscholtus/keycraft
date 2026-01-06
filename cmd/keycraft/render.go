@@ -414,3 +414,111 @@ func Percentage3(val any) string {
 	}
 	return fmt.Sprintf("%v", val)
 }
+
+// TopTrigramsString generates a table showing the top N trigrams with their
+// classifications (ALT, 2RL, 3RL, RED) and their specific categories.
+func TopTrigramsString(an *kc.Analyser, compactTrigrams bool, trigramRows int) string {
+	t := createSimpleTable()
+
+	// Get trigram classifications from TrigramDetails
+	alt, rl2, rl3, red := an.TrigramDetails()
+
+	// Helper to get classification for a trigram
+	getClassification := func(triStr string) string {
+		// Check each metric category
+		if _, ok := alt.NGramCount[triStr]; ok {
+			if cat, hasCat := alt.Custom[triStr]["Dir"]; hasCat {
+				return fmt.Sprintf("ALT-%v", cat)
+			}
+			return "ALT"
+		}
+		if _, ok := rl2.NGramCount[triStr]; ok {
+			if cat, hasCat := rl2.Custom[triStr]["Dir"]; hasCat {
+				return fmt.Sprintf("2RL-%v", cat)
+			}
+			return "2RL"
+		}
+		if _, ok := rl3.NGramCount[triStr]; ok {
+			if cat, hasCat := rl3.Custom[triStr]["Dir"]; hasCat {
+				return fmt.Sprintf("3RL-%v", cat)
+			}
+			return "3RL"
+		}
+		if _, ok := red.NGramCount[triStr]; ok {
+			if cat, hasCat := red.Custom[triStr]["Dir"]; hasCat {
+				return fmt.Sprintf("RED-%v", cat)
+			}
+			return "RED"
+		}
+		return "OTHER"
+	}
+
+	// Common classifications that should not be highlighted
+	commonClassifications := map[string]bool{
+		"ALT-NML": true,
+		"2RL-IN":  true,
+		"2RL-OUT": true,
+		"3RL-IN":  true,
+		"3RL-OUT": true,
+	}
+
+	// Get top N trigrams from corpus
+	topTrigrams := an.Corpus.TopTrigrams(trigramRows)
+
+	// Header
+	header := table.Row{"orderby", "Tri", "Count", "%", "Cum%", "Class"}
+	t.AppendHeader(header)
+
+	// Calculate cumulative percentages and build rows
+	totalTrigramCount := an.Corpus.TotalTrigramsCount
+	cumulativeCount := uint64(0)
+	rowNum := 0
+
+	for _, pair := range topTrigrams {
+		triStr := pair.Key.String()
+		count := pair.Count
+		classification := getClassification(triStr)
+
+		// Skip if compact mode and category is common
+		if compactTrigrams && commonClassifications[classification] {
+			continue
+		}
+
+		cumulativeCount += count
+		percentage := float64(count) / float64(totalTrigramCount)
+		cumulativePercentage := float64(cumulativeCount) / float64(totalTrigramCount)
+
+		rowNum++
+
+		// Color the entire row if it's a non-common classification
+		isNonCommon := !commonClassifications[classification]
+		var row table.Row
+		if isNonCommon {
+			row = table.Row{
+				count,                              // orderby (hidden, for sorting)
+				text.FgHiRed.Sprintf("%s", triStr), // Tri (colored)
+				text.FgHiRed.Sprintf("%d", count),  // Count (colored)
+				text.FgHiRed.Sprintf("%.2f%%", percentage*100),           // % (colored)
+				text.FgHiRed.Sprintf("%.2f%%", cumulativePercentage*100), // Cum% (colored)
+				text.FgHiRed.Sprintf("%s", classification),               // Classification (colored)
+			}
+		} else {
+			row = table.Row{
+				count,                // orderby (hidden, for sorting)
+				triStr,               // Tri
+				count,                // Count
+				percentage,           // %
+				cumulativePercentage, // Cum%
+				classification,       // Classification
+			}
+		}
+		t.AppendRow(row)
+	}
+
+	// Footer with totals
+	finalPercentage := float64(cumulativeCount) / float64(totalTrigramCount)
+	footer := table.Row{"", "", cumulativeCount, finalPercentage, finalPercentage, ""}
+	t.AppendFooter(footer)
+
+	return t.Render()
+}

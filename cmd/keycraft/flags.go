@@ -152,6 +152,22 @@ var appFlagsMap = map[string]cli.Flag{
 		Aliases: []string{"lf"},
 		Usage:   "JSONL log file path for detailed optimization metrics.",
 	},
+	"compact-trigrams": &cli.BoolFlag{
+		Name:  "compact-trigrams",
+		Usage: "Omit common trigram categories (ALT-NML, 2RL-IN, 2RL-OUT, 3RL-IN, 3RL-OUT) from trigram table.",
+		Value: false,
+	},
+	"trigram-rows": &cli.IntFlag{
+		Name:  "trigram-rows",
+		Usage: "Maximum number of trigrams to display in trigram table.",
+		Value: 50,
+		Action: func(c *cli.Context, value int) error {
+			if value < 1 {
+				return fmt.Errorf("--trigram-rows must be at least 1 (got %d)", value)
+			}
+			return nil
+		},
+	},
 }
 
 // flagsSlice returns a slice of cli.Flag pointers for the given keys from appFlagsMap.

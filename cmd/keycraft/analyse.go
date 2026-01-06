@@ -16,7 +16,7 @@ var analyseCommand = &cli.Command{
 	Name:      "analyse",
 	Aliases:   []string{"a"},
 	Usage:     "Analyse one or more keyboard layouts in detail",
-	Flags:     flagsSlice("rows", "corpus", "row-load", "finger-load", "pinky-penalties"),
+	Flags:     flagsSlice("rows", "corpus", "row-load", "finger-load", "pinky-penalties", "compact-trigrams", "trigram-rows"),
 	ArgsUsage: "<layout1> <layout2> ...",
 	Before:    validateAnalyseFlags,
 	Action:    analyseAction,
@@ -55,6 +55,8 @@ func analyseAction(c *cli.Context) error {
 	}
 
 	layouts := getLayoutArgs(c)
+	compactTrigrams := c.Bool("compact-trigrams")
+	trigramRows := c.Int("trigram-rows")
 
 	// Run detailed analysis on all specified layouts with the given corpus and loads.
 	if err := DoAnalysis(layouts, corpus, rowLoad, fingerBal, pinkyPenalties, true, c.Int("rows")); err != nil {
@@ -158,6 +160,13 @@ func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, rowLoad *[3]float64
 		// 	}
 		// 	twOuter.AppendRow(data)
 		// }
+
+		// Add trigram table row
+		h = table.Row{"Trigr"}
+		for _, an := range analysers {
+			h = append(h, TopTrigramsString(an, compactTrigrams, trigramRows))
+		}
+		twOuter.AppendRow(h)
 	}
 
 	// Print layout(s) in the table
