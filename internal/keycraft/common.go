@@ -48,6 +48,14 @@ func Must0(err error) {
 	}
 }
 
+// PreferredLoads encapsulates user preferences for load distributions and penalties.
+// These preferences are used to evaluate how well a layout matches ideal typing patterns.
+type PreferredLoads struct {
+	IdealRowLoad   *[3]float64  // Target distribution: [top, home, bottom] rows (scaled to 100%)
+	IdealFgrLoad   *[10]float64 // Target distribution: F0-F9 fingers (scaled to 100%, thumbs=0)
+	PinkyPenalties *[12]float64 // Penalty weights for pinky off-home positions (not scaled)
+}
+
 // Pair represents a generic key/value pair used throughout the codebase
 // for temporary key-index or key-value collections.
 type Pair[K comparable, V any] struct {

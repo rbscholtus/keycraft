@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/jedib0t/go-pretty/v6/text"
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
+	"github.com/rbscholtus/keycraft/internal/tui"
 	"github.com/urfave/cli/v2"
 )
 
@@ -30,146 +29,40 @@ func validateAnalyseFlags(c *cli.Context) error {
 	return nil
 }
 
-// analyseAction loads the specified corpus, row load, finger load, and layouts,
+// analyseAction loads the specified corpus, load preferences, and layouts,
 // then executes the analysis process.
 // It returns an error if loading or analysis fails.
 func analyseAction(c *cli.Context) error {
+	// 1. Load inputs
 	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return err
 	}
 
-	rowLoad, err := getRowLoadFromFlag(c)
-	if err != nil {
-		return err
-	}
-
-	fingerBal, err := getFingerLoadFromFlag(c)
-	if err != nil {
-		return err
-	}
-
-	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
+	prefs, err := loadPreferredLoadsFromFlags(c)
 	if err != nil {
 		return err
 	}
 
 	layouts := getLayoutArgs(c)
-	compactTrigrams := c.Bool("compact-trigrams")
-	trigramRows := c.Int("trigram-rows")
 
-	// Run detailed analysis on all specified layouts with the given corpus and loads.
-	if err := DoAnalysis(layouts, corpus, rowLoad, fingerBal, pinkyPenalties, true, c.Int("rows")); err != nil {
+	// 2. Perform computation (pure, no display concerns)
+	result, err := kc.AnalyseLayouts(kc.AnalyseInput{
+		LayoutFiles: layouts,
+		Corpus:      corpus,
+		Prefs:       prefs,
+	})
+	if err != nil {
 		return err
 	}
 
-	return nil
+	// 3. Render results with display options
+	displayOpts := kc.AnalyseDisplayOptions{
+		MaxRows:         c.Int("rows"),
+		CompactTrigrams: c.Bool("compact-trigrams"),
+		TrigramRows:     c.Int("trigram-rows"),
+	}
+
+	return tui.RenderAnalyse(result, displayOpts)
 }
 
-// DoAnalysis loads analysers for the provided layouts, generates overview
-// rows (board, hand, row, stats), and optionally appends detailed metric
-// tables. The rendered table output is printed to stdout.
-func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, rowLoad *[3]float64, fgrLoad *[10]float64, pinkyPenalties *[12]float64, dataTables bool, nRows int) error {
-	// load an analyser for each layout
-	analysers := make([]*kc.Analyser, 0, len(layoutFilenames))
-	for _, fn := range layoutFilenames {
-		layout, err := loadLayout(fn)
-		if err != nil {
-			return err
-		}
-		an := kc.NewAnalyser(layout, corpus, rowLoad, fgrLoad, pinkyPenalties)
-		analysers = append(analysers, an)
-	}
-
-	if len(analysers) < 1 {
-		return fmt.Errorf("need at least 1 layout")
-	}
-
-	// Make a table with a column for each layout
-	twOuter := table.NewWriter()
-	twOuter.SetStyle(EmptyStyle())
-	twOuter.Style().Options.SeparateRows = true
-	colConfigs := make([]table.ColumnConfig, 0, len(layoutFilenames))
-	for i := range len(layoutFilenames) {
-		colConfigs = append(colConfigs, table.ColumnConfig{Number: i + 2,
-			AlignHeader: text.AlignCenter, Align: text.AlignCenter})
-	}
-	twOuter.SetColumnConfigs(colConfigs)
-
-	// Add header
-	h := table.Row{""}
-	for _, an := range analysers {
-		h = append(h, an.Layout.Name)
-	}
-	twOuter.AppendHeader(h)
-
-	// Layout picture
-	h = table.Row{"Board"}
-	for _, an := range analysers {
-		h = append(h, SplitLayoutString(an.Layout))
-	}
-	twOuter.AppendRow(h)
-
-	// Hand balance
-	h = table.Row{"Hand"}
-	for _, an := range analysers {
-		h = append(h, HandUsageString(an))
-	}
-	twOuter.AppendRow(h)
-
-	// Row balance
-	h = table.Row{"Row"}
-	for _, an := range analysers {
-		h = append(h, RowUsageString(an))
-	}
-	twOuter.AppendRow(h)
-
-	// Metrics overview
-	h = table.Row{"Stats"}
-	for _, an := range analysers {
-		h = append(h, MetricsString(an))
-	}
-	twOuter.AppendRow(h)
-
-	// Add data rows
-	if dataTables {
-		details := make([][]*kc.MetricDetails, 0, len(layoutFilenames))
-		for _, an := range analysers {
-			details = append(details, an.AllMetricsDetails())
-		}
-
-		metrics := details[0] // get the first entry to get the metrics
-		for i, ma := range metrics {
-			data := table.Row{ma.Metric}
-			for _, mas := range details {
-				data = append(data, MetricDetailsString(mas[i], nRows))
-			}
-			twOuter.AppendRow(data)
-		}
-
-		// details = make([][]*kc.MetricDetails, 0, len(layoutFilenames))
-		// for _, an := range analysers {
-		// 	details = append(details, an.AllCorpusDetails(nRows))
-		// }
-
-		// metrics = details[0] // get the first entry to get the metrics
-		// for i, ma := range metrics {
-		// 	data := table.Row{ma.Metric}
-		// 	for _, mas := range details {
-		// 		data = append(data, MetricDetailsString(mas[i], nRows))
-		// 	}
-		// 	twOuter.AppendRow(data)
-		// }
-
-		// Add trigram table row
-		h = table.Row{"Trigr"}
-		for _, an := range analysers {
-			h = append(h, TopTrigramsString(an, compactTrigrams, trigramRows))
-		}
-		twOuter.AppendRow(h)
-	}
-
-	// Print layout(s) in the table
-	fmt.Println(twOuter.Render())
-	return nil
-}

@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	kc "github.com/rbscholtus/keycraft/internal/keycraft"
+	"github.com/rbscholtus/keycraft/internal/tui"
 	"github.com/urfave/cli/v2"
 )
 
@@ -27,33 +29,29 @@ func validateViewFlags(c *cli.Context) error {
 
 // viewAction loads data and performs layout analysis.
 func viewAction(c *cli.Context) error {
+	// 1. Load inputs
 	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return err
 	}
 
-	rowLoad, err := getRowLoadFromFlag(c)
-	if err != nil {
-		return err
-	}
-
-	fingerLoad, err := getFingerLoadFromFlag(c)
-	if err != nil {
-		return err
-	}
-
-	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
+	prefs, err := loadPreferredLoadsFromFlags(c)
 	if err != nil {
 		return err
 	}
 
 	layouts := getLayoutArgs(c)
 
-	// Analyse all provided layouts using given corpus.
-	// The 'false' parameter indicates not to include detailed metrics.
-	if err := DoAnalysis(layouts, corpus, rowLoad, fingerLoad, pinkyPenalties, false, 0); err != nil {
+	// 2. Perform computation (pure, no display concerns)
+	result, err := kc.ViewLayouts(kc.ViewInput{
+		LayoutFiles: layouts,
+		Corpus:      corpus,
+		Prefs:       prefs,
+	})
+	if err != nil {
 		return err
 	}
 
-	return nil
+	// 3. Render results
+	return tui.RenderView(result)
 }

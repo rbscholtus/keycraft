@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
+	"github.com/rbscholtus/keycraft/internal/tui"
 	"github.com/urfave/cli/v2"
 )
 
@@ -38,17 +39,7 @@ func optimiseAction(c *cli.Context) error {
 		return err
 	}
 
-	rowBal, err := getRowLoadFromFlag(c)
-	if err != nil {
-		return err
-	}
-
-	fingerBal, err := getFingerLoadFromFlag(c)
-	if err != nil {
-		return err
-	}
-
-	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
+	prefs, err := loadPreferredLoadsFromFlags(c)
 	if err != nil {
 		return err
 	}
@@ -97,15 +88,13 @@ func optimiseAction(c *cli.Context) error {
 		logFile = f
 	}
 
-	// Run optimization with specified row and finger balance
+	// Run optimization with specified preferences
 	best, err := kc.OptimizeLayoutBLS(
 		layout,
 		layoutDir,
 		corpus,
 		weights,
-		rowBal,              // ideal row load distribution
-		fingerBal,           // ideal finger load distribution
-		pinkyPenalties,      // pinky off-home penalty weights
+		prefs,               // load preferences
 		pinned,              // pinned keys
 		int(numGenerations), // max iterations
 		int(maxTime),        // max time in minutes
@@ -123,40 +112,47 @@ func optimiseAction(c *cli.Context) error {
 		return fmt.Errorf("failed to save best layout to %s: %v", bestPath, err)
 	}
 
-	// Prepare layouts for ranking
-	layoutsToCompare := []string{layout.Name, best.Name}
+	// Prepare layouts for comparison view
+	layoutsToCompare := []string{ensureKlf(layout.Name), ensureKlf(best.Name)}
 
-	// Call DoAnalysis with the layouts
-	if err := DoAnalysis(layoutsToCompare, corpus, rowBal, fingerBal, pinkyPenalties, false, 0); err != nil {
+	// View the before/after layouts
+	viewResult, err := kc.ViewLayouts(kc.ViewInput{
+		LayoutFiles: layoutsToCompare,
+		Corpus:      corpus,
+		Prefs:       prefs,
+	})
+	if err != nil {
 		return fmt.Errorf("failed to perform layout analysis: %v", err)
+	}
+
+	if err := tui.RenderView(viewResult); err != nil {
+		return fmt.Errorf("failed to render view: %v", err)
 	}
 
 	// Perform layout ranking using new architecture
 	input := kc.RankingInput{
-		LayoutsDir:     layoutDir,
-		LayoutFiles:    layoutsToCompare,
-		Corpus:         corpus,
-		IdealRowLoad:   rowBal,
-		IdealFgrLoad:   fingerBal,
-		PinkyPenalties: pinkyPenalties,
-		Weights:        weights,
+		LayoutsDir:  layoutDir,
+		LayoutFiles: layoutsToCompare,
+		Corpus:      corpus,
+		Prefs:       prefs,
+		Weights:     weights,
 	}
 
-	result, err := kc.ComputeRankings(input)
+	rankingResult, err := kc.ComputeRankings(input)
 	if err != nil {
 		return fmt.Errorf("failed to compute layout rankings: %v", err)
 	}
 
-	displayOpts := RankingDisplayOptions{
-		OutputFormat:   OutputTable,
-		MetricsOption:  MetricsWeighted,
+	displayOpts := tui.RankingDisplayOptions{
+		OutputFormat:   tui.OutputTable,
+		MetricsOption:  tui.MetricsWeighted,
 		ShowWeights:    true,
 		Weights:        weights,
-		DeltasOption:   DeltasCustom,
+		DeltasOption:   tui.DeltasCustom,
 		BaseLayoutName: layout.Name,
 	}
 
-	if err := RenderRankingTable(result, displayOpts); err != nil {
+	if err := tui.RenderRankingTable(rankingResult, displayOpts); err != nil {
 		return fmt.Errorf("failed to render layout rankings: %v", err)
 	}
 

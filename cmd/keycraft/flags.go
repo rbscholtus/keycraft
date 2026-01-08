@@ -80,7 +80,7 @@ var appFlagsMap = map[string]cli.Flag{
 	"weights-file": &cli.StringFlag{
 		Name:    "weights-file",
 		Aliases: []string{"wf"},
-		Usage: "Weights file for scoring layouts (from data/weights directory). " +
+		Usage: "Weights file for scoring layouts (from data/config directory). " +
 			"Overridden by --weights flag.",
 		Value: "default.txt",
 	},

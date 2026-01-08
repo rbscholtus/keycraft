@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -60,7 +62,7 @@ func getPinkyPenaltiesFromFlag(c *cli.Context) (*[12]float64, error) {
 func loadWeightsFromFlags(c *cli.Context) (*kc.Weights, error) {
 	weightsPath := c.String("weights-file")
 	if weightsPath != "" {
-		weightsPath = filepath.Join(weightsDir, weightsPath)
+		weightsPath = filepath.Join(configDir, weightsPath)
 	}
 	return kc.NewWeightsFromParams(weightsPath, c.String("weights"))
 }
@@ -248,4 +250,120 @@ func ensureNoKlf(name string) string {
 		return name[:len(name)-4]
 	}
 	return name
+}
+
+// loadPreferredLoadsFromFlags loads PreferredLoads from flags and config file.
+// Command-line flags override config file values.
+func loadPreferredLoadsFromFlags(c *cli.Context) (*kc.PreferredLoads, error) {
+	// Try to load from config file first
+	configPath := filepath.Join(configDir, "load_prefs.txt")
+	prefs, err := loadPreferredLoadsFromFile(configPath)
+	if err != nil {
+		// If config file doesn't exist, use hardcoded defaults
+		prefs = &kc.PreferredLoads{}
+	}
+
+	// Override with flags if they are set
+	if c.IsSet("row-load") {
+		rowLoad, err := getRowLoadFromFlag(c)
+		if err != nil {
+			return nil, err
+		}
+		prefs.IdealRowLoad = rowLoad
+	} else if prefs.IdealRowLoad == nil {
+		// Use hardcoded default if not in config and not in flag
+		rowLoad, _ := parseRowLoad("18.5,73,8.5")
+		_ = scaleRowLoad(rowLoad)
+		prefs.IdealRowLoad = rowLoad
+	}
+
+	if c.IsSet("finger-load") {
+		fingerLoad, err := getFingerLoadFromFlag(c)
+		if err != nil {
+			return nil, err
+		}
+		prefs.IdealFgrLoad = fingerLoad
+	} else if prefs.IdealFgrLoad == nil {
+		// Use hardcoded default if not in config and not in flag
+		fingerLoad, _ := parseFingerLoad("7.5,11,16,15.5")
+		_ = scaleFingerLoad(fingerLoad)
+		prefs.IdealFgrLoad = fingerLoad
+	}
+
+	if c.IsSet("pinky-penalties") {
+		pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
+		if err != nil {
+			return nil, err
+		}
+		prefs.PinkyPenalties = pinkyPenalties
+	} else if prefs.PinkyPenalties == nil {
+		// Use hardcoded default if not in config and not in flag
+		pinkyPenalties, _ := parsePinkyPenalties("1,1,1,0,1,1")
+		prefs.PinkyPenalties = pinkyPenalties
+	}
+
+	return prefs, nil
+}
+
+// loadPreferredLoadsFromFile loads defaults from config/load_prefs.txt.
+// Returns empty PreferredLoads if file doesn't exist or has errors.
+func loadPreferredLoadsFromFile(filePath string) (*kc.PreferredLoads, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	prefs := &kc.PreferredLoads{}
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip comments and empty lines
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Parse key: value pairs
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		switch key {
+		case "row-load":
+			rowLoad, err := parseRowLoad(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid row-load in config file: %v", err)
+			}
+			if err := scaleRowLoad(rowLoad); err != nil {
+				return nil, fmt.Errorf("failed to scale row-load in config file: %v", err)
+			}
+			prefs.IdealRowLoad = rowLoad
+		case "finger-load":
+			fingerLoad, err := parseFingerLoad(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid finger-load in config file: %v", err)
+			}
+			if err := scaleFingerLoad(fingerLoad); err != nil {
+				return nil, fmt.Errorf("failed to scale finger-load in config file: %v", err)
+			}
+			prefs.IdealFgrLoad = fingerLoad
+		case "pinky-penalties":
+			pinkyPenalties, err := parsePinkyPenalties(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid pinky-penalties in config file: %v", err)
+			}
+			prefs.PinkyPenalties = pinkyPenalties
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading config file: %v", err)
+	}
+
+	return prefs, nil
 }

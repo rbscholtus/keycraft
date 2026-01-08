@@ -13,10 +13,10 @@ import (
 
 // Data directories relative to repository root.
 var (
-	layoutDir  = "data/layouts/"
-	corpusDir  = "data/corpus/"
-	weightsDir = "data/weights/"
-	pinsDir    = "data/pins/"
+	layoutDir = "data/layouts/"
+	corpusDir = "data/corpus/"
+	configDir = "data/config/"
+	pinsDir   = "data/pins/"
 )
 
 func main() {

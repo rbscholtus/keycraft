@@ -53,8 +53,8 @@ type Scorer struct {
 // NewScorer creates a new Scorer by analyzing reference layouts from the given directory.
 // It computes median and IQR statistics from the reference layouts and filters out metrics
 // with insignificant variance or weight to ensure robust scoring.
-func NewScorer(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyPenalties *[12]float64, weights *Weights) (*Scorer, error) {
-	analysers, err := LoadAnalysers(layoutsDir, corpus, idealRowLoad, idealfgrLoad, pinkyPenalties)
+func NewScorer(layoutsDir string, corpus *Corpus, prefs *PreferredLoads, weights *Weights) (*Scorer, error) {
+	analysers, err := LoadAnalysers(layoutsDir, corpus, prefs)
 	if err != nil {
 		return nil, err
 	}
@@ -84,9 +84,9 @@ func NewScorer(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idea
 
 	sc := &Scorer{
 		corpus:              corpus,
-		targetRowBalance:    idealRowLoad,
-		targetFingerBalance: idealfgrLoad,
-		pinkyPenalties:      pinkyPenalties,
+		targetRowBalance:    prefs.IdealRowLoad,
+		targetFingerBalance: prefs.IdealFgrLoad,
+		pinkyPenalties:      prefs.PinkyPenalties,
 		medians:             filteredMedians,
 		iqrs:                filteredIQRs,
 		weights:             filteredWeights,
@@ -300,7 +300,7 @@ type LayoutScore struct {
 
 // LoadAnalysers loads and analyses all .klf layout files from a directory in parallel.
 // Uses bounded concurrency based on GOMAXPROCS to avoid overloading the system.
-func LoadAnalysers(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyPenalties *[12]float64) ([]*Analyser, error) {
+func LoadAnalysers(layoutsDir string, corpus *Corpus, prefs *PreferredLoads) ([]*Analyser, error) {
 	layoutFiles, err := os.ReadDir(layoutsDir)
 	if err != nil {
 		return nil, fmt.Errorf("error reading layout files from %v: %v", layoutsDir, err)
@@ -331,7 +331,7 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, 
 				fmt.Println(err)
 				return
 			}
-			analyser := NewAnalyser(layout, corpus, idealRowLoad, idealfgrLoad, pinkyPenalties)
+			analyser := NewAnalyser(layout, corpus, prefs)
 
 			mu.Lock()
 			analysers = append(analysers, analyser)

@@ -599,3 +599,24 @@ func (c *Corpus) TopWords(n int) []CountPair[string] {
 	}
 	return sorted
 }
+
+// CorpusInput encapsulates parameters for corpus display.
+type CorpusInput struct {
+	Corpus *Corpus
+	NRows  int
+}
+
+// CorpusResult contains corpus statistics ready for display.
+type CorpusResult struct {
+	Corpus *Corpus
+	NRows  int
+}
+
+// DisplayCorpus performs pure computation for corpus display.
+// This is a simple pass-through since corpus statistics are already computed.
+func DisplayCorpus(input CorpusInput) (*CorpusResult, error) {
+	return &CorpusResult{
+		Corpus: input.Corpus,
+		NRows:  input.NRows,
+	}, nil
+}

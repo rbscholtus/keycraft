@@ -1,0 +1,12 @@
+# Load Preferences Configuration
+# Lines starting with # are comments
+
+# Ideal row load: top, home, bottom (auto-scaled to 100%)
+row-load: 18.5, 73, 8.5
+
+# Ideal finger load: 4 values (mirrored) or 8 values (auto-scaled to 100%, thumbs=0)
+finger-load: 7.5, 11, 16, 15.5
+
+# Pinky penalties: 6 values (mirrored) or 12 values (left, then right)
+# Order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner
+pinky-penalties: 1, 1, 1, 0, 1, 1

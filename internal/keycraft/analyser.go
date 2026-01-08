@@ -138,23 +138,26 @@ type Analyser struct {
 }
 
 // NewAnalyser creates an Analyser and computes all metrics for the given layout.
-// If idealRowLoad, idealfgrLoad, or pinkyPenalties are nil, uses defaults.
-func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyPenalties *[12]float64) *Analyser {
-	if idealRowLoad == nil {
-		idealRowLoad = DefaultIdealRowLoad()
+// If prefs is nil or any of its fields are nil, uses defaults.
+func NewAnalyser(layout *SplitLayout, corpus *Corpus, prefs *PreferredLoads) *Analyser {
+	if prefs == nil {
+		prefs = &PreferredLoads{}
 	}
-	if idealfgrLoad == nil {
-		idealfgrLoad = DefaultIdealFingerLoad()
+	if prefs.IdealRowLoad == nil {
+		prefs.IdealRowLoad = DefaultIdealRowLoad()
 	}
-	if pinkyPenalties == nil {
-		pinkyPenalties = DefaultPinkyPenalties()
+	if prefs.IdealFgrLoad == nil {
+		prefs.IdealFgrLoad = DefaultIdealFingerLoad()
+	}
+	if prefs.PinkyPenalties == nil {
+		prefs.PinkyPenalties = DefaultPinkyPenalties()
 	}
 	an := &Analyser{
 		Layout:         layout,
 		Corpus:         corpus,
-		IdealRowLoad:   idealRowLoad,
-		IdealfgrLoad:   idealfgrLoad,
-		PinkyPenalties: pinkyPenalties,
+		IdealRowLoad:   prefs.IdealRowLoad,
+		IdealfgrLoad:   prefs.IdealFgrLoad,
+		PinkyPenalties: prefs.PinkyPenalties,
 		Metrics:        make(map[string]float64, 60),
 	}
 	an.analyseHand()

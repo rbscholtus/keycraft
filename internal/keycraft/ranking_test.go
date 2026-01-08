@@ -9,7 +9,7 @@ import (
 const (
 	layoutDir = "../data/layouts/"
 	corpusDir = "../data/corpus/"
-	// weightsDir = "../data/weights/"
+	// weightsDir = "../data/config/"
 )
 
 func Benchmark_Rankings(b *testing.B) {
@@ -29,8 +29,13 @@ func Benchmark_Rankings(b *testing.B) {
 	// }
 
 	// Load all analysers for layouts in the directory
+	prefs := &PreferredLoads{
+		IdealRowLoad:   DefaultIdealRowLoad(),
+		IdealFgrLoad:   DefaultIdealFingerLoad(),
+		PinkyPenalties: DefaultPinkyPenalties(),
+	}
 	for b.Loop() {
-		analysers, err := LoadAnalysers(layoutDir, corpus, DefaultIdealRowLoad(), DefaultIdealFingerLoad(), DefaultPinkyPenalties())
+		analysers, err := LoadAnalysers(layoutDir, corpus, prefs)
 		if err != nil {
 			panic(err)
 		}

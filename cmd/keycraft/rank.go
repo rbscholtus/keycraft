@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
+	"github.com/rbscholtus/keycraft/internal/tui"
 	"github.com/urfave/cli/v2"
 )
 
@@ -42,7 +43,7 @@ func rankAction(c *cli.Context) error {
 	}
 
 	// 4. Render results (presentation layer)
-	return RenderRankingTable(rankings, displayOpts)
+	return tui.RenderRankingTable(rankings, displayOpts)
 }
 
 // buildRankingInput gathers all input parameters.
@@ -52,17 +53,7 @@ func buildRankingInput(c *cli.Context, weights *kc.Weights) (kc.RankingInput, er
 		return kc.RankingInput{}, err
 	}
 
-	rowLoad, err := getRowLoadFromFlag(c)
-	if err != nil {
-		return kc.RankingInput{}, err
-	}
-
-	fingerBal, err := getFingerLoadFromFlag(c)
-	if err != nil {
-		return kc.RankingInput{}, err
-	}
-
-	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
+	prefs, err := loadPreferredLoadsFromFlags(c)
 	if err != nil {
 		return kc.RankingInput{}, err
 	}
@@ -81,53 +72,51 @@ func buildRankingInput(c *cli.Context, weights *kc.Weights) (kc.RankingInput, er
 	}
 
 	return kc.RankingInput{
-		LayoutsDir:     layoutDir,
-		LayoutFiles:    layouts,
-		Corpus:         corpus,
-		IdealRowLoad:   rowLoad,
-		IdealFgrLoad:   fingerBal,
-		PinkyPenalties: pinkyPenalties,
-		Weights:        weights,
+		LayoutsDir:  layoutDir,
+		LayoutFiles: layouts,
+		Corpus:      corpus,
+		Prefs:       prefs,
+		Weights:     weights,
 	}, nil
 }
 
 // buildDisplayOptions gathers display configuration.
-func buildDisplayOptions(c *cli.Context) (RankingDisplayOptions, error) {
+func buildDisplayOptions(c *cli.Context) (tui.RankingDisplayOptions, error) {
 	// Load weights for display and delta coloring
 	weights, err := loadWeightsFromFlags(c)
 	if err != nil {
-		return RankingDisplayOptions{}, err
+		return tui.RankingDisplayOptions{}, err
 	}
 
 	// Parse output format
-	outputFmt := OutputTable
+	outputFmt := tui.OutputTable
 	if c.IsSet("output") {
 		switch strings.ToLower(c.String("output")) {
 		case "table":
-			outputFmt = OutputTable
+			outputFmt = tui.OutputTable
 		case "html":
-			outputFmt = OutputHTML
+			outputFmt = tui.OutputHTML
 		case "csv":
-			outputFmt = OutputCSV
+			outputFmt = tui.OutputCSV
 		default:
-			return RankingDisplayOptions{}, fmt.Errorf("invalid output format; must be one of: table, html, csv")
+			return tui.RankingDisplayOptions{}, fmt.Errorf("invalid output format; must be one of: table, html, csv")
 		}
 	}
 
 	metricsValue := strings.ToLower(c.String("metrics"))
 
-	var metricsOpt MetricsOption
+	var metricsOpt tui.MetricsOption
 	var customMetrics []string
 
 	// Check if it's "weighted" (special case - computed dynamically)
 	if metricsValue == "weighted" {
-		metricsOpt = MetricsWeighted
+		metricsOpt = tui.MetricsWeighted
 	} else if _, ok := kc.MetricsMap[metricsValue]; ok {
 		// Check if it's a predefined metrics set
-		metricsOpt = MetricsOption(metricsValue)
+		metricsOpt = tui.MetricsOption(metricsValue)
 	} else {
 		// Treat as custom comma-separated list
-		metricsOpt = MetricsCustom
+		metricsOpt = tui.MetricsCustom
 		customMetrics = strings.Split(metricsValue, ",")
 		for i := range customMetrics {
 			customMetrics[i] = strings.TrimSpace(customMetrics[i])
@@ -136,28 +125,28 @@ func buildDisplayOptions(c *cli.Context) (RankingDisplayOptions, error) {
 
 		// Validate that all custom metrics exist
 		if err := validateMetrics(customMetrics); err != nil {
-			return RankingDisplayOptions{}, err
+			return tui.RankingDisplayOptions{}, err
 		}
 	}
 
 	deltasValue := c.String("deltas")
 	deltasValueLower := strings.ToLower(deltasValue)
-	var deltasOpt DeltasOption
+	var deltasOpt tui.DeltasOption
 	var baseLayoutName string
 
 	switch deltasValueLower {
 	case "none":
-		deltasOpt = DeltasNone
+		deltasOpt = tui.DeltasNone
 	case "rows":
-		deltasOpt = DeltasRows
+		deltasOpt = tui.DeltasRows
 	case "median":
-		deltasOpt = DeltasMedian
+		deltasOpt = tui.DeltasMedian
 	default:
-		deltasOpt = DeltasCustom
+		deltasOpt = tui.DeltasCustom
 		baseLayoutName = ensureNoKlf(deltasValue)
 	}
 
-	return RankingDisplayOptions{
+	return tui.RankingDisplayOptions{
 		OutputFormat:   outputFmt,
 		MetricsOption:  metricsOpt,
 		CustomMetrics:  customMetrics,

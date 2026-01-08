@@ -37,9 +37,7 @@ func OptimizeLayoutBLS(
 	layoutsDir string,
 	corpus *Corpus,
 	weights *Weights,
-	rowBal *[3]float64,
-	fingerBal *[10]float64,
-	pinkyPenalties *[12]float64,
+	prefs *PreferredLoads,
 	pinned *PinnedKeys,
 	maxIterations int,
 	maxTimeMinutes int,
@@ -73,23 +71,25 @@ func OptimizeLayoutBLS(
 		params.Seed = time.Now().UnixNano()
 	}
 
-	// Create scorer - use provided balance values or defaults
-	idealRowLoad := rowBal
-	if idealRowLoad == nil {
-		idealRowLoad = DefaultIdealRowLoad()
+	// Create scorer - use provided prefs or defaults
+	if prefs == nil {
+		prefs = &PreferredLoads{
+			IdealRowLoad:   DefaultIdealRowLoad(),
+			IdealFgrLoad:   DefaultIdealFingerLoad(),
+			PinkyPenalties: DefaultPinkyPenalties(),
+		}
+	}
+	if prefs.IdealRowLoad == nil {
+		prefs.IdealRowLoad = DefaultIdealRowLoad()
+	}
+	if prefs.IdealFgrLoad == nil {
+		prefs.IdealFgrLoad = DefaultIdealFingerLoad()
+	}
+	if prefs.PinkyPenalties == nil {
+		prefs.PinkyPenalties = DefaultPinkyPenalties()
 	}
 
-	idealFingerLoad := fingerBal
-	if idealFingerLoad == nil {
-		idealFingerLoad = DefaultIdealFingerLoad()
-	}
-
-	idealPinkyPenalties := pinkyPenalties
-	if idealPinkyPenalties == nil {
-		idealPinkyPenalties = DefaultPinkyPenalties()
-	}
-
-	scorer, err := NewScorer(layoutsDir, corpus, idealRowLoad, idealFingerLoad, idealPinkyPenalties, weights)
+	scorer, err := NewScorer(layoutsDir, corpus, prefs, weights)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scorer: %w", err)
 	}

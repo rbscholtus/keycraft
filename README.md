@@ -489,7 +489,7 @@ More information will be provided.
 - Describe config locations, file format (YAML/JSON), and common options.
  layoutDir  = "data/layouts/"
  corpusDir  = "data/corpus/"
- weightsDir = "data/weights/"
+ weightsDir = "data/config/"
  pinsDir    = "data/pins/"
 
 ## Contributing
