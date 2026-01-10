@@ -10,19 +10,19 @@ import (
 	"strings"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // getCorpusFromFlags loads the corpus specified by the --corpus flag,
 // considering the --coverage flag if set.
-func getCorpusFromFlags(c *cli.Context) (*kc.Corpus, error) {
+func getCorpusFromFlags(c *cli.Command) (*kc.Corpus, error) {
 	return loadCorpus(c.String("corpus"), c.IsSet("coverage"), c.Float64("coverage"))
 }
 
 // getFingerLoadFromFlag parses and scales the --finger-load flag into percentages.
 // Accepts 4 values (mirrored for both hands) or 8 values (F0-F3, F6-F9).
 // Thumbs (F4, F5) are always set to 0. Values are validated and scaled to sum to 100.
-func getFingerLoadFromFlag(c *cli.Context) (*[10]float64, error) {
+func getFingerLoadFromFlag(c *cli.Command) (*[10]float64, error) {
 	fbStr := c.String("finger-load")
 	vals, err := parseFingerLoad(fbStr)
 	if err != nil {
@@ -37,7 +37,7 @@ func getFingerLoadFromFlag(c *cli.Context) (*[10]float64, error) {
 // getRowLoadFromFlag parses and scales the --row-load flag into percentages.
 // Accepts 3 values for top row, home row, and bottom row.
 // Values are validated and scaled to sum to 100.0.
-func getRowLoadFromFlag(c *cli.Context) (*[3]float64, error) {
+func getRowLoadFromFlag(c *cli.Command) (*[3]float64, error) {
 	rlStr := c.String("row-load")
 	vals, err := parseRowLoad(rlStr)
 	if err != nil {
@@ -52,14 +52,14 @@ func getRowLoadFromFlag(c *cli.Context) (*[3]float64, error) {
 // getPinkyPenaltiesFromFlag parses the --pinky-penalties flag into penalty weights.
 // Accepts 6 values (mirrored for both hands) or 12 values (left then right).
 // Values are not scaled (used as-is for penalty calculations).
-func getPinkyPenaltiesFromFlag(c *cli.Context) (*[12]float64, error) {
+func getPinkyPenaltiesFromFlag(c *cli.Command) (*[12]float64, error) {
 	ppStr := c.String("pinky-penalties")
 	return parsePinkyPenalties(ppStr)
 }
 
 // loadWeightsFromFlags loads weights from the --weights-file and --weights flags.
 // Weights specified via --weights take precedence over file-based weights.
-func loadWeightsFromFlags(c *cli.Context) (*kc.Weights, error) {
+func loadWeightsFromFlags(c *cli.Command) (*kc.Weights, error) {
 	weightsPath := c.String("weights-file")
 	if weightsPath != "" {
 		weightsPath = filepath.Join(configDir, weightsPath)
@@ -254,7 +254,7 @@ func ensureNoKlf(name string) string {
 
 // loadPreferredLoadsFromFlags loads PreferredLoads from flags and config file.
 // Command-line flags override config file values.
-func loadPreferredLoadsFromFlags(c *cli.Context) (*kc.PreferredLoads, error) {
+func loadPreferredLoadsFromFlags(c *cli.Command) (*kc.PreferredLoads, error) {
 	// Try to load from config file first
 	configPath := filepath.Join(configDir, "load_prefs.txt")
 	prefs, err := loadPreferredLoadsFromFile(configPath)

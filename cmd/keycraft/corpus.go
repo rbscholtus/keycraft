@@ -1,22 +1,56 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"slices"
+
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/rbscholtus/keycraft/internal/tui"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // corpusCommand defines the CLI command for displaying corpus statistics.
 var corpusCommand = &cli.Command{
-	Name:    "corpus",
-	Aliases: []string{"c"},
-	Usage:   "Display statistics for a text corpus",
-	Flags:   flagsSlice("corpus", "corpus-rows", "coverage"),
-	Action:  corpusAction,
+	Name:          "corpus",
+	Aliases:       []string{"c"},
+	Usage:         "Display statistics for a text corpus",
+	Flags:         flagsSlice("corpus", "corpus-rows", "coverage"),
+	Before:        validateCorpusFlags,
+	Action:        corpusAction,
+	ShellComplete: layoutShellComplete,
+}
+
+// validateCorpusFlags validates CLI flags before running the corpus command.
+func validateCorpusFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
+	// Skip validation during shell completion
+	// Check os.Args directly since -- prevents flag parsing
+	if slices.Contains(os.Args, "--generate-shell-completion") {
+		return ctx, nil
+	}
+
+	// Skip validation if help is requested
+	// The framework handles help display, but we need to allow it through validation
+	if c.NArg() == 1 && c.Args().First() == "help" {
+		return ctx, nil
+	}
+
+	// Corpus command takes no arguments, only flags
+	if c.NArg() != 0 {
+		return ctx, fmt.Errorf("corpus command takes no arguments, got %d. Did you mean: '--corpus %s'?", c.NArg(), c.Args().First())
+	}
+
+	return ctx, nil
 }
 
 // corpusAction loads the specified corpus and displays its statistics.
-func corpusAction(c *cli.Context) error {
+func corpusAction(ctx context.Context, c *cli.Command) error {
+	// During shell completion, action should not run
+	if slices.Contains(os.Args, "--generate-shell-completion") {
+		return nil
+	}
+
 	// 1. Build input from CLI flags
 	input, err := buildCorpusInput(c)
 	if err != nil {
@@ -34,7 +68,7 @@ func corpusAction(c *cli.Context) error {
 }
 
 // buildCorpusInput gathers all input parameters for corpus display.
-func buildCorpusInput(c *cli.Context) (kc.CorpusInput, error) {
+func buildCorpusInput(c *cli.Command) (kc.CorpusInput, error) {
 	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return kc.CorpusInput{}, err

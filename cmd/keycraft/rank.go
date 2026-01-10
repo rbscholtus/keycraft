@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"slices"
@@ -8,22 +9,28 @@ import (
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/rbscholtus/keycraft/internal/tui"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // rankCommand defines the "rank" CLI command for comparing and ranking layouts.
 // It supports filtering layouts, displaying metric deltas, and applying custom weights.
 var rankCommand = &cli.Command{
-	Name:      "rank",
-	Aliases:   []string{"r"},
-	Usage:     "Rank keyboard layouts, view detailed metrics, and view deltas",
-	Flags:     flagsSlice("metrics", "deltas", "output", "corpus", "row-load", "finger-load", "pinky-penalties", "weights-file", "weights"),
-	ArgsUsage: "<layout1> <layout2> ...",
-	Action:    rankAction,
+	Name:          "rank",
+	Aliases:       []string{"r"},
+	Usage:         "Rank keyboard layouts and view detailed metrics and deltas",
+	Flags:         flagsSlice("metrics", "deltas", "output", "corpus", "row-load", "finger-load", "pinky-penalties", "weights-file", "weights"),
+	ArgsUsage:     "<layout1> <layout2> ...",
+	Action:        rankAction,
+	ShellComplete: layoutShellComplete,
 }
 
 // rankAction handles the rank command, loading data and displaying layout rankings.
-func rankAction(c *cli.Context) error {
+func rankAction(ctx context.Context, c *cli.Command) error {
+	// During shell completion, action should not run
+	if slices.Contains(os.Args, "--generate-shell-completion") {
+		return nil
+	}
+
 	// 1. Build display options (includes loading weights)
 	displayOpts, err := buildDisplayOptions(c)
 	if err != nil {
@@ -47,7 +54,7 @@ func rankAction(c *cli.Context) error {
 }
 
 // buildRankingInput gathers all input parameters.
-func buildRankingInput(c *cli.Context, weights *kc.Weights) (kc.RankingInput, error) {
+func buildRankingInput(c *cli.Command, weights *kc.Weights) (kc.RankingInput, error) {
 	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return kc.RankingInput{}, err
@@ -81,7 +88,7 @@ func buildRankingInput(c *cli.Context, weights *kc.Weights) (kc.RankingInput, er
 }
 
 // buildDisplayOptions gathers display configuration.
-func buildDisplayOptions(c *cli.Context) (tui.RankingDisplayOptions, error) {
+func buildDisplayOptions(c *cli.Command) (tui.RankingDisplayOptions, error) {
 	// Load weights for display and delta coloring
 	weights, err := loadWeightsFromFlags(c)
 	if err != nil {
@@ -180,7 +187,7 @@ func validateMetrics(metrics []string) error {
 }
 
 // getLayoutsFromArgs returns layouts from CLI args, or all .klf files if no args provided.
-func getLayoutsFromArgs(c *cli.Context, baseLayout string) ([]string, error) {
+func getLayoutsFromArgs(c *cli.Command, baseLayout string) ([]string, error) {
 	var layouts []string
 	if c.Args().Len() == 0 {
 		var err error

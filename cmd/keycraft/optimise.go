@@ -1,39 +1,53 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/rbscholtus/keycraft/internal/tui"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // optimiseCommand defines the "optimise" CLI command for running Breakout Local Search (BLS)
 // optimization on a keyboard layout.
 var optimiseCommand = &cli.Command{
-	Name:      "optimise",
-	Aliases:   []string{"o"},
-	Usage:     "Optimise a keyboard layout using Breakout Local Search (BLS)",
-	Flags:     flagsSlice("corpus", "row-load", "finger-load", "pinky-penalties", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed", "log-file"),
-	ArgsUsage: "<layout>",
-	Before:    validateOptFlags,
-	Action:    optimiseAction,
+	Name:          "optimise",
+	Aliases:       []string{"o"},
+	Usage:         "Optimise a keyboard layout using Breakout Local Search (BLS)",
+	Flags:         flagsSlice("corpus", "row-load", "finger-load", "pinky-penalties", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed", "log-file"),
+	ArgsUsage:     "<layout>",
+	Before:        validateOptFlags,
+	Action:        optimiseAction,
+	ShellComplete: layoutShellComplete,
 }
 
 // validateOptFlags validates CLI flags before running the optimise command.
-func validateOptFlags(c *cli.Context) error {
-	if c.Args().Len() != 1 {
-		return fmt.Errorf("expected exactly 1 layout, got %d", c.Args().Len())
+func validateOptFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
+	// Skip validation during shell completion
+	// Check os.Args directly since -- prevents flag parsing
+	if slices.Contains(os.Args, "--generate-shell-completion") {
+		return ctx, nil
 	}
-	return nil
+
+	if c.Args().Len() != 1 {
+		return ctx, fmt.Errorf("expected exactly 1 layout, got %d", c.Args().Len())
+	}
+	return ctx, nil
 }
 
 // optimiseAction performs layout optimization using Breakout Local Search (BLS),
 // then analyzes and ranks the original vs optimized layouts.
-func optimiseAction(c *cli.Context) error {
+func optimiseAction(ctx context.Context, c *cli.Command) error {
+	// During shell completion, action should not run
+	if slices.Contains(os.Args, "--generate-shell-completion") {
+		return nil
+	}
+
 	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return err
