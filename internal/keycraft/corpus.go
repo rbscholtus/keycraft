@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -138,6 +138,11 @@ type Corpus struct {
 	Skipgrams map[Skipgram]uint64
 	// TotalSkipgramsCount is the total number of skipgram instances observed across the entire corpus.
 	TotalSkipgramsCount uint64
+
+	// Words maps each unique word in the corpus to the number of times it occurs.
+	Words map[string]uint64
+	// TotalWordsCount is the total number of word instances observed across the entire corpus.
+	TotalWordsCount uint64
 }
 
 // NewCorpus creates and returns a new empty Corpus with the given name.
@@ -148,6 +153,7 @@ func NewCorpus(name string) *Corpus {
 		Bigrams:   make(map[Bigram]uint64),
 		Trigrams:  make(map[Trigram]uint64),
 		Skipgrams: make(map[Skipgram]uint64),
+		Words:     make(map[string]uint64),
 	}
 }
 
@@ -193,7 +199,7 @@ func (c *Corpus) StringSorted(limit int) string {
 	return sb.String()
 }
 
-// String returns a string representation of the corpus showing the top 10 bigrams by default.
+// String returns a string representation of the corpus showing the top 10 n-grams by default.
 func (c *Corpus) String() string {
 	return c.StringSorted(10)
 }
@@ -201,20 +207,23 @@ func (c *Corpus) String() string {
 // NewCorpusFromFile creates a new Corpus with the given name by loading data from the specified text file.
 // It attempts to load from a cached JSON file if it exists and is newer than the source text file.
 // If no valid cache is found, it loads from the text file and saves a JSON cache for future use.
-func NewCorpusFromFile(name, path string) (*Corpus, error) {
+// If forceReload is true, it skips loading from JSON and always rebuilds from text.
+func NewCorpusFromFile(name, path string, forceReload bool, coveragePercent float64) (*Corpus, error) {
 	// Compute the JSON filename in the same directory as filename
-	jsonPath := filepath.Join(path + ".json")
+	jsonPath := path + ".json"
 
-	// Check if JSON file exists and is newer than source file, or if source file is missing
-	jsonInfo, jsonErr := os.Stat(jsonPath)
-	srcInfo, srcErr := os.Stat(path)
-	if jsonErr == nil && (os.IsNotExist(srcErr) || (srcErr == nil && jsonInfo.ModTime().After(srcInfo.ModTime()))) {
-		return LoadJSON(jsonPath)
+	// If forceReload is false, try to load from JSON cache if it exists and is newer than source file
+	if !forceReload {
+		jsonInfo, jsonErr := os.Stat(jsonPath)
+		srcInfo, srcErr := os.Stat(path)
+		if jsonErr == nil && (os.IsNotExist(srcErr) || (srcErr == nil && jsonInfo.ModTime().After(srcInfo.ModTime()))) {
+			return LoadJSON(jsonPath)
+		}
 	}
 
 	// Otherwise, load from the text file and save JSON cache
 	c := NewCorpus(name)
-	if err := c.loadFromFile(path); err != nil {
+	if err := c.loadFromFileWithWords(path, coveragePercent); err != nil {
 		return nil, err
 	}
 	if err := c.SaveJSON(jsonPath); err != nil {
@@ -252,8 +261,18 @@ func (c *Corpus) addSkipgram(r1, r2 rune) {
 	c.TotalSkipgramsCount++
 }
 
-// addText processes the input text string, converting it to lowercase and adding all unigrams,
-// bigrams, trigrams, and skipgrams to the corpus. N-grams that contain whitespace are skipped.
+// addWord increments the count of the given word in the corpus
+//
+//nolint:unused
+func (c *Corpus) addWord(word string) {
+	c.Words[word]++
+	c.TotalWordsCount++
+}
+
+// addText processes text and extracts n-grams (unigrams, bigrams, trigrams, skipgrams).
+// Text is lowercased, and n-grams containing whitespace are skipped (word boundaries reset the window).
+//
+//nolint:unused
 func (c *Corpus) addText(text string) {
 	text = strings.ToLower(text)
 	var prev1, prev2 rune
@@ -282,8 +301,10 @@ func (c *Corpus) addText(text string) {
 	}
 }
 
-// loadFromFile reads the given text file line by line and adds the text content to the corpus.
+// loadFromFile reads a text file line by line and extracts n-grams.
 // Empty or whitespace-only lines are skipped.
+//
+//nolint:unused // Superseded by loadFromFileWithWords but kept for potential future use.
 func (c *Corpus) loadFromFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -307,6 +328,133 @@ func (c *Corpus) loadFromFile(path string) error {
 	return nil
 }
 
+// addTextWithWords processes text, extracting both words and n-grams.
+// Words are defined as sequences of letters and numbers, separated by other characters.
+//
+//nolint:unused // Superseded by addTextWithWords but kept for potential future use.
+func (c *Corpus) addTextWithWords(text string) {
+	text = strings.ToLower(text)
+
+	// Extract words (alphanumeric sequences)
+	words := strings.FieldsFunc(text, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	})
+	for _, word := range words {
+		if word != "" {
+			c.addWord(word)
+		}
+	}
+
+	// Extract n-grams using sliding window
+	var prev1, prev2 rune
+	for _, r := range text {
+		if unicode.IsSpace(r) {
+			prev1 = 0
+			prev2 = 0
+			continue
+		}
+
+		c.addUnigram(r)
+
+		if prev1 != 0 {
+			c.addBigram(prev1, r)
+
+			if prev2 != 0 {
+				c.addTrigram(prev2, prev1, r)
+				c.addSkipgram(prev2, r)
+			}
+		}
+
+		prev2 = prev1
+		prev1 = r
+	}
+}
+
+// loadFromFileWithWords loads text from a file, extracting both words and n-grams.
+// After loading, prunes the word list to keep only the most frequent words covering
+// the specified percentage of total word occurrences.
+//
+//nolint:unused
+func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer CloseFile(file)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		c.addTextWithWords(line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	c.pruneWordsByCoverage(coveragePercent)
+
+	return nil
+}
+
+// pruneWordsByCoverage reduces the word list to the most frequent words covering a target percentage.
+// For example, with coveragePercent=99, keeps only the most common words that together account
+// for 99% of all word occurrences. This reduces memory usage while retaining high-frequency vocabulary.
+//
+//nolint:unused
+func (c *Corpus) pruneWordsByCoverage(coveragePercent float64) {
+	if len(c.Words) == 0 {
+		return
+	}
+
+	// Sort words by frequency
+	type wordFreq struct {
+		word  string
+		count uint64
+	}
+
+	words := make([]wordFreq, 0, len(c.Words))
+	for word, count := range c.Words {
+		words = append(words, wordFreq{word, count})
+	}
+
+	sort.Slice(words, func(i, j int) bool {
+		return words[i].count > words[j].count
+	})
+
+	// Calculate target occurrence count
+	targetCount := uint64(float64(c.TotalWordsCount) * coveragePercent / 100.0)
+
+	// Accumulate words until target is reached
+	newWords := make(map[string]uint64, len(c.Words)/10)
+	var coveredCount uint64
+	var keptWords int
+
+	for _, wf := range words {
+		if coveredCount >= targetCount {
+			break
+		}
+		newWords[wf.word] = wf.count
+		coveredCount += wf.count
+		keptWords++
+	}
+
+	removedWords := len(c.Words) - keptWords
+	removedCount := c.TotalWordsCount - coveredCount
+
+	fmt.Printf("Applied word coverage filtering (%.1f%%):\n", coveragePercent)
+	fmt.Printf("  Kept: %d unique words (%d total occurrences, %.2f%% coverage)\n",
+		keptWords, coveredCount, float64(coveredCount)/float64(c.TotalWordsCount)*100)
+	fmt.Printf("  Removed: %d unique words (%d total occurrences, %.2f%% of corpus)\n\n",
+		removedWords, removedCount, float64(removedCount)/float64(c.TotalWordsCount)*100)
+
+	c.Words = newWords
+	c.TotalWordsCount = coveredCount
+}
+
 // LoadJSON loads a Corpus from the specified JSON file.
 func LoadJSON(jsonPath string) (*Corpus, error) {
 	jsonFile, err := os.Open(jsonPath)
@@ -324,7 +472,7 @@ func LoadJSON(jsonPath string) (*Corpus, error) {
 	return &c, nil
 }
 
-// SaveJSON saves the corpus data as a JSON file in the specified directory using the corpus name as filename.
+// SaveJSON saves the corpus to a JSON file with pretty-printed formatting.
 func (c *Corpus) SaveJSON(jsonPath string) error {
 	file, err := os.Create(jsonPath)
 	if err != nil {
@@ -338,4 +486,116 @@ func (c *Corpus) SaveJSON(jsonPath string) error {
 		return err
 	}
 	return nil
+}
+
+// TopUnigrams returns the top N most frequent unigrams (single characters).
+// If n <= 0 or exceeds the total count, returns all unigrams.
+func (c *Corpus) TopUnigrams(n int) []CountPair[Unigram] {
+	sorted := SortedMap(c.Unigrams)
+	if n > 0 && n < len(sorted) {
+		return sorted[:n]
+	}
+	return sorted
+}
+
+// TopBigrams returns the top N most frequent bigrams (2-character sequences).
+// If n <= 0 or exceeds the total count, returns all bigrams.
+func (c *Corpus) TopBigrams(n int) []CountPair[Bigram] {
+	sorted := SortedMap(c.Bigrams)
+	if n > 0 && n < len(sorted) {
+		return sorted[:n]
+	}
+	return sorted
+}
+
+// TopTrigrams returns the top N most frequent trigrams (3-character sequences).
+// If n <= 0 or exceeds the total count, returns all trigrams.
+func (c *Corpus) TopTrigrams(n int) []CountPair[Trigram] {
+	sorted := SortedMap(c.Trigrams)
+	if n > 0 && n < len(sorted) {
+		return sorted[:n]
+	}
+	return sorted
+}
+
+// TopSkipgrams returns the top N most frequent skipgrams (1st and 3rd chars of trigrams).
+// If n <= 0 or exceeds the total count, returns all skipgrams.
+func (c *Corpus) TopSkipgrams(n int) []CountPair[Skipgram] {
+	sorted := SortedMap(c.Skipgrams)
+	if n > 0 && n < len(sorted) {
+		return sorted[:n]
+	}
+	return sorted
+}
+
+// TopConsonantBigrams returns the top N most frequent bigrams containing only consonants,
+// along with the total count of all consonant-only bigram occurrences and the number of unique consonant-only bigrams.
+// Consonants are defined as letters excluding vowels (a, e, i, o, u).
+// If n <= 0 or exceeds the filtered count, returns all consonant-only bigrams.
+func (c *Corpus) TopConsonantBigrams(n int) ([]CountPair[Bigram], uint64, int) {
+	isVowel := func(r rune) bool {
+		r = unicode.ToLower(r)
+		return r == 'a' || r == 'e' || r == 'i' || r == 'o' || r == 'u'
+	}
+
+	isConsonant := func(r rune) bool {
+		return unicode.IsLetter(r) && !isVowel(r)
+	}
+
+	// Filter bigrams directly into a slice
+	pairs := make([]CountPair[Bigram], 0, 512)
+	var totalCount uint64
+	for bigram, count := range c.Bigrams {
+		if isConsonant(bigram[0]) && isConsonant(bigram[1]) {
+			pairs = append(pairs, CountPair[Bigram]{bigram, count})
+			totalCount += count
+		}
+	}
+
+	// Sort by count descending
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Count > pairs[j].Count
+	})
+
+	uniqueCount := len(pairs)
+	if n > 0 && n < len(pairs) {
+		return pairs[:n], totalCount, uniqueCount
+	}
+	return pairs, totalCount, uniqueCount
+}
+
+// TopDoubleLetters returns the top N most frequent bigrams where both runes are equal,
+// along with the total count of all double-letter bigram occurrences and the number of unique double-letter bigrams.
+// If n <= 0 or exceeds the total count, returns all double-letter bigrams.
+func (c *Corpus) TopDoubleLetters(n int) ([]CountPair[Bigram], uint64, int) {
+	// Filter bigrams directly into a slice
+	pairs := make([]CountPair[Bigram], 0, 64)
+	var totalCount uint64
+	for bigram, count := range c.Bigrams {
+		if bigram[0] == bigram[1] {
+			pairs = append(pairs, CountPair[Bigram]{bigram, count})
+			totalCount += count
+		}
+	}
+
+	// Sort by count descending
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Count > pairs[j].Count
+	})
+
+	uniqueCount := len(pairs)
+	if n > 0 && n < len(pairs) {
+		return pairs[:n], totalCount, uniqueCount
+	}
+	return pairs, totalCount, uniqueCount
+}
+
+// TopWords returns the top N most frequent words.
+// If n <= 0 or exceeds the total count, returns all words.
+func (c *Corpus) TopWords(n int) []CountPair[string] {
+	sorted := SortedMap(c.Words)
+	if n > 0 && n < len(sorted) {
+		return sorted[:n]
+	}
+	return sorted
 }

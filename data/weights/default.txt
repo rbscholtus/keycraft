@@ -1,51 +1,41 @@
 # just some reasonable default weights
 # Docs: https://github.com/rbscholtus/keycraft
 
-SFB = -6.0
+SFB = -8.0
 LSB = -4.0
-FSB = -3.0
-HSB = -3.0
+FSB = -2.666
+HSB = -1.333
 
-SFS = -1.5
+SFS = -3.0
 LSS = -1.0
-FSS = -0.75
-HSS = -0.75
+FSS = -0.666
+HSS = -0.333
 
-#ALT = ALT-SFS + ALT-OTH
-#ALT-SFS = -1.0
-ALT-OTH = 4
-#ALT = 0
+#ALT = ALT-SFS + ALT-NML
+ALT     = 0
+ALT-SFS = -0.001
+ALT-NML = 4
 
-#2RL = 2RL-IN + 2RL-OUT
-2RL = 3
-#2RL-SFB = -0.5
-#2RL-IN = 0
-#2RL-OUT = 0
+#2RL = 2RL-IN + 2RL-OUT + 2RL-SFB
+2RL     = 0
+2RL-SFB = -0.001
+2RL-IN  = 2
+2RL-OUT = 2
 
-#3RL = 3RL-IN + 3RL-OUT
-3RL = 1
-#3RL-SFS = -0.5
-#3RL-IN = 0
-#3RL-OUT = 0
+#3RL = 3RL-IN + 3RL-OUT + 3RL-SFB
+3RL     = 0
+3RL-SFB = -0.001
+3RL-IN  = 0.25
+3RL-OUT = 0.25
 
-#RED = RED-WEAK + RED-SFS + RED-OTH
-RED = -0.001
+#RED = RED-WEAK + RED-SFS + RED-NML
+RED      = -0.001
 RED-WEAK = -2
-#RED-SFS = -2
-RED-OTH = -2
+RED-SFS  = -0.001
+RED-NML  = -2
 
-#IN:OUT
-FBL = -2.0
-POH = -2.0
-
-
-#F0 = -0.5
-#F1 = -0.5
-#F2 = -0.5
-#F3 = -0.5
-#F4 = 0
-#F5 = 0
-#F6 = -0.5
-#F7 = -0.5
-#F8 = -0.5
-#F9 = -0.5
+IN:OUT = 0
+FLW    = 0
+RBL    = -1.0
+FBL    = -2.0
+POH    = -2.0

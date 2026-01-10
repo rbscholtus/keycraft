@@ -20,20 +20,31 @@ vendor/
 *.swp
 
 # My files
-/*.log
+/data/corpus/sources
+/data/pins/hieamtsrn.pin
+/data/layouts/enthium-promax.klf
+/data/layouts/northwest.klf
+/data/layouts/northeast.klf
+/data/layouts2
+*-opt*.klf
+*-best*.klf
+*-flipped*.klf
+_cleanuipman
+/keycraft
 /main
+/*.log
 *.go.bak
+/*.prof
 /*.txt
 /logs/
-*.html
+/*.html
+/*.csv
 /*.conf
 /*.mmdb
 /*.js
 /*.kb
-/data/layouts2
-/data/corpus/sources
 /*.klf
 /cmini/
 authors.json
 likes.json
-.gitignore
+run.jsonl

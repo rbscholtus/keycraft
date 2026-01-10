@@ -5,106 +5,287 @@ import (
 	"strconv"
 )
 
-// idealFingerLoad specifies the target distribution of load (in percentages) across fingers for ergonomic balance.
-var idealFingerLoad = map[string]float64{
-	"F0": 8.0,
-	"F1": 11.0,
-	"F2": 16.0,
-	"F3": 15.0,
-	"F4": 0.0,
-	"F5": 0.0,
-	"F6": 15.0,
-	"F7": 16.0,
-	"F8": 11.0,
-	"F9": 8.0,
+// MetricsMap groups named metric sets used for different ranking views.
+// Each metric set defines which columns appear in the ranking table output.
+var MetricsMap = map[string][]string{
+	"basic": {
+		"SFB", "LSB", "FSB", "HSB",
+		"SFS",
+		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
+		"IN:OUT", "FLW",
+		"POH",
+	},
+	"extended": {
+		"SFB", "LSB", "FSB", "HSB",
+		"SFS", "LSS", "FSS", "HSS",
+		"ALT", "ALT-NML", "ALT-SFS",
+		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
+		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
+		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
+		"IN:OUT", "FLW",
+		"RBL", "FBL", "POH",
+	},
+	"fingers": {
+		"F0", "F1", "F2", "F3", "F4",
+		"H0", "H1",
+		"F5", "F6", "F7", "F8", "F9",
+	},
+	"all": {
+		// Bigram metrics
+		"SFB", "LSB", "FSB", "HSB",
+		"SFS", "LSS", "FSS", "HSS",
+		// Trigram metrics
+		"ALT", "ALT-NML", "ALT-SFS",
+		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
+		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
+		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
+		// Flow metrics
+		"IN:OUT", "FLW",
+		// Balance metrics
+		"RBL", "FBL", "POH",
+		// Hand distribution
+		"H0", "H1",
+		// Finger distribution
+		"F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9",
+		// Row distribution
+		"R0", "R1", "R2", "R3",
+		// Column distribution
+		"C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11",
+	},
 }
 
-// Analyser performs ergonomic analysis on a given layout using a corpus. It computes both quick percentage-based metrics and detailed breakdowns of relevant n-grams and distances.
-type Analyser struct {
-	// Reference to the analysed Layout.
-	Layout *SplitLayout
-	// Reference to the Corpus used to analyse the layout.
-	Corpus *Corpus
-	// Metrics holds all metrics about the layout.
-	Metrics map[string]float64
-}
-
-// NewAnalyser constructs an Analyser for the given layout and corpus, runs a quick analysis, and initializes core metrics.
-func NewAnalyser(layout *SplitLayout, corpus *Corpus) *Analyser {
-	an := &Analyser{
-		Layout:  layout,
-		Corpus:  corpus,
-		Metrics: make(map[string]float64),
+// DefaultIdealRowLoad
+func DefaultIdealRowLoad() *[3]float64 {
+	return &[3]float64{
+		18.5, // top
+		73.0, // home
+		8.5,  // bottom
 	}
-	an.quickHandAnalysis()
-	an.quickMetricAnalysis()
+}
+
+// DefaultIdealFingerLoad returns the default target finger load distribution (as percentages).
+// Fingers 0-9: left pinky to right pinky. Thumbs (F4, F5) are set to 0 (not counted in main row usage).
+// Right-hand loads mirror the left for symmetry.
+func DefaultIdealFingerLoad() *[10]float64 {
+	return &[10]float64{
+		7.5,  // F0
+		11.0, // F1
+		16.0, // F2
+		15.5, // F3
+		0.0,  // F4
+		0.0,  // F5
+		15.5, // F6 (mirror of F3)
+		16.0, // F7 (mirror of F2)
+		11.0, // F8 (mirror of F1)
+		7.5,  // F9 (mirror of F0)
+	}
+}
+
+// DefaultPinkyPenalties returns the default pinky off-home penalty weights.
+// Order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner.
+// Left hand uses columns 0 (outer) and 1 (inner), right hand uses columns 11 (outer) and 10 (inner).
+func DefaultPinkyPenalties() *[12]float64 {
+	return &[12]float64{
+		// Left pinky
+		1.0, // top-outer (row 0, col 0)
+		1.0, // top-inner (row 0, col 1)
+		1.0, // home-outer (row 1, col 0)
+		0.0, // home-inner (row 1, col 1)
+		1.0, // bottom-outer (row 2, col 0)
+		1.0, // bottom-inner (row 2, col 1)
+		// Right pinky (mirrored)
+		1.0, // top-outer (row 0, col 11)
+		1.0, // top-inner (row 0, col 10)
+		1.0, // home-outer (row 1, col 11)
+		0.0, // home-inner (row 1, col 10)
+		1.0, // bottom-outer (row 2, col 11)
+		1.0, // bottom-inner (row 2, col 10)
+	}
+}
+
+// MetricDetails contains detailed analysis results for a single metric.
+// Includes per-n-gram counts, distances, and custom attributes (e.g., hand, finger, direction).
+type MetricDetails struct {
+	Corpus       *Corpus                   // Reference to the corpus being analyzed
+	CorpusNGramC uint64                    // Total n-grams of this type in the corpus
+	Metric       string                    // Metric name (e.g., "SFB", "LSB", "ALT")
+	NGramCount   map[string]uint64         // Frequency of each relevant n-gram
+	NGramDist    map[string]float64        // Distance metric for each n-gram
+	TotalNGrams  uint64                    // Total count of relevant n-grams
+	TotalDist    float64                   // Sum of weighted distances
+	Custom       map[string]map[string]any // Additional per-n-gram attributes
+}
+
+// TrigramInfo holds a trigram with its frequency for performance.
+// KeyInfo is looked up fresh from the layout during analysis to ensure correctness.
+type TrigramInfo struct {
+	Count uint64  // Frequency of this trigram in the corpus
+	Runes [3]rune // The 3 runes in this trigram
+}
+
+// Analyser computes ergonomic metrics for a keyboard layout using corpus n-gram frequencies.
+// Metrics are stored as percentages or ratios in the Metrics map.
+type Analyser struct {
+	Layout         *SplitLayout       // The keyboard layout being analyzed
+	Corpus         *Corpus            // Text corpus for n-gram frequencies
+	IdealRowLoad   *[3]float64        // Target row load distribution (percentages for top, home, bottom)
+	IdealfgrLoad   *[10]float64       // Target finger load distribution (percentages for F0-F9)
+	PinkyPenalties *[12]float64       // Pinky off-home penalty weights (6 per hand)
+	Metrics        map[string]float64 // Computed metrics (e.g., "SFB", "ALT", "FBL")
+
+	// Pre-filtered n-grams (injected by Scorer to avoid redundant filtering)
+	relevantTrigrams []TrigramInfo // Only trigrams with all 3 runes on layout
+}
+
+// NewAnalyser creates an Analyser and computes all metrics for the given layout.
+// If idealRowLoad, idealfgrLoad, or pinkyPenalties are nil, uses defaults.
+func NewAnalyser(layout *SplitLayout, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyPenalties *[12]float64) *Analyser {
+	if idealRowLoad == nil {
+		idealRowLoad = DefaultIdealRowLoad()
+	}
+	if idealfgrLoad == nil {
+		idealfgrLoad = DefaultIdealFingerLoad()
+	}
+	if pinkyPenalties == nil {
+		pinkyPenalties = DefaultPinkyPenalties()
+	}
+	an := &Analyser{
+		Layout:         layout,
+		Corpus:         corpus,
+		IdealRowLoad:   idealRowLoad,
+		IdealfgrLoad:   idealfgrLoad,
+		PinkyPenalties: pinkyPenalties,
+		Metrics:        make(map[string]float64, 60),
+	}
+	an.analyseHand()
+	an.analyseBigrams()
+	an.analyseSkipgrams()
+	an.analyseTrigrams()
 	return an
 }
 
-// quickHandAnalysis computes hand, finger, column, and row usage metrics from unigrams. Same-finger balance (FBL) is also calculated as the cumulative deviation from the idealFingerLoad distribution.
-func (an *Analyser) quickHandAnalysis() {
+// analyseHand computes usage metrics for hands, fingers, columns, and rows from unigrams.
+// Also calculates finger balance (FBL) as the sum of absolute deviations from ideal loads,
+// with special handling for pinkies (only positive deviations count).
+func (an *Analyser) analyseHand() {
 	var totalUnigramCount uint64
-	var pinkyOffHomeCount uint64
+	var pinkyOffWeighted float64
 	var handCount [2]uint64
 	var fingerCount [10]uint64
 	var columnCount [12]uint64
 	var rowCount [4]uint64
 
+	// Map (row, column) to PinkyWeights array index
+	// Array order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner
+	// Left hand: col 0 is outer, col 1 is inner; Right hand: col 11 is outer, col 10 is inner
+	pofIndex := map[[2]uint8]int{
+		// Left pinky (indices 0-5)
+		{0, 0}: 0, // top-outer
+		{0, 1}: 1, // top-inner
+		{1, 0}: 2, // home-outer
+		{1, 1}: 3, // home-inner
+		{2, 0}: 4, // bottom-outer
+		{2, 1}: 5, // bottom-inner
+		// Right pinky (indices 6-11)
+		{0, 11}: 6,  // top-outer
+		{0, 10}: 7,  // top-inner
+		{1, 11}: 8,  // home-outer
+		{1, 10}: 9,  // home-inner
+		{2, 11}: 10, // bottom-outer
+		{2, 10}: 11, // bottom-inner
+	}
+
 	for uniGr, uniCnt := range an.Corpus.Unigrams {
-		key, ok := an.Layout.RuneInfo[rune(uniGr)]
+		key, ok := an.Layout.GetKeyInfo(rune(uniGr))
 		if !ok {
 			continue
 		}
 
-		totalUnigramCount += uniCnt
-		if (key.Finger == LP || key.Finger == RP) && key.Row != 1 {
-			pinkyOffHomeCount += uniCnt
+		// Count main row keys (rows 0-2) for balance calculations
+		if key.Row < 3 {
+			totalUnigramCount += uniCnt
+			// POH: weighted pinky penalty
+			if key.Finger == LP || key.Finger == RP {
+				if idx, ok := pofIndex[[2]uint8{key.Row, key.Column}]; ok {
+					pinkyOffWeighted += an.PinkyPenalties[idx] * float64(uniCnt)
+				}
+			}
+			handCount[key.Hand] += uniCnt
+			fingerCount[key.Finger] += uniCnt
+			columnCount[key.Column] += uniCnt
 		}
-		handCount[key.Hand] += uniCnt
-		fingerCount[key.Finger] += uniCnt
-		columnCount[key.Column] += uniCnt
+
 		rowCount[key.Row] += uniCnt
 	}
 
-	var factor float64
+	// Convert counts to percentages
+	var totFactor float64
 	if totalUnigramCount > 0 {
-		factor = 100 / float64(totalUnigramCount)
+		totFactor = 100 / float64(totalUnigramCount)
 	}
-	an.Metrics["POH"] = float64(pinkyOffHomeCount) * factor
+
+	an.Metrics["POH"] = pinkyOffWeighted * totFactor
 	for i, c := range handCount {
-		an.Metrics["H"+strconv.Itoa(i)] = float64(c) * factor
+		an.Metrics["H"+strconv.Itoa(i)] = float64(c) * totFactor
 	}
+
+	const (
+		topRow    = 0
+		homeRow   = 1
+		bottomRow = 2
+		mainRows  = 3
+	)
+
+	for i, c := range rowCount {
+		ri := "R" + strconv.Itoa(i)
+		an.Metrics[ri] = float64(c) * totFactor
+
+		// Calculate row balance (RBL) for main rows (top, home, bottom)
+		if i < mainRows {
+			diff := an.Metrics[ri] - an.IdealRowLoad[i]
+			// Home row: penalize below ideal usage
+			// Top/Bottom rows: penalize above ideal usage
+			if i == homeRow {
+				an.Metrics["RBL"] -= diff
+			} else {
+				an.Metrics["RBL"] += diff
+			}
+		}
+	}
+	// fmt.Printf("%.1f %.1f %.1f - %.1f\n", an.Metrics["R0"], an.Metrics["R1"], an.Metrics["R2"], an.Metrics["RBL"])
+
 	for i, c := range fingerCount {
 		fi := "F" + strconv.Itoa(i)
-		an.Metrics[fi] = float64(c) * factor
-		an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - idealFingerLoad[fi])
+		an.Metrics[fi] = float64(c) * totFactor
+		// For pinkies (LP and RP), only add positive deviations to FBL
+		if i == int(LP) || i == int(RP) {
+			diff := an.Metrics[fi] - an.IdealfgrLoad[i]
+			if diff > 0 {
+				an.Metrics["FBL"] += diff
+			}
+		} else {
+			an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - an.IdealfgrLoad[i])
+		}
 	}
+
 	for i, c := range columnCount {
-		an.Metrics["C"+strconv.Itoa(i)] = float64(c) * factor
-	}
-	for i, c := range rowCount {
-		an.Metrics["R"+strconv.Itoa(i)] = float64(c) * factor
+		an.Metrics["C"+strconv.Itoa(i)] = float64(c) * totFactor
 	}
 }
 
-// quickMetricAnalysis computes a core set of ergonomic motion metrics, grouped as bigram, skipgram, and trigram features.
-func (an *Analyser) quickMetricAnalysis() {
-	an.analyseBigrams()
-	an.analyseSkipgrams()
-	an.analyseTrigrams()
-}
-
-// analyseBigrams computes bigram-based metrics: SFB, LSB, FSB, and HSB.
+// analyseBigrams computes bigram-based metrics from corpus frequencies:
+//   - SFB: Same Finger Bigrams
+//   - LSB: Lateral Stretch Bigrams
+//   - FSB: Full Scissor Bigrams
+//   - HSB: Half Scissor Bigrams
 func (an *Analyser) analyseBigrams() {
 	var count1, count2, count3, count4 uint64
-	for bi, biCnt := range an.Corpus.Bigrams {
-		key1, ok1 := an.Layout.RuneInfo[bi[0]]
-		key2, ok2 := an.Layout.RuneInfo[bi[1]]
-		if !ok1 || !ok2 {
-			continue
-		}
-		if key1.Finger == key2.Finger && key1.Index != key2.Index {
-			count1 += biCnt
+
+	// SFB calculation using pre-computed cache
+	for _, sfb := range an.Layout.SFBs {
+		bi := Bigram{an.Layout.Runes[sfb.KeyIdx1], an.Layout.Runes[sfb.KeyIdx2]}
+		if cnt, ok := an.Corpus.Bigrams[bi]; ok {
+			count1 += cnt
 		}
 	}
 
@@ -128,6 +309,7 @@ func (an *Analyser) analyseBigrams() {
 			count4 += cnt
 		}
 	}
+
 	factor := 100 / float64(an.Corpus.TotalBigramsCount)
 	an.Metrics["SFB"] = float64(count1) * factor
 	an.Metrics["LSB"] = float64(count2) * factor
@@ -135,17 +317,19 @@ func (an *Analyser) analyseBigrams() {
 	an.Metrics["HSB"] = float64(count4) * factor
 }
 
-// analyseSkipgrams computes skipgram-based metrics: SFS, LSS, FSS, and HSS.
+// analyseSkipgrams computes skipgram-based metrics (same patterns as bigrams, but for skipgrams):
+//   - SFS: Same Finger Skipgrams
+//   - LSS: Lateral Stretch Skipgrams
+//   - FSS: Full Scissor Skipgrams
+//   - HSS: Half Scissor Skipgrams
 func (an *Analyser) analyseSkipgrams() {
 	var count1, count2, count3, count4 uint64
-	for skp, skpCnt := range an.Corpus.Skipgrams {
-		key1, ok1 := an.Layout.RuneInfo[skp[0]]
-		key2, ok2 := an.Layout.RuneInfo[skp[1]]
-		if !ok1 || !ok2 {
-			continue
-		}
-		if key1.Finger == key2.Finger && key1.Index != key2.Index {
-			count1 += skpCnt
+
+	// SFS calculation using pre-computed cache
+	for _, sfb := range an.Layout.SFBs {
+		skp := Skipgram{an.Layout.Runes[sfb.KeyIdx1], an.Layout.Runes[sfb.KeyIdx2]}
+		if cnt, ok := an.Corpus.Skipgrams[skp]; ok {
+			count1 += cnt
 		}
 	}
 
@@ -177,105 +361,123 @@ func (an *Analyser) analyseSkipgrams() {
 	an.Metrics["HSS"] = float64(count4) * factor
 }
 
-// analyseTrigrams computes trigram-based metrics: ALT (alternations), 2RL (two-key rolls), 3RL (three-key rolls), and RED (redirections).
+// analyseTrigrams computes trigram-based flow metrics by categorizing each trigram:
+//   - ALT: Alternations (hand switching)
+//   - 2RL: Two-key rolls (two fingers on same hand)
+//   - 3RL: Three-key rolls (all on same hand, monotonic finger order)
+//   - RED: Redirections (all on same hand, non-monotonic)
+//
+// Each category includes subcategories (e.g., ALT-SFS, 2RL-IN, RED-WEAK).
 func (an *Analyser) analyseTrigrams() {
-	var rl2SFB, rl2In, rl2Out, altSFS, altOth, rl3SFS, rl3In, rl3Out, redWeak, redSFS, redOth uint64
+	var rl2SFB, rl2In, rl2Out, altSFS, altNml, rl3SFB, rl3In, rl3Out, redWeak, redSFS, redNml uint64
 
-	for tri, cnt := range an.Corpus.Trigrams {
-		r0, ok0 := an.Layout.RuneInfo[tri[0]]
-		r1, ok1 := an.Layout.RuneInfo[tri[1]]
-		r2, ok2 := an.Layout.RuneInfo[tri[2]]
-		if !ok0 || !ok1 || !ok2 {
-			continue
-		}
-		h0, h1, h2 := r0.Hand, r1.Hand, r2.Hand
-		f0, f1, f2 := r0.Finger, r1.Finger, r2.Finger
-		diffIdx02 := r0.Index != r2.Index
-
-		add2Roll := func(fA, fB uint8) {
-			switch {
-			case fA == fB: // the same index is also a SFB??
-				rl2SFB += cnt
-			case (fA < fB) == (h1 == LEFT):
-				rl2In += cnt
-			default:
-				rl2Out += cnt
+	// Use pre-filtered trigrams if available (injected by Scorer), otherwise filter on-the-fly
+	trigrams := an.relevantTrigrams
+	if trigrams == nil {
+		// Fallback: pre-filter trigrams now (for non-Scorer callers)
+		trigrams = make([]TrigramInfo, 0, len(an.Corpus.Trigrams)/10)
+		for tri, cnt := range an.Corpus.Trigrams {
+			_, ok0 := an.Layout.GetKeyInfo(tri[0])
+			_, ok1 := an.Layout.GetKeyInfo(tri[1])
+			_, ok2 := an.Layout.GetKeyInfo(tri[2])
+			if ok0 && ok1 && ok2 {
+				trigrams = append(trigrams, TrigramInfo{
+					Count: cnt,
+					Runes: [3]rune{tri[0], tri[1], tri[2]},
+				})
 			}
 		}
+	}
 
-		if h0 == h2 {
-			if h0 != h1 {
-				if f0 == f2 && diffIdx02 {
+	for _, ti := range trigrams {
+		cnt := ti.Count
+		// Look up fresh KeyInfo from current layout
+		k0, _ := an.Layout.GetKeyInfo(ti.Runes[0])
+		k1, _ := an.Layout.GetKeyInfo(ti.Runes[1])
+		k2, _ := an.Layout.GetKeyInfo(ti.Runes[2])
+
+		// Extract key properties for classification
+		h0, h1, h2 := k0.Hand, k1.Hand, k2.Hand
+		f0, f1, f2 := k0.Finger, k1.Finger, k2.Finger
+
+		// Classify trigram by hand pattern
+		switch h0 {
+		case h2:
+			if h0 != h1 { // Alternation (two hands alternate)
+				if f0 == f2 && k0.Index != k2.Index {
 					altSFS += cnt
 				} else {
-					altOth += cnt
+					altNml += cnt
 				}
-			} else {
+			} else { // One-hand trigram
 				switch {
-				case f0 == f1 || f1 == f2: // the same index is also a SFS??
-					rl3SFS += cnt
-				case (f0 < f1) == (f1 < f2):
+				case f0 == f1 || f1 == f2: // Contains same-finger (SFB/SFS)
+					rl3SFB += cnt
+				case (f0 < f1) == (f1 < f2): // Monotonic finger sequence (roll)
 					if (f0 < f1) == (h0 == LEFT) {
 						rl3In += cnt
 					} else {
 						rl3Out += cnt
 					}
-				default:
+				default: // Non-monotonic (redirection)
 					if f0 != LI && f0 != RI &&
 						f1 != LI && f1 != RI &&
 						f2 != LI && f2 != RI {
 						redWeak += cnt
-					} else if f0 == f2 && diffIdx02 {
+					} else if f0 == f2 && k0.Index != k2.Index {
 						redSFS += cnt
 					} else {
-						redOth += cnt
+						redNml += cnt
 					}
 				}
 			}
-		} else if h0 == h1 {
-			add2Roll(f0, f1)
-		} else {
-			add2Roll(f1, f2)
+		case h1: // 2-roll with h0 == h1 (inlined for performance)
+			switch {
+			case f0 == f1: // Same finger
+				rl2SFB += cnt
+			case (f0 < f1) == (h1 == LEFT):
+				rl2In += cnt
+			default:
+				rl2Out += cnt
+			}
+		default: // 2-roll with h1 == h2 (inlined for performance)
+			switch {
+			case f1 == f2: // Same finger
+				rl2SFB += cnt
+			case (f1 < f2) == (h2 == LEFT):
+				rl2In += cnt
+			default:
+				rl2Out += cnt
+			}
 		}
 	}
 
 	factor := 100 / float64(an.Corpus.TotalTrigramsCount)
 	an.Metrics["ALT-SFS"] = float64(altSFS) * factor
-	an.Metrics["ALT-OTH"] = float64(altOth) * factor
-	an.Metrics["ALT"] = an.Metrics["ALT-OTH"] + an.Metrics["ALT-SFS"]
+	an.Metrics["ALT-NML"] = float64(altNml) * factor
+	an.Metrics["ALT"] = an.Metrics["ALT-NML"] + an.Metrics["ALT-SFS"]
 
 	an.Metrics["2RL-SFB"] = float64(rl2SFB) * factor
 	an.Metrics["2RL-IN"] = float64(rl2In) * factor
 	an.Metrics["2RL-OUT"] = float64(rl2Out) * factor
-	an.Metrics["2RL"] = an.Metrics["2RL-IN"] + an.Metrics["2RL-OUT"]
+	an.Metrics["2RL"] = an.Metrics["2RL-SFB"] + an.Metrics["2RL-IN"] + an.Metrics["2RL-OUT"]
 
-	an.Metrics["3RL-SFS"] = float64(rl3SFS) * factor
+	an.Metrics["3RL-SFB"] = float64(rl3SFB) * factor
 	an.Metrics["3RL-IN"] = float64(rl3In) * factor
 	an.Metrics["3RL-OUT"] = float64(rl3Out) * factor
-	an.Metrics["3RL"] = an.Metrics["3RL-IN"] + an.Metrics["3RL-OUT"]
+	an.Metrics["3RL"] = an.Metrics["3RL-SFB"] + an.Metrics["3RL-IN"] + an.Metrics["3RL-OUT"]
 
 	an.Metrics["RED-WEAK"] = float64(redWeak) * factor
 	an.Metrics["RED-SFS"] = float64(redSFS) * factor
-	an.Metrics["RED-OTH"] = float64(redOth) * factor
-	an.Metrics["RED"] = an.Metrics["RED-OTH"] + an.Metrics["RED-SFS"] + an.Metrics["RED-WEAK"]
+	an.Metrics["RED-NML"] = float64(redNml) * factor
+	an.Metrics["RED"] = an.Metrics["RED-NML"] + an.Metrics["RED-SFS"] + an.Metrics["RED-WEAK"]
 
 	an.Metrics["IN:OUT"] = (an.Metrics["2RL-IN"] + an.Metrics["3RL-IN"]) / (an.Metrics["2RL-OUT"] + an.Metrics["3RL-OUT"])
+	an.Metrics["FLW"] = an.Metrics["2RL-IN"] + an.Metrics["2RL-OUT"] + an.Metrics["3RL-IN"] + an.Metrics["3RL-OUT"] + an.Metrics["ALT-NML"]
 }
 
-// MetricDetails contains detailed results for a single metric, including counts of relevant n-grams, unsupported n-grams, weighted distance values (row, column, or Euclidean), and totals.
-type MetricDetails struct {
-	Corpus       *Corpus
-	CorpusNGramC uint64
-	Metric       string
-	// Unsupported  map[string]uint64
-	NGramCount  map[string]uint64
-	NGramDist   map[string]float64 // todo: change to a map for any ngram info
-	TotalNGrams uint64
-	TotalDist   float64 // todo: do we need it?
-	Custom      map[string]map[string]any
-}
-
-// AllMetricsDetails runs detailed analyses for multiple metrics, returning results for bigrams, skipgrams, and trigrams. Includes: SFB, LSB, FSB, HSB, SFS, LSS, FSS, HSS, ALT, 2RL, 3RL, and RED.
+// AllMetricsDetails computes detailed analysis for all major metrics.
+// Returns a slice of MetricDetails, one for each metric (SFB, LSB, FSB, HSB, SFS, LSS, FSS, HSS, ALT, 2RL, 3RL, RED).
 func (an *Analyser) AllMetricsDetails() []*MetricDetails {
 	all := make([]*MetricDetails, 0, 30)
 
@@ -293,9 +495,75 @@ func (an *Analyser) AllMetricsDetails() []*MetricDetails {
 	return all
 }
 
-// SFBiDetails performs a detailed Same Finger Bigram (SFB) analysis.
-// It scans all bigrams in the corpus and identifies those typed with the same finger (but not the same key).
-// Unsupported bigrams (not present in the layout) are also tracked, and the Euclidean distance between keys is included.
+// AllCorpusDetails analyzes the top N bigrams from the corpus, categorizing each by type
+// (ALT, SFB, LSB, FSB, HSB, or regular). Useful for understanding corpus characteristics.
+func (an *Analyser) AllCorpusDetails(nRows int) []*MetricDetails {
+	lsbLookup := make(map[[2]uint8]bool, len(an.Layout.LSBs))
+	for _, lsb := range an.Layout.LSBs {
+		lsbLookup[[2]uint8{lsb.KeyIdx1, lsb.KeyIdx2}] = true
+	}
+
+	fsbLookup := make(map[[2]uint8]bool, len(an.Layout.FScissors))
+	for _, fsb := range an.Layout.FScissors {
+		fsbLookup[[2]uint8{fsb.keyIdx1, fsb.keyIdx2}] = true
+	}
+
+	hsbLookup := make(map[[2]uint8]bool, len(an.Layout.HScissors))
+	for _, hsb := range an.Layout.HScissors {
+		hsbLookup[[2]uint8{hsb.keyIdx1, hsb.keyIdx2}] = true
+	}
+
+	ma := &MetricDetails{
+		Corpus:       an.Corpus,
+		CorpusNGramC: an.Corpus.TotalBigramsCount,
+		Metric:       "CORPUS BIGRAMS",
+		NGramCount:   make(map[string]uint64),
+		NGramDist:    make(map[string]float64),
+		Custom:       make(map[string]map[string]any),
+	}
+
+	topBigrams := an.Corpus.TopBigrams(nRows)
+	for _, cb := range topBigrams {
+		bi := cb.Key
+		biStr := bi.String()
+		key1, ok1 := an.Layout.GetKeyInfo(bi[0])
+		key2, ok2 := an.Layout.GetKeyInfo(bi[1])
+
+		ma.NGramCount[biStr] += cb.Count
+		ma.TotalNGrams += cb.Count
+		if _, ok := ma.Custom[biStr]; !ok {
+			ma.Custom[biStr] = make(map[string]any)
+		}
+
+		biIdx := [2]uint8{key1.Index, key2.Index}
+		if !ok1 || !ok2 {
+			ma.Custom[biStr]["Type"] = "Not found"
+		} else if key1.Hand != key2.Hand {
+			ma.Custom[biStr]["Type"] = "ALT"
+			// tt
+		} else if key1.Finger == key2.Finger {
+			if key1.Index == key2.Index {
+				ma.Custom[biStr]["Type"] = "Repeat"
+			} else {
+				ma.Custom[biStr]["Type"] = "SFB"
+			}
+		} else if lsbLookup[biIdx] {
+			ma.Custom[biStr]["Type"] = "LSB"
+		} else if fsbLookup[biIdx] {
+			ma.Custom[biStr]["Type"] = "FSB"
+		} else if hsbLookup[biIdx] {
+			ma.Custom[biStr]["Type"] = "HSB"
+		} else {
+			ma.Custom[biStr]["Type"] = "-"
+		}
+	}
+
+	return []*MetricDetails{ma}
+}
+
+// SFBiDetails performs detailed Same Finger Bigram (SFB) analysis.
+// Identifies bigrams typed with the same finger on different keys, reporting frequency,
+// distance, hand, finger, and row distance for each.
 func (an *Analyser) SFBiDetails() *MetricDetails {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
@@ -309,8 +577,8 @@ func (an *Analyser) SFBiDetails() *MetricDetails {
 
 	for bi, biCnt := range an.Corpus.Bigrams {
 		biStr := bi.String()
-		key1, ok1 := an.Layout.RuneInfo[bi[0]]
-		key2, ok2 := an.Layout.RuneInfo[bi[1]]
+		key1, ok1 := an.Layout.GetKeyInfo(bi[0])
+		key2, ok2 := an.Layout.GetKeyInfo(bi[1])
 
 		if !ok1 || !ok2 {
 			// ma.Unsupported[biStr] += biCnt
@@ -320,14 +588,15 @@ func (an *Analyser) SFBiDetails() *MetricDetails {
 		if key1.Finger == key2.Finger && key1.Index != key2.Index {
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
-			kp := KeyPair{key1.Index, key2.Index}
-			kpDist := an.Layout.KeyPairDistances[kp]
+			kpDist := an.Layout.Distance(key1.Index, key2.Index)
 			ma.NGramDist[biStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(biCnt)
 
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma.Custom[biStr] = make(map[string]any)
 			}
+			ma.Custom[biStr]["Hd"] = key1.Hand + 1
+			ma.Custom[biStr]["Fgr"] = key1.Finger + 1
 			ma.Custom[biStr]["Δrow"] = kpDist.RowDist
 		}
 	}
@@ -335,8 +604,8 @@ func (an *Analyser) SFBiDetails() *MetricDetails {
 	return ma
 }
 
-// LSBiDetails performs a detailed Lateral Stretch Bigram (LSB) analysis.
-// Evaluates all layout-defined lateral stretch bigrams, returning their corpus frequency and column distance distribution.
+// LSBiDetails performs detailed Lateral Stretch Bigram (LSB) analysis.
+// Evaluates preidentified lateral stretch pairs, reporting frequency, distance, hand, and column distance.
 func (an *Analyser) LSBiDetails() *MetricDetails {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
@@ -349,20 +618,22 @@ func (an *Analyser) LSBiDetails() *MetricDetails {
 	}
 
 	for _, lsb := range an.Layout.LSBs {
-		bi := Bigram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
+		rune1 := an.Layout.Runes[lsb.KeyIdx1]
+		bi := Bigram{rune1, an.Layout.Runes[lsb.KeyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
 
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
-			kp := KeyPair{uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2)}
-			kpDist := an.Layout.KeyPairDistances[kp]
+			kpDist := an.Layout.Distance(lsb.KeyIdx1, lsb.KeyIdx2)
 			ma.NGramDist[biStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(biCnt)
 
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma.Custom[biStr] = make(map[string]any)
 			}
+			key1, _ := an.Layout.GetKeyInfo(rune1)
+			ma.Custom[biStr]["Hd"] = key1.Hand + 1
 			ma.Custom[biStr]["Δcol"] = kpDist.ColDist
 		}
 	}
@@ -370,8 +641,9 @@ func (an *Analyser) LSBiDetails() *MetricDetails {
 	return ma
 }
 
-// ScissBiDetails performs a detailed analysis of scissor bigrams, splitting into FSB (Full Scissor Bigrams, large vertical movement) and HSB (Half Scissor Bigrams, smaller vertical movement).
-// Returns both analyses, with row distance included for each.
+// ScissBiDetails analyzes full and half scissor bigrams separately.
+// Returns two MetricDetails: FSB (full scissors, 2-row jumps) and HSB (half scissors, 1-row jumps).
+// Includes frequency, distance, hand, row/column distance, and angle for each.
 func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
@@ -393,11 +665,11 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 	}
 
 	for _, sci := range an.Layout.FScissors {
-		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		rune1 := an.Layout.Runes[sci.keyIdx1]
+		bi := Bigram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
-			kp := KeyPair{uint8(sci.keyIdx1), uint8(sci.keyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].Distance
+			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
 			ma.NGramDist[biStr] = dist
@@ -406,6 +678,8 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma.Custom[biStr] = make(map[string]any)
 			}
+			key1, _ := an.Layout.GetKeyInfo(rune1)
+			ma.Custom[biStr]["Hd"] = key1.Hand + 1
 			ma.Custom[biStr]["Δrow"] = sci.rowDist
 			ma.Custom[biStr]["Δcol"] = sci.colDist
 			ma.Custom[biStr]["Angle"] = sci.angle
@@ -413,11 +687,11 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 	}
 
 	for _, sci := range an.Layout.HScissors {
-		bi := Bigram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		rune1 := an.Layout.Runes[sci.keyIdx1]
+		bi := Bigram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
-			kp := KeyPair{uint8(sci.keyIdx1), uint8(sci.keyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].Distance
+			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
 			ma2.NGramCount[biStr] = biCnt
 			ma2.TotalNGrams += biCnt
 			ma2.NGramDist[biStr] = dist
@@ -426,6 +700,8 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[biStr]; !ok {
 				ma2.Custom[biStr] = make(map[string]any)
 			}
+			key1, _ := an.Layout.GetKeyInfo(rune1)
+			ma2.Custom[biStr]["Hd"] = key1.Hand + 1
 			ma2.Custom[biStr]["Δrow"] = sci.rowDist
 			ma2.Custom[biStr]["Δcol"] = sci.colDist
 			ma2.Custom[biStr]["Angle"] = sci.angle
@@ -435,8 +711,8 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 	return ma, ma2
 }
 
-// SFSkpDetails performs a detailed Same Finger Skipgram (SFS) analysis.
-// All skipgrams typed with the same finger (but not the same key) are included, with unsupported skipgrams and Euclidean distances tracked.
+// SFSkpDetails performs detailed Same Finger Skipgram (SFS) analysis.
+// Similar to SFBiDetails but for skipgrams (1st and 3rd characters of trigrams).
 func (an *Analyser) SFSkpDetails() *MetricDetails {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
@@ -450,8 +726,8 @@ func (an *Analyser) SFSkpDetails() *MetricDetails {
 
 	for skp, skpCnt := range an.Corpus.Skipgrams {
 		skpStr := skp.String()
-		key1, ok1 := an.Layout.RuneInfo[skp[0]]
-		key2, ok2 := an.Layout.RuneInfo[skp[1]]
+		key1, ok1 := an.Layout.GetKeyInfo(skp[0])
+		key2, ok2 := an.Layout.GetKeyInfo(skp[1])
 
 		if !ok1 || !ok2 {
 			// ma.Unsupported[skpStr] += skpCnt
@@ -461,14 +737,15 @@ func (an *Analyser) SFSkpDetails() *MetricDetails {
 		if key1.Finger == key2.Finger && key1.Index != key2.Index {
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
-			kp := KeyPair{key1.Index, key2.Index}
-			kpDist := an.Layout.KeyPairDistances[kp]
+			kpDist := an.Layout.Distance(key1.Index, key2.Index)
 			ma.NGramDist[skpStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(skpCnt)
 
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma.Custom[skpStr] = make(map[string]any)
 			}
+			ma.Custom[skpStr]["Hd"] = key1.Hand + 1
+			ma.Custom[skpStr]["Fgr"] = key1.Finger + 1
 			ma.Custom[skpStr]["Δrow"] = kpDist.RowDist
 		}
 	}
@@ -476,8 +753,8 @@ func (an *Analyser) SFSkpDetails() *MetricDetails {
 	return ma
 }
 
-// LSSkpDetails performs a detailed Lateral Stretch Skipgram (LSS) analysis.
-// Evaluates all layout-defined lateral stretch skipgrams, reporting their frequency and column distance.
+// LSSkpDetails performs detailed Lateral Stretch Skipgram (LSS) analysis.
+// Similar to LSBiDetails but for skipgrams.
 func (an *Analyser) LSSkpDetails() *MetricDetails {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
@@ -490,20 +767,22 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 	}
 
 	for _, lsb := range an.Layout.LSBs {
-		skp := Skipgram{an.Layout.Runes[lsb.KeyIdx1], an.Layout.Runes[lsb.KeyIdx2]}
+		rune1 := an.Layout.Runes[lsb.KeyIdx1]
+		skp := Skipgram{rune1, an.Layout.Runes[lsb.KeyIdx2]}
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
-			kp := KeyPair{uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2)}
-			kpDist := an.Layout.KeyPairDistances[kp]
+			kpDist := an.Layout.Distance(uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2))
 			ma.NGramDist[skpStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(skpCnt)
 
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma.Custom[skpStr] = make(map[string]any)
 			}
+			key1, _ := an.Layout.GetKeyInfo(rune1)
+			ma.Custom[skpStr]["Hd"] = key1.Hand + 1
 			ma.Custom[skpStr]["Δcol"] = kpDist.ColDist
 		}
 	}
@@ -511,8 +790,8 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 	return ma
 }
 
-// ScissSkpDetails performs a detailed analysis of scissor skipgrams, splitting into FSS (Full Scissor Skipgrams, large vertical movement) and HSS (Half Scissor Skipgrams, smaller vertical movement).
-// Returns both analyses, including row distance for each skipgram.
+// ScissSkpDetails analyzes full and half scissor skipgrams separately.
+// Similar to ScissBiDetails but for skipgrams.
 func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 	ma := &MetricDetails{
 		Corpus:       an.Corpus,
@@ -534,12 +813,12 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 	}
 
 	for _, sci := range an.Layout.FScissors {
-		skp := Skipgram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		rune1 := an.Layout.Runes[sci.keyIdx1]
+		skp := Skipgram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
-			kp := KeyPair{uint8(sci.keyIdx1), uint8(sci.keyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].Distance
+			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
 			ma.NGramDist[skpStr] = dist
@@ -548,6 +827,8 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma.Custom[skpStr] = make(map[string]any)
 			}
+			key1, _ := an.Layout.GetKeyInfo(rune1)
+			ma.Custom[skpStr]["Hd"] = key1.Hand + 1
 			ma.Custom[skpStr]["Δrow"] = sci.rowDist
 			ma.Custom[skpStr]["Δcol"] = sci.colDist
 			ma.Custom[skpStr]["Angle"] = sci.angle
@@ -555,12 +836,12 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 	}
 
 	for _, sci := range an.Layout.HScissors {
-		skp := Skipgram{an.Layout.Runes[sci.keyIdx1], an.Layout.Runes[sci.keyIdx2]}
+		rune1 := an.Layout.Runes[sci.keyIdx1]
+		skp := Skipgram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
-			kp := KeyPair{uint8(sci.keyIdx1), uint8(sci.keyIdx2)}
-			dist := an.Layout.KeyPairDistances[kp].Distance
+			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
 			ma2.NGramCount[skpStr] = skpCnt
 			ma2.TotalNGrams += skpCnt
 			ma2.NGramDist[skpStr] = dist
@@ -569,6 +850,8 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 			if _, ok := ma.Custom[skpStr]; !ok {
 				ma2.Custom[skpStr] = make(map[string]any)
 			}
+			key1, _ := an.Layout.GetKeyInfo(rune1)
+			ma2.Custom[skpStr]["Hd"] = key1.Hand + 1
 			ma2.Custom[skpStr]["Δrow"] = sci.rowDist
 			ma2.Custom[skpStr]["Δcol"] = sci.colDist
 			ma2.Custom[skpStr]["Angle"] = sci.angle
@@ -578,13 +861,13 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 	return ma, ma2
 }
 
-// TrigramDetails performs a detailed analysis of trigram-based metrics:
-//   - ALT: Alternations between hands (including ALT-SFS for same-finger alternations)
-//   - 2RL: Two-key rolls (inward/outward) between adjacent fingers on one hand
-//   - 3RL: Three-key rolls (inward/outward) on one hand
-//   - RED: Redirections—direction changes on one hand, split into RED-OTH (general), RED-SFS (same-finger skipgram), and RED-WEAK (without index involvement)
+// TrigramDetails categorizes all trigrams into flow patterns:
+//   - ALT: Alternations (hand switches), with subcategories ALT-NML and ALT-SFS
+//   - 2RL: Two-key rolls, with directions (IN, OUT, SFB)
+//   - 3RL: Three-key rolls, with directions (IN, OUT, SFB)
+//   - RED: Redirections, with subcategories (NML, SFS, WEAK)
 //
-// Each returned MetricAnalysis includes frequency counts and can be used to compute derived totals and ratios.
+// Returns four MetricDetails, one for each category.
 func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDetails, *MetricDetails) {
 	alt := &MetricDetails{
 		Corpus:       an.Corpus,
@@ -625,9 +908,9 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 
 	for tri, cnt := range an.Corpus.Trigrams {
 		triStr := tri.String()
-		r0, ok0 := an.Layout.RuneInfo[tri[0]]
-		r1, ok1 := an.Layout.RuneInfo[tri[1]]
-		r2, ok2 := an.Layout.RuneInfo[tri[2]]
+		r0, ok0 := an.Layout.GetKeyInfo(tri[0])
+		r1, ok1 := an.Layout.GetKeyInfo(tri[1])
+		r2, ok2 := an.Layout.GetKeyInfo(tri[2])
 		if !ok0 || !ok1 || !ok2 {
 			// alt.Unsupported[triStr] += cnt
 			continue
@@ -635,8 +918,8 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 
 		h0, h1, h2 := r0.Hand, r1.Hand, r2.Hand
 		f0, f1, f2 := r0.Finger, r1.Finger, r2.Finger
-		diffIdx02 := r0.Index != r2.Index
 
+		// Helper to classify and record 2-key rolls
 		add2Roll := func(fA, fB uint8) {
 			rl2.NGramCount[triStr] = cnt
 			rl2.TotalNGrams += cnt
@@ -645,40 +928,42 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 				if _, ok := rl2.Custom[triStr]; !ok {
 					rl2.Custom[triStr] = make(map[string]any)
 				}
-				rl2.Custom[triStr]["Kind"] = "SF"
+				rl2.Custom[triStr]["Dir"] = "SFB"
 			case (fA < fB) == (h1 == LEFT):
 				if _, ok := rl2.Custom[triStr]; !ok {
 					rl2.Custom[triStr] = make(map[string]any)
 				}
-				rl2.Custom[triStr]["Kind"] = "IN"
+				rl2.Custom[triStr]["Dir"] = "IN"
 			default:
 				if _, ok := rl2.Custom[triStr]; !ok {
 					rl2.Custom[triStr] = make(map[string]any)
 				}
-				rl2.Custom[triStr]["Kind"] = "OUT"
+				rl2.Custom[triStr]["Dir"] = "OUT"
 			}
 		}
 
-		if h0 == h2 {
-			if h0 != h1 {
+		// Classify and record trigram
+		switch h0 {
+		case h2:
+			if h0 != h1 { // Alternation
 				alt.NGramCount[triStr] = cnt
 				alt.TotalNGrams += cnt
 				if _, ok := alt.Custom[triStr]; !ok {
 					alt.Custom[triStr] = make(map[string]any)
 				}
-				if f0 == f2 && diffIdx02 {
-					alt.Custom[triStr]["Kind"] = "SFS"
+				if f0 == f2 && r0.Index != r2.Index {
+					alt.Custom[triStr]["Dir"] = "SFS"
 				} else {
-					alt.Custom[triStr]["Kind"] = "OTH"
+					alt.Custom[triStr]["Dir"] = "NML"
 				}
-			} else {
+			} else { // One-hand pattern
 				if f0 == f1 || f1 == f2 {
 					rl3.NGramCount[triStr] = cnt
 					rl3.TotalNGrams += cnt
 					if _, ok := rl3.Custom[triStr]; !ok {
 						rl3.Custom[triStr] = make(map[string]any)
 					}
-					rl3.Custom[triStr]["Kind"] = "SF"
+					rl3.Custom[triStr]["Dir"] = "SFB"
 				} else if (f0 < f1) == (f1 < f2) {
 					rl3.NGramCount[triStr] = cnt
 					rl3.TotalNGrams += cnt
@@ -686,9 +971,9 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 						rl3.Custom[triStr] = make(map[string]any)
 					}
 					if (f0 < f1) == (h0 == LEFT) {
-						rl3.Custom[triStr]["Kind"] = "IN"
+						rl3.Custom[triStr]["Dir"] = "IN"
 					} else {
-						rl3.Custom[triStr]["Kind"] = "OUT"
+						rl3.Custom[triStr]["Dir"] = "OUT"
 					}
 				} else {
 					red.NGramCount[triStr] = cnt
@@ -699,17 +984,17 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 					if f0 != LI && f0 != RI &&
 						f1 != LI && f1 != RI &&
 						f2 != LI && f2 != RI {
-						red.Custom[triStr]["Kind"] = "WEAK"
-					} else if f0 == f2 && diffIdx02 {
-						red.Custom[triStr]["Kind"] = "SFS"
+						red.Custom[triStr]["Dir"] = "WEAK"
+					} else if f0 == f2 && r0.Index != r2.Index {
+						red.Custom[triStr]["Dir"] = "SFS"
 					} else {
-						red.Custom[triStr]["Kind"] = "OTH"
+						red.Custom[triStr]["Dir"] = "NML"
 					}
 				}
 			}
-		} else if h0 == h1 {
+		case h1:
 			add2Roll(f0, f1)
-		} else { // h1 == h2
+		default: // h1 == h2
 			add2Roll(f1, f2)
 		}
 	}

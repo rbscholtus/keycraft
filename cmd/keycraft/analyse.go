@@ -9,47 +9,75 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// analyseCommand defines the "analyse" CLI command which prints detailed
-// analysis for one or more layouts (including data tables when requested).
+// analyseCommand defines the "analyse" CLI command.
+// It prints detailed analysis for one or more layouts,
+// optionally including data tables.
 var analyseCommand = &cli.Command{
 	Name:      "analyse",
 	Aliases:   []string{"a"},
 	Usage:     "Analyse one or more keyboard layouts in detail",
-	ArgsUsage: "<layout1.klf> <layout2.klf> ...",
-	Flags:     flagsSlice("corpus", "rows"),
+	Flags:     flagsSlice("rows", "corpus", "row-load", "finger-load", "pinky-penalties", "compact-trigrams", "trigram-rows"),
+	ArgsUsage: "<layout1> <layout2> ...",
+	Before:    validateAnalyseFlags,
 	Action:    analyseAction,
 }
 
-// analyseAction loads the requested corpus and layouts, then runs DoAnalysis.
-// Returns an error if corpus or layouts cannot be loaded.
-func analyseAction(c *cli.Context) error {
-	corp, err := loadCorpus(c.String("corpus"))
-	if err != nil {
-		return err
-	}
-
+// validateAnalyseFlags validates CLI flags before running the analyse command.
+func validateAnalyseFlags(c *cli.Context) error {
 	if c.NArg() < 1 {
 		return fmt.Errorf("need at least 1 layout")
-	}
-
-	if err := DoAnalysis(corp, c.Args().Slice(), true, c.Int("rows")); err != nil {
-		return err
 	}
 	return nil
 }
 
-// DoAnalysis loads analysers for the provided layouts, produces overview
-// rows (board, hand, row, stats) and optionally appends detailed metric
+// analyseAction loads the specified corpus, row load, finger load, and layouts,
+// then executes the analysis process.
+// It returns an error if loading or analysis fails.
+func analyseAction(c *cli.Context) error {
+	corpus, err := getCorpusFromFlags(c)
+	if err != nil {
+		return err
+	}
+
+	rowLoad, err := getRowLoadFromFlag(c)
+	if err != nil {
+		return err
+	}
+
+	fingerBal, err := getFingerLoadFromFlag(c)
+	if err != nil {
+		return err
+	}
+
+	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
+	if err != nil {
+		return err
+	}
+
+	layouts := getLayoutArgs(c)
+	compactTrigrams := c.Bool("compact-trigrams")
+	trigramRows := c.Int("trigram-rows")
+
+	// Run detailed analysis on all specified layouts with the given corpus and loads.
+	if err := DoAnalysis(layouts, corpus, rowLoad, fingerBal, pinkyPenalties, true, c.Int("rows")); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DoAnalysis loads analysers for the provided layouts, generates overview
+// rows (board, hand, row, stats), and optionally appends detailed metric
 // tables. The rendered table output is printed to stdout.
-func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool, nRows int) error {
+func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, rowLoad *[3]float64, fgrLoad *[10]float64, pinkyPenalties *[12]float64, dataTables bool, nRows int) error {
 	// load an analyser for each layout
 	analysers := make([]*kc.Analyser, 0, len(layoutFilenames))
 	for _, fn := range layoutFilenames {
-		lay, err := loadLayout(fn)
+		layout, err := loadLayout(fn)
 		if err != nil {
 			return err
 		}
-		an := kc.NewAnalyser(lay, corpus)
+		an := kc.NewAnalyser(layout, corpus, rowLoad, fgrLoad, pinkyPenalties)
 		analysers = append(analysers, an)
 	}
 
@@ -78,7 +106,6 @@ func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool, nR
 	// Layout picture
 	h = table.Row{"Board"}
 	for _, an := range analysers {
-		// use cmd-level formatter instead of relying on an.Layout.String()
 		h = append(h, SplitLayoutString(an.Layout))
 	}
 	twOuter.AppendRow(h)
@@ -115,11 +142,31 @@ func DoAnalysis(corpus *kc.Corpus, layoutFilenames []string, dataTables bool, nR
 		for i, ma := range metrics {
 			data := table.Row{ma.Metric}
 			for _, mas := range details {
-				// render MetricDetails via the cmd formatter
 				data = append(data, MetricDetailsString(mas[i], nRows))
 			}
 			twOuter.AppendRow(data)
 		}
+
+		// details = make([][]*kc.MetricDetails, 0, len(layoutFilenames))
+		// for _, an := range analysers {
+		// 	details = append(details, an.AllCorpusDetails(nRows))
+		// }
+
+		// metrics = details[0] // get the first entry to get the metrics
+		// for i, ma := range metrics {
+		// 	data := table.Row{ma.Metric}
+		// 	for _, mas := range details {
+		// 		data = append(data, MetricDetailsString(mas[i], nRows))
+		// 	}
+		// 	twOuter.AppendRow(data)
+		// }
+
+		// Add trigram table row
+		h = table.Row{"Trigr"}
+		for _, an := range analysers {
+			h = append(h, TopTrigramsString(an, compactTrigrams, trigramRows))
+		}
+		twOuter.AppendRow(h)
 	}
 
 	// Print layout(s) in the table

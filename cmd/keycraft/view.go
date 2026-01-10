@@ -6,32 +6,52 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// viewCommand defines the CLI command for viewing and analysing keyboard layouts.
-// It supports analysing one or more layouts using a specified corpus of text.
+// viewCommand defines the CLI command for viewing keyboard layout analysis.
 var viewCommand = &cli.Command{
 	Name:      "view",
 	Aliases:   []string{"v"},
 	Usage:     "Analyse and display one or more keyboard layouts",
-	ArgsUsage: "<layout1.klf> <layout2.klf> ...",
+	Flags:     flagsSlice("corpus", "row-load", "finger-load", "pinky-penalties"),
+	ArgsUsage: "<layout1> <layout2> ...",
+	Before:    validateViewFlags,
 	Action:    viewAction,
-	Flags:     flagsSlice("corpus"),
 }
 
-// viewAction implements the view command's functionality: loading corpus,
-// validating layouts, and performing analysis.
+// validateViewFlags validates CLI flags before running the view command.
+func validateViewFlags(c *cli.Context) error {
+	if c.NArg() < 1 {
+		return fmt.Errorf("need at least 1 layout")
+	}
+	return nil
+}
+
+// viewAction loads data and performs layout analysis.
 func viewAction(c *cli.Context) error {
-	corp, err := loadCorpus(c.String("corpus"))
+	corpus, err := getCorpusFromFlags(c)
 	if err != nil {
 		return err
 	}
 
-	if c.NArg() < 1 {
-		return fmt.Errorf("need at least 1 layout")
+	rowLoad, err := getRowLoadFromFlag(c)
+	if err != nil {
+		return err
 	}
 
-	// Analyse all provided layouts using the corpus.
+	fingerLoad, err := getFingerLoadFromFlag(c)
+	if err != nil {
+		return err
+	}
+
+	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
+	if err != nil {
+		return err
+	}
+
+	layouts := getLayoutArgs(c)
+
+	// Analyse all provided layouts using given corpus.
 	// The 'false' parameter indicates not to include detailed metrics.
-	if err := DoAnalysis(corp, c.Args().Slice(), false, 0); err != nil {
+	if err := DoAnalysis(layouts, corpus, rowLoad, fingerLoad, pinkyPenalties, false, 0); err != nil {
 		return err
 	}
 

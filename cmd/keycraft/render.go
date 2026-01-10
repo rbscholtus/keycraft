@@ -10,8 +10,8 @@ import (
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 )
 
-// ASCII templates used to render keyboard layouts in the terminal.
-const ( //\u00A0
+// ASCII templates for rendering keyboard layouts in the terminal.
+const (
 	rowstagTempl = `╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮   
 │%3s│%3s│%3s│%3s│%3s│%3s│  │%3s│%3s│%3s│%3s│%3s│%3s│   
 ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮ ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮  
@@ -51,8 +51,7 @@ const ( //\u00A0
                     ╰───╯  ╰───╯                    `
 )
 
-// SplitLayoutString returns a pretty-printed representation of the SplitLayout.
-// This is a cmd-level formatter (not a method on internal types).
+// SplitLayoutString returns a formatted ASCII representation of a keyboard layout.
 func SplitLayoutString(sl *kc.SplitLayout) string {
 	switch sl.LayoutType {
 	case kc.ANGLEMOD:
@@ -76,7 +75,7 @@ func SplitLayoutString(sl *kc.SplitLayout) string {
 	}
 }
 
-// genLayoutStringFor maps runes (optionally via mapper) into the provided ASCII template and returns the formatted string.
+// genLayoutStringFor applies runes to an ASCII template, optionally reordering via mapper.
 func genLayoutStringFor(sl *kc.SplitLayout, template string, mapper []int) string {
 	args := make([]any, len(sl.Runes))
 	for i, r := range sl.Runes {
@@ -98,8 +97,7 @@ func genLayoutStringFor(sl *kc.SplitLayout, template string, mapper []int) strin
 	return fmt.Sprintf(strings.ReplaceAll(template, " ", "\u00A0"), args...)
 }
 
-// MetricDetailsString renders MetricDetails as a paginated pretty table and
-// returns the combined string output.
+// MetricDetailsString renders metric details as a paginated table.
 func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 	t := createSimpleTable()
 
@@ -151,6 +149,7 @@ func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 	return t.Pager(table.PageSize(nrows)).Render()
 }
 
+// createSimpleTable returns a configured table writer with rounded style and common settings.
 func createSimpleTable() table.Writer {
 	tw := table.NewWriter()
 	tw.SetAutoIndex(true)
@@ -165,17 +164,17 @@ func createSimpleTable() table.Writer {
 		{Name: "Row", Transformer: Fraction},
 		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
 		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
+		{Name: "Cum%", Transformer: Percentage, TransformerFooter: Percentage},
 		{Name: "Δrow", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Δcol", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Angle", Transformer: Angle, TransformerFooter: Angle},
+		{Name: "Length", Align: text.AlignRight},
 	})
 	tw.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
 	return tw
 }
 
-// HandUsageString returns a rendered table showing per-column, per-finger and
-// per-hand usage for the provided analyser. The returned string is suitable
-// for printing in the outer comparison table.
+// HandUsageString renders column, finger, and hand usage percentages as a table.
 func HandUsageString(an *kc.Analyser) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
@@ -222,9 +221,7 @@ func HandUsageString(an *kc.Analyser) string {
 	return tw.Render()
 }
 
-// RowUsageString returns a rendered table with usage percentages per row
-// (Top, Home, Bottom, Thumb) for the analyser. The string is printed in the
-// outer comparison table.
+// RowUsageString renders row usage percentages (Top, Home, Bottom, Thumb) as a table.
 func RowUsageString(an *kc.Analyser) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
@@ -245,9 +242,7 @@ func RowUsageString(an *kc.Analyser) string {
 	return tw.Render()
 }
 
-// MetricsString returns a compact rendered table summarizing key metrics
-// (SFB, LSB, FSB, HSB, etc.) for the analyser. The result is intended for the
-// overview "Stats" column in the comparison table.
+// MetricsString renders a summary of key layout metrics (SFB, LSB, rolls, etc.) as a table.
 func MetricsString(an *kc.Analyser) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleRounded)
@@ -276,15 +271,39 @@ func MetricsString(an *kc.Analyser) string {
 		},
 		{
 			fmt.Sprintf("ALT: %.2f%%", an.Metrics["ALT"]),
+			fmt.Sprintf(".NML: %.2f%%", an.Metrics["ALT-NML"]),
+			fmt.Sprintf(".SFS: %.2f%%", an.Metrics["ALT-SFS"]),
+			"",
+		},
+		{
 			fmt.Sprintf("2RL: %.2f%%", an.Metrics["2RL"]),
+			fmt.Sprintf(".IN: %.2f%%", an.Metrics["2RL-IN"]),
+			fmt.Sprintf(".OUT: %.2f%%", an.Metrics["2RL-OUT"]),
+			fmt.Sprintf(".SFB: %.2f%%", an.Metrics["2RL-SFB"]),
+		},
+		{
 			fmt.Sprintf("3RL: %.2f%%", an.Metrics["3RL"]),
+			fmt.Sprintf(".IN: %.2f%%", an.Metrics["3RL-IN"]),
+			fmt.Sprintf(".OUT: %.2f%%", an.Metrics["3RL-OUT"]),
+			fmt.Sprintf(".SFB: %.2f%%", an.Metrics["3RL-SFB"]),
+		},
+		{
 			fmt.Sprintf("RED: %.2f%%", an.Metrics["RED"]),
+			fmt.Sprintf(".NML: %.2f%%", an.Metrics["RED-NML"]),
+			fmt.Sprintf(".WEAK: %.2f%%", an.Metrics["RED-WEAK"]),
+			fmt.Sprintf(".SFS: %.2f%%", an.Metrics["RED-SFS"]),
 		},
 		{
 			fmt.Sprintf("I:O: %.2f", an.Metrics["IN:OUT"]),
+			fmt.Sprintf("FLW: %.2f%%", an.Metrics["FLW"]),
+			"",
+			"",
+		},
+		{
+			fmt.Sprintf("RBL: %.2f", an.Metrics["RBL"]),
 			fmt.Sprintf("FBL: %.2f%%", an.Metrics["FBL"]),
 			fmt.Sprintf("POH: %.2f%%", an.Metrics["POH"]),
-			fmt.Sprintf("WEAK %.2f%%", an.Metrics["RED-WEAK"]),
+			"",
 		},
 	}
 	tw.AppendRows(data)
@@ -292,8 +311,7 @@ func MetricsString(an *kc.Analyser) string {
 	return tw.Render()
 }
 
-// EmptyStyle returns a table.Style configured to render rows without visible
-// vertical separators (used to present multiple layout columns compactly).
+// EmptyStyle returns a table style with minimal separators for compact layout display.
 func EmptyStyle() table.Style {
 	s := table.StyleDefault
 	s.Box = table.StyleBoxRounded
@@ -316,11 +334,15 @@ func EmptyStyle() table.Style {
 	return s
 }
 
-// Comma returns a string with thousand separators for a uint64 value.
-func Comma(v uint64) string {
+// Comma formats a numeric value with thousand separators.
+// Accepts integer types (int, int32, int64, uint, uint32, uint64) via generics.
+func Comma[T ~int | ~int32 | ~int64 | ~uint | ~uint32 | ~uint64](v T) string {
+	// Convert to uint64 for processing
+	val := uint64(v)
+
 	// Calculate the number of digits and commas needed.
 	var count byte
-	for n := v; n != 0; n = n / 10 {
+	for n := val; n != 0; n = n / 10 {
 		count++
 	}
 	count += (count - 1) / 3
@@ -331,9 +353,9 @@ func Comma(v uint64) string {
 
 	// Populate the output slice with digits and commas.
 	var counter byte
-	for v > 9 {
-		output[j] = byte(v%10) + '0'
-		v = v / 10
+	for val > 9 {
+		output[j] = byte(val%10) + '0'
+		val = val / 10
 		j--
 		if counter == 2 {
 			counter = 0
@@ -344,13 +366,12 @@ func Comma(v uint64) string {
 		}
 	}
 
-	output[j] = byte(v) + '0'
+	output[j] = byte(val) + '0'
 
 	return string(output)
 }
 
-// Thousands formats a uint64 count using comma separators via Comma().
-// For non-uint64 values it falls back to the generic %v formatting.
+// Thousands formats a uint64 count using comma separators, or falls back to %v for other types.
 func Thousands(val any) string {
 	if number, ok := val.(uint64); ok {
 		return Comma(number)
@@ -358,8 +379,7 @@ func Thousands(val any) string {
 	return fmt.Sprintf("%v", val)
 }
 
-// Fraction formats a numeric value as a fixed two-decimal string.
-// If the value is a float64 it prints with two decimals, otherwise it falls back to %v.
+// Fraction formats a float64 with two decimals, or falls back to %v for other types.
 func Fraction(val any) string {
 	if number, ok := val.(float64); ok {
 		return fmt.Sprintf("%.2f", number)
@@ -367,8 +387,7 @@ func Fraction(val any) string {
 	return fmt.Sprintf("%v", val)
 }
 
-// Angle formats a numeric value as a degree string with one decimal for floats, or integer for ints.
-// Floats (float32, float64) are formatted as "%.1f°", ints as "%d°", others with fmt.Sprint.
+// Angle formats numeric values as degree strings.
 func Angle(val any) string {
 	switch v := val.(type) {
 	case float32, float64:
@@ -380,11 +399,126 @@ func Angle(val any) string {
 	}
 }
 
-// Percentage formats a fractional value (0..1) as a percentage string with two decimals.
-// If the value is a float64 it multiplies by 100 and appends '%' otherwise it falls back to %v.
+// Percentage formats a fractional value (0..1) as a percentage with two decimals.
 func Percentage(val any) string {
 	if number, ok := val.(float64); ok {
 		return fmt.Sprintf("%.2f%%", 100*number)
 	}
 	return fmt.Sprintf("%v", val)
+}
+
+// Percentage3 formats a fractional value (0..1) as a percentage with three decimals.
+func Percentage3(val any) string {
+	if number, ok := val.(float64); ok {
+		return fmt.Sprintf("%.3f%%", 100*number)
+	}
+	return fmt.Sprintf("%v", val)
+}
+
+// TopTrigramsString generates a table showing the top N trigrams with their
+// classifications (ALT, 2RL, 3RL, RED) and their specific categories.
+func TopTrigramsString(an *kc.Analyser, compactTrigrams bool, trigramRows int) string {
+	t := createSimpleTable()
+
+	// Get trigram classifications from TrigramDetails
+	alt, rl2, rl3, red := an.TrigramDetails()
+
+	// Helper to get classification for a trigram
+	getClassification := func(triStr string) string {
+		// Check each metric category
+		if _, ok := alt.NGramCount[triStr]; ok {
+			if cat, hasCat := alt.Custom[triStr]["Dir"]; hasCat {
+				return fmt.Sprintf("ALT-%v", cat)
+			}
+			return "ALT"
+		}
+		if _, ok := rl2.NGramCount[triStr]; ok {
+			if cat, hasCat := rl2.Custom[triStr]["Dir"]; hasCat {
+				return fmt.Sprintf("2RL-%v", cat)
+			}
+			return "2RL"
+		}
+		if _, ok := rl3.NGramCount[triStr]; ok {
+			if cat, hasCat := rl3.Custom[triStr]["Dir"]; hasCat {
+				return fmt.Sprintf("3RL-%v", cat)
+			}
+			return "3RL"
+		}
+		if _, ok := red.NGramCount[triStr]; ok {
+			if cat, hasCat := red.Custom[triStr]["Dir"]; hasCat {
+				return fmt.Sprintf("RED-%v", cat)
+			}
+			return "RED"
+		}
+		return "OTHER"
+	}
+
+	// Common classifications that should not be highlighted
+	commonClassifications := map[string]bool{
+		"ALT-NML": true,
+		"2RL-IN":  true,
+		"2RL-OUT": true,
+		"3RL-IN":  true,
+		"3RL-OUT": true,
+	}
+
+	// Get top N trigrams from corpus
+	topTrigrams := an.Corpus.TopTrigrams(trigramRows)
+
+	// Header
+	header := table.Row{"orderby", "Tri", "Count", "%", "Cum%", "Class"}
+	t.AppendHeader(header)
+
+	// Calculate cumulative percentages and build rows
+	totalTrigramCount := an.Corpus.TotalTrigramsCount
+	cumulativeCount := uint64(0)
+	rowNum := 0
+
+	for _, pair := range topTrigrams {
+		triStr := pair.Key.String()
+		count := pair.Count
+		classification := getClassification(triStr)
+
+		// Skip if compact mode and category is common
+		if compactTrigrams && commonClassifications[classification] {
+			continue
+		}
+
+		cumulativeCount += count
+		percentage := float64(count) / float64(totalTrigramCount)
+		cumulativePercentage := float64(cumulativeCount) / float64(totalTrigramCount)
+
+		rowNum++
+
+		// Color the entire row if it's a non-common classification
+		isNonCommon := !commonClassifications[classification]
+		var row table.Row
+		if isNonCommon {
+			row = table.Row{
+				count,                              // orderby (hidden, for sorting)
+				text.FgHiRed.Sprintf("%s", triStr), // Tri (colored)
+				text.FgHiRed.Sprintf("%d", count),  // Count (colored)
+				text.FgHiRed.Sprintf("%.2f%%", percentage*100),           // % (colored)
+				text.FgHiRed.Sprintf("%.2f%%", cumulativePercentage*100), // Cum% (colored)
+				text.FgHiRed.Sprintf("%s", classification),               // Classification (colored)
+			}
+		} else {
+			row = table.Row{
+				count,                // orderby (hidden, for sorting)
+				triStr,               // Tri
+				count,                // Count
+				percentage,           // %
+				cumulativePercentage, // Cum%
+				classification,       // Classification
+			}
+		}
+		t.AppendRow(row)
+	}
+
+	// Footer with totals
+	finalPercentage := float64(cumulativeCount) / float64(totalTrigramCount)
+	footer := table.Row{"", "", cumulativeCount, finalPercentage, finalPercentage, ""}
+	t.AppendFooter(footer)
+
+	return t.Render()
 }
