@@ -21,7 +21,7 @@ vendor/
 
 # My files
 /data/corpus/sources
-/data/pins/hieamtsrn.pin
+/data/config/hieamtsrn.pin
 /data/layouts/enthium-promax.klf
 /data/layouts/northwest.klf
 /data/layouts/northeast.klf

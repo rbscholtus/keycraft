@@ -94,7 +94,7 @@ var appFlagsMap = map[string]cli.Flag{
 		Aliases: []string{"wf"},
 		Usage: "Weights file for scoring layouts (from data/config directory). " +
 			"Overridden by --weights flag.",
-		Value: "default.txt",
+		Value: "weights.txt",
 	},
 	"weights": &cli.StringFlag{
 		Name:    "weights",

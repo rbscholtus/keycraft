@@ -82,7 +82,7 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 
 	pinsPath := c.String("pins-file")
 	if pinsPath != "" {
-		pinsPath = filepath.Join(pinsDir, pinsPath)
+		pinsPath = filepath.Join(configDir, pinsPath)
 	}
 	pinned, err := kc.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free"), layout)
 	if err != nil {

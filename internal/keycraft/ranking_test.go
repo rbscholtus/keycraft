@@ -9,7 +9,7 @@ import (
 const (
 	layoutDir = "../data/layouts/"
 	corpusDir = "../data/corpus/"
-	// weightsDir = "../data/config/"
+	// configDir = "../data/config/"
 )
 
 func Benchmark_Rankings(b *testing.B) {
@@ -22,7 +22,7 @@ func Benchmark_Rankings(b *testing.B) {
 		panic(err)
 	}
 
-	// weightsPath := filepath.Join(weightsDir, "default.txt")
+	// weightsPath := filepath.Join(configDir, "weights.txt")
 	// weights, err := kc.NewWeightsFromParams(weightsPath, "")
 	// if err != nil {
 	// 	panic(err)

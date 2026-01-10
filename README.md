@@ -82,14 +82,14 @@ Now you should have something like:
 │   │   ├── default.txt.json
 │   │   ├── monkeyracer.txt.json
 │   │   └── shai.txt.json
-│   ├── layouts
-│   │   ├── ...
-│   │   └── ...
-│   ├── pins
-│   │   ├── focal.pin
-│   │   └── qwerty.pin
-│   └── weights
-│       └── default.txt
+│   ├── layouts
+│   │   ├── ...
+│   │   └── ...
+│   ├── config
+│   │   ├── focal.pin
+│   │   ├── load_prefs.txt
+│   │   ├── qwerty.pin
+│   │   └── weights.txt
 └── keycraft-darwin-arm64
 ```
 
@@ -456,7 +456,7 @@ keycraft r -w sfb=-1000
 
 - Better layouts appear at the top of the list. `qwerty` appears at the bottom of the list!
 - The median layout is determined by taking the median of all layouts for each metric, normalising all metrics, and calculating the median layout's score by applying weights.
-- Default weights are specified in the file `./data/weighs/default.txt`. You can either specify a different weights file using the `--weights-file` flag, or override specific weights using the `--weights` flag.
+- Default weights are specified in the file `./data/config/weights.txt`. You can either specify a different weights file using the `--weights-file` flag, or override specific weights using the `--weights` flag.
 
 ### Optimising a layout
 
@@ -489,8 +489,7 @@ More information will be provided.
 - Describe config locations, file format (YAML/JSON), and common options.
  layoutDir  = "data/layouts/"
  corpusDir  = "data/corpus/"
- weightsDir = "data/config/"
- pinsDir    = "data/pins/"
+ configDir  = "data/config/"
 
 ## Contributing
 

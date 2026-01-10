@@ -18,7 +18,6 @@ var (
 	layoutDir = "data/layouts/"
 	corpusDir = "data/corpus/"
 	configDir = "data/config/"
-	pinsDir   = "data/pins/"
 )
 
 func main() {

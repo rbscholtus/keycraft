@@ -140,7 +140,7 @@ func BenchmarkAnalyserWithScorer(b *testing.B) {
 	}
 
 	// Load proper weights from default file
-	weights, err := NewWeightsFromParams("../../data/config/default.txt", "")
+	weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
 	if err != nil {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
@@ -212,7 +212,7 @@ func BenchmarkAnalyserBigramsWithCache(b *testing.B) {
 	// idealRowLoad := DefaultIdealRowLoad()
 	// idealFingerLoad := DefaultIdealFingerLoad()
 
-	// weights, err := NewWeightsFromParams("../../data/config/default.txt", "")
+	// weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
 	// if err != nil {
 	// 	b.Fatalf("Failed to load weights: %v", err)
 	// }
@@ -255,7 +255,7 @@ func BenchmarkAnalyserSkipgramsWithCache(b *testing.B) {
 	// idealRowLoad := DefaultIdealRowLoad()
 	// idealFingerLoad := DefaultIdealFingerLoad()
 
-	// weights, err := NewWeightsFromParams("../../data/config/default.txt", "")
+	// weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
 	// if err != nil {
 	// 	b.Fatalf("Failed to load weights: %v", err)
 	// }
@@ -301,7 +301,7 @@ func BenchmarkAnalyserTrigramsWithCache(b *testing.B) {
 		PinkyPenalties: DefaultPinkyPenalties(),
 	}
 
-	weights, err := NewWeightsFromParams("../../data/config/default.txt", "")
+	weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
 	if err != nil {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
@@ -347,7 +347,7 @@ func BenchmarkAnalyserWithScorerAllCached(b *testing.B) {
 		PinkyPenalties: DefaultPinkyPenalties(),
 	}
 
-	weights, err := NewWeightsFromParams("../../data/config/default.txt", "")
+	weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
 	if err != nil {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
@@ -388,7 +388,7 @@ func BenchmarkAnalyserWithScorerNoCaches(b *testing.B) {
 		PinkyPenalties: DefaultPinkyPenalties(),
 	}
 
-	weights, err := NewWeightsFromParams("../../data/config/default.txt", "")
+	weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
 	if err != nil {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
