@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-	"slices"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/rbscholtus/keycraft/internal/tui"
@@ -27,7 +25,7 @@ var viewCommand = &cli.Command{
 func validateViewFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
 	// Skip validation during shell completion
 	// Check os.Args directly since -- prevents flag parsing
-	if slices.Contains(os.Args, "--generate-shell-completion") {
+	if isShellCompletion() {
 		return ctx, nil
 	}
 
@@ -40,7 +38,7 @@ func validateViewFlags(ctx context.Context, c *cli.Command) (context.Context, er
 // viewAction loads data and performs layout analysis.
 func viewAction(ctx context.Context, c *cli.Command) error {
 	// During shell completion, action should not run
-	if slices.Contains(os.Args, "--generate-shell-completion") {
+	if isShellCompletion() {
 		return nil
 	}
 

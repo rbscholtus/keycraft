@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/rbscholtus/keycraft/internal/tui"
@@ -30,7 +29,7 @@ var optimiseCommand = &cli.Command{
 func validateOptFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
 	// Skip validation during shell completion
 	// Check os.Args directly since -- prevents flag parsing
-	if slices.Contains(os.Args, "--generate-shell-completion") {
+	if isShellCompletion() {
 		return ctx, nil
 	}
 
@@ -44,7 +43,7 @@ func validateOptFlags(ctx context.Context, c *cli.Command) (context.Context, err
 // then analyzes and ranks the original vs optimized layouts.
 func optimiseAction(ctx context.Context, c *cli.Command) error {
 	// During shell completion, action should not run
-	if slices.Contains(os.Args, "--generate-shell-completion") {
+	if isShellCompletion() {
 		return nil
 	}
 

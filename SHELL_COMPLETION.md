@@ -75,9 +75,10 @@ keycraft <TAB>              # Shows all available commands
 keycraft opt<TAB>           # Completes to "optimise"
 keycraft view <TAB>         # Shows available .klf layout files
 keycraft corpus --corpus <TAB>  # Shows available corpus files
-keycraft rank --<TAB>       # Shows all flags for the rank command
-keycraft --<TAB>            # Shows global flags
+keycraft rank --co<TAB>     # Completes to --corpus or --coverage
 ```
+
+**Note**: Typing just `--<TAB>` (without any letters after `--`) will not show flag completions due to a framework limitation. The CLI framework treats `--` as an argument terminator. To see available flags, type at least one letter after `--` (e.g., `--c<TAB>`) or use the `-<TAB>` pattern first.
 
 ### Layout File Completion
 
@@ -123,7 +124,7 @@ The completion automatically:
 With shell completion enabled, you can:
 
 - **Tab-complete commands**: Type the first few letters of a command and press TAB
-- **Tab-complete flags**: Type `--` and press TAB to see all available flags
+- **Tab-complete flags**: Type `--` followed by at least one letter and press TAB to see matching flags
 - **Tab-complete subcommands**: Navigate through command hierarchies with TAB
 - **Get command suggestions**: Mistyped commands will show helpful "Did you mean?" suggestions
 
@@ -174,13 +175,18 @@ With shell completion enabled, you can:
 
 ### Flag completion behavior
 
+**Known limitation**: Typing `--<TAB>` (just `--` without any letters) will produce no completions (shell beeps). This is because the CLI framework treats `--` as an argument terminator.
+
+**Workaround**: Type at least one letter after `--` to trigger completion:
+
 **Zsh users:** When typing flags, the completion workflow is:
 - Type `keycraft corpus -<TAB>` → completes to `--` (common prefix)
-- Type `keycraft corpus --<TAB>` → shell shows flag menu (may need to type more)
-- Type `keycraft corpus --co<TAB>` → completes to `--corpus` or `--coverage`
+- Type `keycraft corpus --c<TAB>` → shows `--corpus` and `--coverage`
+- Type `keycraft corpus --co<TAB>` → completes based on match
 
 **Bash users:** Flag completion filters automatically:
-- Type `keycraft corpus --co<TAB>` → immediately shows `--corpus` and `--coverage`
+- Type `keycraft corpus --c<TAB>` → immediately shows `--corpus` and `--coverage`
+- Type `keycraft corpus --co<TAB>` → narrows down matches
 
 This difference is by design - zsh's completion system requires partial matches, while bash's `compgen` automatically filters based on what you've typed.
 

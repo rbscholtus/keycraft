@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/urfave/cli/v3"
 )
@@ -25,7 +23,7 @@ var flipCommand = &cli.Command{
 func validateFlipFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
 	// Skip validation during shell completion
 	// Check os.Args directly since -- prevents flag parsing
-	if slices.Contains(os.Args, "--generate-shell-completion") {
+	if isShellCompletion() {
 		return ctx, nil
 	}
 
@@ -38,7 +36,7 @@ func validateFlipFlags(ctx context.Context, c *cli.Command) (context.Context, er
 // flipAction loads a layout, flips it horizontally, and saves it with "-flipped" suffix.
 func flipAction(ctx context.Context, c *cli.Command) error {
 	// During shell completion, action should not run
-	if slices.Contains(os.Args, "--generate-shell-completion") {
+	if isShellCompletion() {
 		return nil
 	}
 

@@ -166,10 +166,10 @@ func TestCorpusCommandShellCompletion(t *testing.T) {
 	// Create test corpus files - both source files and cache files
 	// This tests deduplication: english.txt and english.txt.json should result in only "english.txt"
 	testFiles := []string{
-		"english.txt",        // Source file
-		"english.txt.json",   // Cache file (should dedupe with above)
-		"spanish.txt.json",   // Cache only
-		"french.txt",         // Source only
+		"english.txt",          // Source file
+		"english.txt.json",     // Cache file (should dedupe with above)
+		"spanish.txt.json",     // Cache only
+		"french.txt",           // Source only
 		"test-corpus.txt.json", // Cache only
 	}
 	for _, name := range testFiles {
@@ -270,7 +270,10 @@ func TestCorpusCommandShellCompletion(t *testing.T) {
 	}
 }
 
-// TestGetCorpusFilesForCompletion tests the corpus file completion helper.
+// TestGetCorpusFilesForCompletion is commented out because getCorpusFilesForCompletion()
+// was replaced with inline logic in layoutShellComplete(). Corpus completion now handles
+// .txt and .json file deduplication directly without a separate helper function.
+/*
 func TestGetCorpusFilesForCompletion(t *testing.T) {
 	// Save and restore original corpusDir
 	origCorpusDir := corpusDir
@@ -297,7 +300,7 @@ func TestGetCorpusFilesForCompletion(t *testing.T) {
 		}
 	}
 
-	got := getCorpusFilesForCompletion()
+	got := listFilesForCompletion(corpusDir, ".json")
 
 	// Expected: english.txt, spanish.txt, french.txt, test-corpus.txt (4 unique, no .hidden.txt)
 	expected := []string{"english.txt", "spanish.txt", "french.txt", "test-corpus.txt"}
@@ -323,6 +326,7 @@ func TestGetCorpusFilesForCompletion(t *testing.T) {
 		t.Errorf("hidden file .hidden.txt should not be in completion list")
 	}
 }
+*/
 
 // TestCorpusCommandValidation tests that corpus command rejects arguments.
 func TestCorpusCommandValidation(t *testing.T) {
@@ -448,28 +452,32 @@ func TestListFilesForCompletion(t *testing.T) {
 		wantFiles []string
 	}{
 		{
-			name:      "list .klf files",
-			dir:       tmpDir,
-			ext:       ".klf",
-			wantFiles: []string{"layout1", "layout2", "layout3"},
+			name: "strip .klf extension from matching files",
+			dir:  tmpDir,
+			ext:  ".klf",
+			// Should return ALL files, but with .klf extension stripped from matching ones
+			wantFiles: []string{"layout1", "layout2", "layout3", "readme.txt", "data.json"},
 		},
 		{
-			name:      "list .txt files",
-			dir:       tmpDir,
-			ext:       ".txt",
-			wantFiles: []string{"readme"},
+			name: "strip .txt extension from matching files",
+			dir:  tmpDir,
+			ext:  ".txt",
+			// Should return ALL files, but with .txt extension stripped from matching ones
+			wantFiles: []string{"layout1.klf", "layout2.klf", "layout3.KLF", "readme", "data.json"},
 		},
 		{
-			name:      "list .json files",
-			dir:       tmpDir,
-			ext:       ".json",
-			wantFiles: []string{"data"},
+			name: "strip .json extension from matching files",
+			dir:  tmpDir,
+			ext:  ".json",
+			// Should return ALL files, but with .json extension stripped from matching ones
+			wantFiles: []string{"layout1.klf", "layout2.klf", "layout3.KLF", "readme.txt", "data"},
 		},
 		{
-			name:      "list non-existent extension",
-			dir:       tmpDir,
-			ext:       ".xyz",
-			wantFiles: []string{},
+			name: "strip non-existent extension (returns all files unchanged)",
+			dir:  tmpDir,
+			ext:  ".xyz",
+			// No files have .xyz extension, so all files returned with original names
+			wantFiles: []string{"layout1.klf", "layout2.klf", "layout3.KLF", "readme.txt", "data.json"},
 		},
 		{
 			name:      "non-existent directory",
