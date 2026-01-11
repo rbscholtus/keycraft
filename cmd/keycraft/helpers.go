@@ -352,7 +352,7 @@ func loadTargetLoadsFromFlags(c *cli.Command) (*kc.TargetLoads, error) {
 		targets.TargetFingerLoad = fingerLoad
 	} else if targets.TargetFingerLoad == nil {
 		// Use hardcoded default if not in config and not in flag
-		fingerLoad, _ := parseFingerLoad("7.5,11,16,15.5")
+		fingerLoad, _ := parseFingerLoad("7,10,16,17")
 		_ = scaleFingerLoad(fingerLoad)
 		targets.TargetFingerLoad = fingerLoad
 	}
@@ -366,7 +366,7 @@ func loadTargetLoadsFromFlags(c *cli.Command) (*kc.TargetLoads, error) {
 		targets.TargetRowLoad = rowLoad
 	} else if targets.TargetRowLoad == nil {
 		// Use hardcoded default if not in config and not in flag
-		rowLoad, _ := parseRowLoad("18.5,73,8.5")
+		rowLoad, _ := parseRowLoad("17.5,75.0,7.5")
 		_ = scaleRowLoad(rowLoad)
 		targets.TargetRowLoad = rowLoad
 	}
@@ -379,7 +379,7 @@ func loadTargetLoadsFromFlags(c *cli.Command) (*kc.TargetLoads, error) {
 		targets.PinkyPenalties = pinkyPenalties
 	} else if targets.PinkyPenalties == nil {
 		// Use hardcoded default if not in config and not in flag
-		pinkyPenalties, _ := parsePinkyPenalties("1,1,1,0,1,1")
+		pinkyPenalties, _ := parsePinkyPenalties("2.0,1.5,1.0,0.0,2.0,1.5")
 		targets.PinkyPenalties = pinkyPenalties
 	}
 

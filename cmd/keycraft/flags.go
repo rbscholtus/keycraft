@@ -26,30 +26,29 @@ var appFlagsMap = map[string]cli.Flag{
 		Aliases: []string{"ldt"},
 		Usage: "Configuration file for target load distributions (row/finger/hand loads, pinky penalties). " +
 			"Overridden by individual flags. (from data/config directory)",
+		Value:    "load_targets.txt",
 		Category: "Targets and Weights",
 	},
 	"target-hand-load": &cli.StringFlag{
 		Name:    "target-hand-load",
 		Aliases: []string{"thl"},
 		Usage: "Target hand load percentages: 2 comma-separated values for left, " +
-			"right hands (auto-scaled to 100%).",
-		Value:    "50,50",
+			"right hands (auto-scaled to 100%). Overrides load_targets file.",
 		Category: "Targets and Weights",
 	},
 	"target-finger-load": &cli.StringFlag{
 		Name:    "target-finger-load",
 		Aliases: []string{"tfl"},
 		Usage: "Target finger load percentages: 4 values (left 4 fingers, " +
-			"mirrored to right) or 8 values. Thumbs always 0. Auto-scaled to 100%.",
-		Value:    "7,10,16,17",
+			"mirrored to right) or 8 values. Thumbs always 0. Auto-scaled to 100%." +
+			" Overrides load_targets file.",
 		Category: "Targets and Weights",
 	},
 	"target-row-load": &cli.StringFlag{
 		Name:    "target-row-load",
 		Aliases: []string{"trl"},
 		Usage: "Target row load percentages: 3 comma-separated values for top, " +
-			"home, bottom rows (auto-scaled to 100%).",
-		Value:    "17.5,75.0,7.5",
+			"home, bottom rows (auto-scaled to 100%). Overrides load_targets file.",
 		Category: "Targets and Weights",
 	},
 	"pinky-penalties": &cli.StringFlag{
@@ -57,8 +56,7 @@ var appFlagsMap = map[string]cli.Flag{
 		Aliases: []string{"pp"},
 		Usage: "Pinky off-home penalties: 6 values (left top-outer, top-inner, " +
 			"home-outer, home-inner, bottom-outer, bottom-inner; mirrored) or " +
-			"12 values (left, then right). Higher = more penalty.",
-		Value:    "1,1,1,0,1,1",
+			"12 values (left, then right). Higher = more penalty. Overrides load_targets file.",
 		Category: "Targets and Weights",
 	},
 	"weights-file": &cli.StringFlag{
