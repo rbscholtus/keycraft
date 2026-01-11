@@ -52,7 +52,7 @@ const (
 )
 
 // RenderView renders the view results to stdout.
-// Displays board, hand balance, row balance, and stats overview for each layout.
+// Displays board, hand/finger/row load, and stats overview for each layout.
 func RenderView(result *kc.ViewResult) error {
 	if len(result.Analysers) < 1 {
 		return fmt.Errorf("need at least 1 layout")
@@ -83,14 +83,14 @@ func RenderView(result *kc.ViewResult) error {
 	}
 	twOuter.AppendRow(h)
 
-	// Hand balance
+	// Hand load distribution
 	h = table.Row{"Hand"}
 	for _, an := range result.Analysers {
 		h = append(h, HandUsageString(an))
 	}
 	twOuter.AppendRow(h)
 
-	// Row balance
+	// Row load distribution
 	h = table.Row{"Row"}
 	for _, an := range result.Analysers {
 		h = append(h, RowUsageString(an))
@@ -281,10 +281,10 @@ func MetricsString(an *kc.Analyser) string {
 			"",
 		},
 		{
-			fmt.Sprintf("RBL: %.2f", an.Metrics["RBL"]),
-			fmt.Sprintf("FBL: %.2f%%", an.Metrics["FBL"]),
+			fmt.Sprintf("HLD: %.2f", an.Metrics["HLD"]),
+			fmt.Sprintf("FLD: %.2f%%", an.Metrics["FLD"]),
+			fmt.Sprintf("RLD: %.2f", an.Metrics["RLD"]),
 			fmt.Sprintf("POH: %.2f%%", an.Metrics["POH"]),
-			"",
 		},
 	}
 	tw.AppendRows(data)

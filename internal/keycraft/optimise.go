@@ -9,7 +9,7 @@ type OptimiseInput struct {
 	Layout         *SplitLayout
 	LayoutsDir     string
 	Corpus         *Corpus
-	Prefs          *PreferredLoads
+	Targets        *TargetLoads
 	Weights        *Weights
 	Pinned         *PinnedKeys
 	NumGenerations int
@@ -33,7 +33,7 @@ func OptimizeLayout(input OptimiseInput, consoleWriter io.Writer) (*OptimiseResu
 		input.LayoutsDir,
 		input.Corpus,
 		input.Weights,
-		input.Prefs,
+		input.Targets,
 		input.Pinned,
 		input.NumGenerations,
 		input.MaxTime,

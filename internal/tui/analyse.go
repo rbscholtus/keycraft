@@ -9,7 +9,7 @@ import (
 )
 
 // RenderAnalyse renders detailed analysis results to stdout.
-// Displays board, hand/row balance, stats overview, and detailed metric tables.
+// Displays board, hand/finger/row load, stats overview, and detailed metric tables.
 func RenderAnalyse(result *kc.AnalyseResult, opts kc.AnalyseDisplayOptions) error {
 	if len(result.Analysers) < 1 {
 		return fmt.Errorf("need at least 1 layout")
@@ -40,14 +40,14 @@ func RenderAnalyse(result *kc.AnalyseResult, opts kc.AnalyseDisplayOptions) erro
 	}
 	twOuter.AppendRow(h)
 
-	// Hand balance
+	// Hand load distribution
 	h = table.Row{"Hand"}
 	for _, an := range result.Analysers {
 		h = append(h, HandUsageString(an))
 	}
 	twOuter.AppendRow(h)
 
-	// Row balance
+	// Row load distribution
 	h = table.Row{"Row"}
 	for _, an := range result.Analysers {
 		h = append(h, RowUsageString(an))

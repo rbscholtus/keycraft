@@ -137,7 +137,7 @@ func TestSteepestDescentEquivalence(t *testing.T) {
 	params.Seed = 42 // Fixed seed for reproducibility
 
 	// Create scorer
-	scorer, err := NewScorer("../../data/layouts", corpus, &PreferredLoads{IdealRowLoad: DefaultIdealRowLoad(), IdealFgrLoad: DefaultIdealFingerLoad(), PinkyPenalties: DefaultPinkyPenalties()}, NewWeights())
+	scorer, err := NewScorer("../../data/layouts", corpus, &TargetLoads{TargetRowLoad: DefaultTargetRowLoad(), TargetFingerLoad: DefaultTargetFingerLoad(), TargetHandLoad: DefaultTargetHandLoad(), PinkyPenalties: DefaultPinkyPenalties()}, NewWeights())
 	if err != nil {
 		t.Skipf("Skipping test - layouts not available: %v", err)
 	}

@@ -14,7 +14,7 @@ var viewCommand = &cli.Command{
 	Name:          "view",
 	Aliases:       []string{"v"},
 	Usage:         "Analyse and display one or more keyboard layouts",
-	Flags:         flagsSlice("corpus", "row-load", "finger-load", "pinky-penalties"),
+	Flags:         flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
 	ArgsUsage:     "<layout1> <layout2> ...",
 	Before:        validateViewFlags,
 	Action:        viewAction,
@@ -48,7 +48,7 @@ func viewAction(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
-	prefs, err := loadPreferredLoadsFromFlags(c)
+	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func viewAction(ctx context.Context, c *cli.Command) error {
 	result, err := kc.ViewLayouts(kc.ViewInput{
 		LayoutFiles: layouts,
 		Corpus:      corpus,
-		Prefs:       prefs,
+		Targets:     targets,
 	})
 	if err != nil {
 		return err

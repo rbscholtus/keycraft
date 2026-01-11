@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -12,13 +13,54 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// rankFlags defines flags specific to the rank command.
+var rankFlags = map[string]cli.Flag{
+	"metrics": &cli.StringFlag{
+		Name:    "metrics",
+		Aliases: []string{"m"},
+		Usage: fmt.Sprintf("Metrics to display. Options: %v, or \"weighted\" "+
+			"(metrics with |weight|>=0.01), or comma-separated list.",
+			slices.Sorted(maps.Keys(kc.MetricsMap))),
+		Value:    "weighted",
+		Category: "Display",
+	},
+	"deltas": &cli.StringFlag{
+		Name:    "deltas",
+		Aliases: []string{"d"},
+		Usage: "Delta display mode: \"none\", \"rows\" (row-by-row), " +
+			"\"median\" (vs median), or \"<layout>\" name to compare against.",
+		Value:    "none",
+		Category: "Display",
+	},
+	"output": &cli.StringFlag{
+		Name:     "output",
+		Aliases:  []string{"o"},
+		Usage:    "Output format: \"table\", \"html\", or \"csv\".",
+		Value:    "table",
+		Category: "Display",
+	},
+}
+
+// rankFlagsSlice returns all flags for the rank command.
+func rankFlagsSlice() []cli.Flag {
+	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load",
+		"target-finger-load", "target-row-load", "pinky-penalties",
+		"weights-file", "weights")
+	allFlags := make([]cli.Flag, 0, len(commonFlags)+len(rankFlags))
+	allFlags = append(allFlags, commonFlags...)
+	for _, f := range rankFlags {
+		allFlags = append(allFlags, f)
+	}
+	return allFlags
+}
+
 // rankCommand defines the "rank" CLI command for comparing and ranking layouts.
 // It supports filtering layouts, displaying metric deltas, and applying custom weights.
 var rankCommand = &cli.Command{
 	Name:          "rank",
 	Aliases:       []string{"r"},
 	Usage:         "Rank keyboard layouts and view detailed metrics and deltas",
-	Flags:         flagsSlice("metrics", "deltas", "output", "corpus", "row-load", "finger-load", "pinky-penalties", "weights-file", "weights"),
+	Flags:         rankFlagsSlice(),
 	ArgsUsage:     "<layout1> <layout2> ...",
 	Action:        rankAction,
 	ShellComplete: layoutShellComplete,
@@ -60,7 +102,7 @@ func buildRankingInput(c *cli.Command, weights *kc.Weights) (kc.RankingInput, er
 		return kc.RankingInput{}, err
 	}
 
-	prefs, err := loadPreferredLoadsFromFlags(c)
+	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
 		return kc.RankingInput{}, err
 	}
@@ -82,7 +124,7 @@ func buildRankingInput(c *cli.Command, weights *kc.Weights) (kc.RankingInput, er
 		LayoutsDir:  layoutDir,
 		LayoutFiles: layouts,
 		Corpus:      corpus,
-		Prefs:       prefs,
+		Targets:     targets,
 		Weights:     weights,
 	}, nil
 }

@@ -48,14 +48,6 @@ func Must0(err error) {
 	}
 }
 
-// PreferredLoads encapsulates user preferences for load distributions and penalties.
-// These preferences are used to evaluate how well a layout matches ideal typing patterns.
-type PreferredLoads struct {
-	IdealRowLoad   *[3]float64  // Target distribution: [top, home, bottom] rows (scaled to 100%)
-	IdealFgrLoad   *[10]float64 // Target distribution: F0-F9 fingers (scaled to 100%, thumbs=0)
-	PinkyPenalties *[12]float64 // Penalty weights for pinky off-home positions (not scaled)
-}
-
 // Pair represents a generic key/value pair used throughout the codebase
 // for temporary key-index or key-value collections.
 type Pair[K comparable, V any] struct {
@@ -126,56 +118,4 @@ func FlushWriter(writer *bufio.Writer) {
 	if err := writer.Flush(); err != nil {
 		log.Printf("Error flushing writer: %v", err)
 	}
-}
-
-// Median calculates the median of a sorted slice.
-// The slice must already be sorted in ascending order.
-func Median(sortedData []float64) float64 {
-	n := len(sortedData)
-	mid := n / 2
-	if n%2 == 0 {
-		return (sortedData[mid-1] + sortedData[mid]) / 2.0
-	} else {
-		return sortedData[mid]
-	}
-}
-
-// Quartiles calculates the first and third quartiles (Q1 and Q3) of a sorted slice.
-// The slice must already be sorted in ascending order.
-func Quartiles(sortedData []float64) (float64, float64) {
-	n := len(sortedData)
-	q1 := Median(sortedData[:n/2])
-	q3 := Median(sortedData[(n+1)/2:])
-	return q1, q3
-}
-
-// RobustScale applies robust scaling to the data using median and interquartile range (IQR).
-// This scaling method is less sensitive to outliers than standard normalization.
-// Each value is transformed to: (value - median) / IQR
-func RobustScale(data []float64) []float64 {
-	if len(data) == 0 {
-		return []float64{}
-	}
-
-	// Create a sorted copy for computing statistics
-	sortedData := make([]float64, len(data))
-	copy(sortedData, data)
-	sort.Float64s(sortedData)
-
-	medianValue := Median(sortedData)
-	q1, q3 := Quartiles(sortedData)
-	iqr := q3 - q1
-
-	// If all values are identical, return zeros
-	if iqr == 0 {
-		return make([]float64, len(data))
-	}
-
-	// Apply robust scaling transformation
-	scaledData := make([]float64, len(data))
-	for i, x := range data {
-		scaledData[i] = (x - medianValue) / iqr
-	}
-
-	return scaledData
 }

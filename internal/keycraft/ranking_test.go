@@ -29,13 +29,14 @@ func Benchmark_Rankings(b *testing.B) {
 	// }
 
 	// Load all analysers for layouts in the directory
-	prefs := &PreferredLoads{
-		IdealRowLoad:   DefaultIdealRowLoad(),
-		IdealFgrLoad:   DefaultIdealFingerLoad(),
-		PinkyPenalties: DefaultPinkyPenalties(),
+	targets := &TargetLoads{
+		TargetHandLoad:   DefaultTargetHandLoad(),
+		TargetFingerLoad: DefaultTargetFingerLoad(),
+		TargetRowLoad:    DefaultTargetRowLoad(),
+		PinkyPenalties:   DefaultPinkyPenalties(),
 	}
 	for b.Loop() {
-		analysers, err := LoadAnalysers(layoutDir, corpus, prefs)
+		analysers, err := LoadAnalysers(layoutDir, corpus, targets)
 		if err != nil {
 			panic(err)
 		}

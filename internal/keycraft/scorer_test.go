@@ -245,9 +245,10 @@ func createTestScorer() *Scorer {
 		corpus = createTestCorpus()
 	}
 	return &Scorer{
-		corpus:              corpus,
-		targetRowBalance:    &[3]float64{0.3, 0.4, 0.3},
-		targetFingerBalance: &[10]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
+		corpus:           corpus,
+		targetRowLoad:    &[3]float64{0.3, 0.4, 0.3},
+		targetFingerLoad: &[10]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
+		targetHandLoad:   &[2]float64{50.0, 50.0},
 		medians: map[string]float64{
 			"SFB": 1.5,
 			"LSB": 2.0,

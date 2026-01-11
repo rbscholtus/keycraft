@@ -22,8 +22,8 @@ type PinnedKeys [42]bool
 //   - layoutsDir: Directory containing reference layouts for scorer initialization
 //   - corpus: Text corpus for evaluation
 //   - weights: Metric weights for scoring
-//   - rowBal: Ideal row load distribution (use nil for defaults)
-//   - fingerBal: Ideal finger load distribution (use nil for defaults)
+//   - rowBal: Target row load distribution (use nil for defaults)
+//   - fingerBal: Target finger load distribution (use nil for defaults)
 //   - pinned: Which keys are pinned (fixed) during optimization
 //   - maxIterations: Maximum number of iterations (0 = use default)
 //   - maxTimeMinutes: Maximum time in minutes (0 = use default)
@@ -37,7 +37,7 @@ func OptimizeLayoutBLS(
 	layoutsDir string,
 	corpus *Corpus,
 	weights *Weights,
-	prefs *PreferredLoads,
+	targets *TargetLoads,
 	pinned *PinnedKeys,
 	maxIterations int,
 	maxTimeMinutes int,
@@ -71,25 +71,29 @@ func OptimizeLayoutBLS(
 		params.Seed = time.Now().UnixNano()
 	}
 
-	// Create scorer - use provided prefs or defaults
-	if prefs == nil {
-		prefs = &PreferredLoads{
-			IdealRowLoad:   DefaultIdealRowLoad(),
-			IdealFgrLoad:   DefaultIdealFingerLoad(),
-			PinkyPenalties: DefaultPinkyPenalties(),
+	// Create scorer - use provided targets or defaults
+	if targets == nil {
+		targets = &TargetLoads{
+			TargetHandLoad:   DefaultTargetHandLoad(),
+			TargetFingerLoad: DefaultTargetFingerLoad(),
+			TargetRowLoad:    DefaultTargetRowLoad(),
+			PinkyPenalties:   DefaultPinkyPenalties(),
 		}
 	}
-	if prefs.IdealRowLoad == nil {
-		prefs.IdealRowLoad = DefaultIdealRowLoad()
+	if targets.TargetHandLoad == nil {
+		targets.TargetHandLoad = DefaultTargetHandLoad()
 	}
-	if prefs.IdealFgrLoad == nil {
-		prefs.IdealFgrLoad = DefaultIdealFingerLoad()
+	if targets.TargetFingerLoad == nil {
+		targets.TargetFingerLoad = DefaultTargetFingerLoad()
 	}
-	if prefs.PinkyPenalties == nil {
-		prefs.PinkyPenalties = DefaultPinkyPenalties()
+	if targets.TargetRowLoad == nil {
+		targets.TargetRowLoad = DefaultTargetRowLoad()
+	}
+	if targets.PinkyPenalties == nil {
+		targets.PinkyPenalties = DefaultPinkyPenalties()
 	}
 
-	scorer, err := NewScorer(layoutsDir, corpus, prefs, weights)
+	scorer, err := NewScorer(layoutsDir, corpus, targets, weights)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scorer: %w", err)
 	}

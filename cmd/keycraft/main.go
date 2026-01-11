@@ -36,8 +36,8 @@ func main() {
 			"typing patterns, rank layouts against customizable weighted " +
 			"metrics, display layout statistics with detailed tables, and " +
 			"optimize layouts using the Breakout Local Search (BLS) algorithm " +
-			"with configurable constraints like pinned keys and preferred " +
-			"finger/row loads. Keycraft can export analysis results in " +
+			"with configurable constraints like pinned keys and target " +
+			"hand/finger/row loads. Keycraft can export analysis results in " +
 			"multiple formats (table, HTML, CSV).",
 		Authors: []any{
 			&mail.Address{Name: "Barend Scholtus", Address: "barend.scholtus@gmail.com"},

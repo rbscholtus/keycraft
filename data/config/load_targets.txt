@@ -1,0 +1,15 @@
+# Hand/Finger/Row Load Targets Configuration
+# Lines starting with # are comments
+
+# Target hand load: left, right (auto-scaled to 100%)
+target-hand-load: 50,50
+
+# Target row load: top, home, bottom (auto-scaled to 100%)
+target-row-load: 17.5, 75.0, 7.5
+
+# Target finger load: 4 values (mirrored) or 8 values (auto-scaled to 100%, thumbs=0)
+target-finger-load: 7, 10, 16, 17
+
+# Pinky penalties: 6 values (mirrored) or 12 values (left, then right)
+# Order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner
+pinky-penalties: 1, 1, 1, 0, 1, 1

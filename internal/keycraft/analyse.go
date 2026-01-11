@@ -3,9 +3,9 @@ package keycraft
 // AnalyseInput contains parameters needed for layout analysis computation.
 // This is pure computational input - no display/rendering concerns.
 type AnalyseInput struct {
-	LayoutFiles []string        // Layout filenames to analyse
-	Corpus      *Corpus         // Text corpus for analysis
-	Prefs       *PreferredLoads // User preferences for ideal loads
+	LayoutFiles []string     // Layout filenames to analyse
+	Corpus      *Corpus      // Text corpus for analysis
+	TargetLoads *TargetLoads // User target loads
 }
 
 // AnalyseResult contains the computational results of layout analysis.
@@ -31,7 +31,7 @@ func AnalyseLayouts(input AnalyseInput) (*AnalyseResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		analyser := NewAnalyser(layout, input.Corpus, input.Prefs)
+		analyser := NewAnalyser(layout, input.Corpus, input.TargetLoads)
 		analysers = append(analysers, analyser)
 	}
 

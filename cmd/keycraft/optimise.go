@@ -12,13 +12,76 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// optimiseFlags are flags specific to the optimise command
+var optimiseFlags = map[string]cli.Flag{
+	"pins-file": &cli.StringFlag{
+		Name:    "pins-file",
+		Aliases: []string{"pf"},
+		Usage: "File specifying keys to pin during optimization. " +
+			"Defaults to pinning '~' and '_'.",
+		Category: "Optimization",
+	},
+	"pins": &cli.StringFlag{
+		Name:    "pins",
+		Aliases: []string{"p"},
+		Usage: "Additional characters to pin (e.g., 'aeiouy'). " +
+			"Combined with pins-file.",
+		Category: "Optimization",
+	},
+	"free": &cli.StringFlag{
+		Name:    "free",
+		Aliases: []string{"f"},
+		Usage: "Characters free to move during optimization. " +
+			"All others are pinned.",
+		Category: "Optimization",
+	},
+	"generations": &cli.UintFlag{
+		Name:     "generations",
+		Aliases:  []string{"gens", "g"},
+		Usage:    "Number of optimization iterations to run.",
+		Value:    1000,
+		Category: "Optimization",
+	},
+	"maxtime": &cli.UintFlag{
+		Name:     "maxtime",
+		Aliases:  []string{"mt"},
+		Usage:    "Maximum optimization time in minutes.",
+		Value:    5,
+		Category: "Optimization",
+	},
+	"seed": &cli.Int64Flag{
+		Name:     "seed",
+		Aliases:  []string{"s"},
+		Usage:    "Random seed for reproducible results. Uses current timestamp if 0.",
+		Value:    0,
+		Category: "Optimization",
+	},
+	"log-file": &cli.StringFlag{
+		Name:     "log-file",
+		Aliases:  []string{"lf"},
+		Usage:    "JSONL log file path for detailed optimization metrics.",
+		Category: "Optimization",
+	},
+}
+
+// optimiseFlagsSlice returns all flags for the optimise command
+func optimiseFlagsSlice() []cli.Flag {
+	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties", "weights-file", "weights")
+	optFlags := make([]cli.Flag, 0, len(commonFlags)+len(optimiseFlags))
+	optFlags = append(optFlags, commonFlags...)
+	for _, f := range optimiseFlags {
+		optFlags = append(optFlags, f)
+	}
+	return optFlags
+}
+
 // optimiseCommand defines the "optimise" CLI command for running Breakout Local Search (BLS)
 // optimization on a keyboard layout.
 var optimiseCommand = &cli.Command{
 	Name:          "optimise",
 	Aliases:       []string{"o"},
 	Usage:         "Optimise a keyboard layout using Breakout Local Search (BLS)",
-	Flags:         flagsSlice("corpus", "row-load", "finger-load", "pinky-penalties", "weights-file", "weights", "pins-file", "pins", "free", "generations", "maxtime", "seed", "log-file"),
+	Flags:         optimiseFlagsSlice(),
 	ArgsUsage:     "<layout>",
 	Before:        validateOptFlags,
 	Action:        optimiseAction,
@@ -52,7 +115,7 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
-	prefs, err := loadPreferredLoadsFromFlags(c)
+	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
 		return err
 	}
@@ -107,7 +170,7 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 		layoutDir,
 		corpus,
 		weights,
-		prefs,               // load preferences
+		targets,             // load distribution targets
 		pinned,              // pinned keys
 		int(numGenerations), // max iterations
 		int(maxTime),        // max time in minutes
@@ -132,7 +195,7 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 	viewResult, err := kc.ViewLayouts(kc.ViewInput{
 		LayoutFiles: layoutsToCompare,
 		Corpus:      corpus,
-		Prefs:       prefs,
+		Targets:     targets,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to perform layout analysis: %v", err)
@@ -147,7 +210,7 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 		LayoutsDir:  layoutDir,
 		LayoutFiles: layoutsToCompare,
 		Corpus:      corpus,
-		Prefs:       prefs,
+		Targets:     targets,
 		Weights:     weights,
 	}
 

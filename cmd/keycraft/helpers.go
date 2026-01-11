@@ -19,11 +19,26 @@ func getCorpusFromFlags(c *cli.Command) (*kc.Corpus, error) {
 	return loadCorpus(c.String("corpus"), c.IsSet("coverage"), c.Float64("coverage"))
 }
 
-// getFingerLoadFromFlag parses and scales the --finger-load flag into percentages.
+// getTargetHandLoadFromFlag parses and scales the --target-hand-load flag into percentages.
+// Accepts 2 values for left hand and right hand.
+// Values are validated and scaled to sum to 100.
+func getTargetHandLoadFromFlag(c *cli.Command) (*[2]float64, error) {
+	hbStr := c.String("target-hand-load")
+	vals, err := parseTargetHandLoad(hbStr)
+	if err != nil {
+		return nil, err
+	}
+	if err := scaleTargetHandLoad(vals); err != nil {
+		return nil, err
+	}
+	return vals, nil
+}
+
+// getTargetFingerLoadFromFlag parses and scales the --target-target-finger-load flag into percentages.
 // Accepts 4 values (mirrored for both hands) or 8 values (F0-F3, F6-F9).
 // Thumbs (F4, F5) are always set to 0. Values are validated and scaled to sum to 100.
-func getFingerLoadFromFlag(c *cli.Command) (*[10]float64, error) {
-	fbStr := c.String("finger-load")
+func getTargetFingerLoadFromFlag(c *cli.Command) (*[10]float64, error) {
+	fbStr := c.String("target-target-finger-load")
 	vals, err := parseFingerLoad(fbStr)
 	if err != nil {
 		return nil, err
@@ -34,11 +49,11 @@ func getFingerLoadFromFlag(c *cli.Command) (*[10]float64, error) {
 	return vals, nil
 }
 
-// getRowLoadFromFlag parses and scales the --row-load flag into percentages.
+// getTargetRowLoadFromFlag parses and scales the --target-target-row-load flag into percentages.
 // Accepts 3 values for top row, home row, and bottom row.
 // Values are validated and scaled to sum to 100.0.
-func getRowLoadFromFlag(c *cli.Command) (*[3]float64, error) {
-	rlStr := c.String("row-load")
+func getTargetRowLoadFromFlag(c *cli.Command) (*[3]float64, error) {
+	rlStr := c.String("target-target-row-load")
 	vals, err := parseRowLoad(rlStr)
 	if err != nil {
 		return nil, err
@@ -97,46 +112,46 @@ func loadLayout(filename string) (*kc.SplitLayout, error) {
 	return kc.NewLayoutFromFile(layoutName, path)
 }
 
-// parseRowLoad parses row load values from a comma-separated string.
-// Expects exactly 3 values for top row, home row, and bottom row.
-func parseRowLoad(s string) (*[3]float64, error) {
+// parseTargetHandLoad parses hand load values from a comma-separated string.
+// Expects exactly 2 values for left hand and right hand.
+func parseTargetHandLoad(s string) (*[2]float64, error) {
 	parts := strings.Split(s, ",")
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("row-load must have exactly 3 comma-separated values (got %d)", len(parts))
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("target-hand-load must have exactly 2 comma-separated values (got %d)", len(parts))
 	}
 	for i := range parts {
 		parts[i] = strings.TrimSpace(parts[i])
 	}
 
-	var rowVals [3]float64
+	var handVals [2]float64
 	for i, p := range parts {
 		if p == "" {
-			return nil, fmt.Errorf("empty value in row-load at position %d", i)
+			return nil, fmt.Errorf("empty value in target-hand-load at position %d", i)
 		}
 		v, err := strconv.ParseFloat(p, 64)
 		if err != nil || v < 0.0 {
-			return nil, fmt.Errorf("invalid float in row-load at position %d: %v", i, err)
+			return nil, fmt.Errorf("invalid float in target-hand-load at position %d: %v", i, err)
 		}
-		rowVals[i] = v
+		handVals[i] = v
 	}
 
-	return &rowVals, nil
+	return &handVals, nil
 }
 
-// scaleRowLoad scales row load values in-place so their sum equals 100.0.
+// scaleTargetHandLoad scales hand load values in-place so their sum equals 100.0.
 // Validates all values are non-negative and sum is above epsilon threshold.
 // Returns an error if any value is negative or if the sum is too small to scale safely.
-func scaleRowLoad(vals *[3]float64) error {
+func scaleTargetHandLoad(vals *[2]float64) error {
 	var sum float64
 	for _, v := range vals {
 		if v < 0.0 {
-			return fmt.Errorf("cannot scale row load: negative value %f", v)
+			return fmt.Errorf("cannot scale hand load: negative value %f", v)
 		}
 		sum += v
 	}
 	const epsilon = 1e-9
 	if sum < epsilon {
-		return fmt.Errorf("cannot scale row load: sum is zero or too small")
+		return fmt.Errorf("cannot scale hand load: sum is zero or too small")
 	}
 	scale := 100.0 / sum
 	for i := range vals {
@@ -151,7 +166,7 @@ func scaleRowLoad(vals *[3]float64) error {
 func parseFingerLoad(s string) (*[10]float64, error) {
 	parts := strings.Split(s, ",")
 	if len(parts) != 4 && len(parts) != 8 {
-		return nil, fmt.Errorf("finger-load must have 4 or 8 comma-separated values")
+		return nil, fmt.Errorf("target-finger-load must have 4 or 8 comma-separated values")
 	}
 	for i := range parts {
 		parts[i] = strings.TrimSpace(parts[i])
@@ -169,11 +184,11 @@ func parseFingerLoad(s string) (*[10]float64, error) {
 	for i, p := range parts {
 		var v float64
 		if p == "" {
-			return nil, fmt.Errorf("empty value in finger-load")
+			return nil, fmt.Errorf("empty value in target-finger-load")
 		}
 		v, err := strconv.ParseFloat(p, 64)
 		if err != nil || v < 0.0 {
-			return nil, fmt.Errorf("invalid float in finger-load: %v", err)
+			return nil, fmt.Errorf("invalid float in target-finger-load: %v", err)
 		}
 		fingerVals[i] = v
 	}
@@ -195,6 +210,54 @@ func scaleFingerLoad(vals *[10]float64) error {
 	const epsilon = 1e-9
 	if sum < epsilon {
 		return fmt.Errorf("cannot scale finger load: sum is zero or too small")
+	}
+	scale := 100.0 / sum
+	for i := range vals {
+		vals[i] *= scale
+	}
+	return nil
+}
+
+// parseRowLoad parses row load values from a comma-separated string.
+// Expects exactly 3 values for top row, home row, and bottom row.
+func parseRowLoad(s string) (*[3]float64, error) {
+	parts := strings.Split(s, ",")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("target-row-load must have exactly 3 comma-separated values (got %d)", len(parts))
+	}
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+
+	var rowVals [3]float64
+	for i, p := range parts {
+		if p == "" {
+			return nil, fmt.Errorf("empty value in target-row-load at position %d", i)
+		}
+		v, err := strconv.ParseFloat(p, 64)
+		if err != nil || v < 0.0 {
+			return nil, fmt.Errorf("invalid float in target-row-load at position %d: %v", i, err)
+		}
+		rowVals[i] = v
+	}
+
+	return &rowVals, nil
+}
+
+// scaleRowLoad scales row load values in-place so their sum equals 100.0.
+// Validates all values are non-negative and sum is above epsilon threshold.
+// Returns an error if any value is negative or if the sum is too small to scale safely.
+func scaleRowLoad(vals *[3]float64) error {
+	var sum float64
+	for _, v := range vals {
+		if v < 0.0 {
+			return fmt.Errorf("cannot scale row load: negative value %f", v)
+		}
+		sum += v
+	}
+	const epsilon = 1e-9
+	if sum < epsilon {
+		return fmt.Errorf("cannot scale row load: sum is zero or too small")
 	}
 	scale := 100.0 / sum
 	for i := range vals {
@@ -252,42 +315,60 @@ func ensureNoKlf(name string) string {
 	return name
 }
 
-// loadPreferredLoadsFromFlags loads PreferredLoads from flags and config file.
+// loadTargetLoadsFromFlags loads TargetLoads from flags and config file.
 // Command-line flags override config file values.
-func loadPreferredLoadsFromFlags(c *cli.Command) (*kc.PreferredLoads, error) {
+func loadTargetLoadsFromFlags(c *cli.Command) (*kc.TargetLoads, error) {
 	// Try to load from config file first
-	configPath := filepath.Join(configDir, "load_prefs.txt")
-	prefs, err := loadPreferredLoadsFromFile(configPath)
+	// Use --load-dist-targets flag if provided, otherwise default to load_targets.txt
+	configFile := c.String("load-targets-file")
+	if configFile == "" {
+		configFile = "load_targets.txt"
+	}
+	configPath := filepath.Join(configDir, configFile)
+	targets, err := loadTargetLoadsFromFile(configPath)
 	if err != nil {
 		// If config file doesn't exist, use hardcoded defaults
-		prefs = &kc.PreferredLoads{}
+		targets = &kc.TargetLoads{}
 	}
 
-	// Override with flags if they are set
-	if c.IsSet("row-load") {
-		rowLoad, err := getRowLoadFromFlag(c)
+	if c.IsSet("target-hand-load") {
+		handLoad, err := getTargetHandLoadFromFlag(c)
 		if err != nil {
 			return nil, err
 		}
-		prefs.IdealRowLoad = rowLoad
-	} else if prefs.IdealRowLoad == nil {
+		targets.TargetHandLoad = handLoad
+	} else if targets.TargetHandLoad == nil {
 		// Use hardcoded default if not in config and not in flag
-		rowLoad, _ := parseRowLoad("18.5,73,8.5")
-		_ = scaleRowLoad(rowLoad)
-		prefs.IdealRowLoad = rowLoad
+		handLoad, _ := parseTargetHandLoad("50,50")
+		_ = scaleTargetHandLoad(handLoad)
+		targets.TargetHandLoad = handLoad
 	}
 
-	if c.IsSet("finger-load") {
-		fingerLoad, err := getFingerLoadFromFlag(c)
+	if c.IsSet("target-finger-load") {
+		fingerLoad, err := getTargetFingerLoadFromFlag(c)
 		if err != nil {
 			return nil, err
 		}
-		prefs.IdealFgrLoad = fingerLoad
-	} else if prefs.IdealFgrLoad == nil {
+		targets.TargetFingerLoad = fingerLoad
+	} else if targets.TargetFingerLoad == nil {
 		// Use hardcoded default if not in config and not in flag
 		fingerLoad, _ := parseFingerLoad("7.5,11,16,15.5")
 		_ = scaleFingerLoad(fingerLoad)
-		prefs.IdealFgrLoad = fingerLoad
+		targets.TargetFingerLoad = fingerLoad
+	}
+
+	// Override with flags if they are set
+	if c.IsSet("target-row-load") {
+		rowLoad, err := getTargetRowLoadFromFlag(c)
+		if err != nil {
+			return nil, err
+		}
+		targets.TargetRowLoad = rowLoad
+	} else if targets.TargetRowLoad == nil {
+		// Use hardcoded default if not in config and not in flag
+		rowLoad, _ := parseRowLoad("18.5,73,8.5")
+		_ = scaleRowLoad(rowLoad)
+		targets.TargetRowLoad = rowLoad
 	}
 
 	if c.IsSet("pinky-penalties") {
@@ -295,26 +376,26 @@ func loadPreferredLoadsFromFlags(c *cli.Command) (*kc.PreferredLoads, error) {
 		if err != nil {
 			return nil, err
 		}
-		prefs.PinkyPenalties = pinkyPenalties
-	} else if prefs.PinkyPenalties == nil {
+		targets.PinkyPenalties = pinkyPenalties
+	} else if targets.PinkyPenalties == nil {
 		// Use hardcoded default if not in config and not in flag
 		pinkyPenalties, _ := parsePinkyPenalties("1,1,1,0,1,1")
-		prefs.PinkyPenalties = pinkyPenalties
+		targets.PinkyPenalties = pinkyPenalties
 	}
 
-	return prefs, nil
+	return targets, nil
 }
 
-// loadPreferredLoadsFromFile loads defaults from config/load_prefs.txt.
-// Returns empty PreferredLoads if file doesn't exist or has errors.
-func loadPreferredLoadsFromFile(filePath string) (*kc.PreferredLoads, error) {
+// loadTargetLoadsFromFile loads defaults from config/load_targets.txt.
+// Returns empty TargetLoads if file doesn't exist or has errors.
+func loadTargetLoadsFromFile(filePath string) (*kc.TargetLoads, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	prefs := &kc.PreferredLoads{}
+	targets := &kc.TargetLoads{}
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -334,30 +415,39 @@ func loadPreferredLoadsFromFile(filePath string) (*kc.PreferredLoads, error) {
 		value := strings.TrimSpace(parts[1])
 
 		switch key {
-		case "row-load":
-			rowLoad, err := parseRowLoad(value)
+		case "target-hand-load":
+			handLoad, err := parseTargetHandLoad(value)
 			if err != nil {
-				return nil, fmt.Errorf("invalid row-load in config file: %v", err)
+				return nil, fmt.Errorf("invalid target-hand-load in config file: %v", err)
 			}
-			if err := scaleRowLoad(rowLoad); err != nil {
-				return nil, fmt.Errorf("failed to scale row-load in config file: %v", err)
+			if err := scaleTargetHandLoad(handLoad); err != nil {
+				return nil, fmt.Errorf("failed to scale target-hand-load in config file: %v", err)
 			}
-			prefs.IdealRowLoad = rowLoad
-		case "finger-load":
+			targets.TargetHandLoad = handLoad
+		case "target-finger-load":
 			fingerLoad, err := parseFingerLoad(value)
 			if err != nil {
-				return nil, fmt.Errorf("invalid finger-load in config file: %v", err)
+				return nil, fmt.Errorf("invalid target-finger-load in config file: %v", err)
 			}
 			if err := scaleFingerLoad(fingerLoad); err != nil {
-				return nil, fmt.Errorf("failed to scale finger-load in config file: %v", err)
+				return nil, fmt.Errorf("failed to scale target-finger-load in config file: %v", err)
 			}
-			prefs.IdealFgrLoad = fingerLoad
+			targets.TargetFingerLoad = fingerLoad
+		case "target-row-load":
+			rowLoad, err := parseRowLoad(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid target-row-load in config file: %v", err)
+			}
+			if err := scaleRowLoad(rowLoad); err != nil {
+				return nil, fmt.Errorf("failed to scale target-row-load in config file: %v", err)
+			}
+			targets.TargetRowLoad = rowLoad
 		case "pinky-penalties":
 			pinkyPenalties, err := parsePinkyPenalties(value)
 			if err != nil {
 				return nil, fmt.Errorf("invalid pinky-penalties in config file: %v", err)
 			}
-			prefs.PinkyPenalties = pinkyPenalties
+			targets.PinkyPenalties = pinkyPenalties
 		}
 	}
 
@@ -365,5 +455,5 @@ func loadPreferredLoadsFromFile(filePath string) (*kc.PreferredLoads, error) {
 		return nil, fmt.Errorf("error reading config file: %v", err)
 	}
 
-	return prefs, nil
+	return targets, nil
 }

@@ -87,7 +87,7 @@ Now you should have something like:
 │   │   └── ...
 │   ├── config
 │   │   ├── focal.pin
-│   │   ├── load_prefs.txt
+│   │   ├── load_targets.txt
 │   │   ├── qwerty.pin
 │   │   └── weights.txt
 └── keycraft-darwin-arm64
@@ -145,7 +145,7 @@ go install github.com/rbscholtus/keycraft/cmd/keycraft@latest
 ### Advanced Features
 
 - Supports 4x6 + 3 (x2) layouts (row-staggered, angle-modded, ortholinear, and column-staggered)
-- Supports 56 layout metrics (including hand, row, column, and finger stats)
+- Supports 29 layout metrics and 28 counts
 - Supports Euclidian distance specific to each physical layout type
 - Supports MonkeyRacer, Shai (default), and AKL corpus files out of the box
 - Supports a default corpus, eliminating the need to specify the corpus for every command
@@ -165,140 +165,154 @@ go install github.com/rbscholtus/keycraft/cmd/keycraft@latest
 
 ## Supported Metrics
 
-The following metrics are currently supported by Keycraft. Spaces in the corpus are discarded. Examples are on the Qwerty layout, which is obviously row-staggered and has some stretchgrams that other physical layouts do not have.
+Keycraft supports the following metrics. Here are some notes:
 
-| Acronym  | Metric                              | Examples            |
-|----------|-------------------------------------|---------------------|
-| SFB      | Same Finger Bigram                  | "ed", "lo" (not "ee") |
-| LSB      | Lateral Stretch Bigram              | "te", "be"          |
-| FSB      | Full Scissor Bigram                 | "ct", "ex"          |
-| HSB      | Half Scissor Bigram                 | "st", "ca"          |
-| SFS      | Same Finger Skipgram                | "end", "tor" (not "ene") |
-| LSS      | Lateral Stretch Skipgram            | "the", "ble"        |
-| FSS      | Full Scissor Skipgram               | "cut", "roc"        |
-| HSS      | Half Scissor Skipgram               | "sit", "rus"        |
-| ALT      | Alternation total                   |                     |
-| ALT-SFS  | Alternation — Same Finger Skipgram  | "for", "men"        |
-| ALT-NML  | Alternation — Other                 | "and", "ent", "iti" |
-| 2RL      | 2-key Rolls total                   |                     |
-| 2RL-IN   | 2-key Rolls — Inward                | "ing", "hat"        |
-| 2RL-OUT  | 2-key Rolls — Outward               | "tio", "thi"        |
-| 2RL-SFB  | 2-key Rolls — Same Finger Bigram    | "nce", "all"        |
-| 3RL      | 3-key Rolls total                   |                     |
-| 3RL-IN   | 3-key Rolls — Inward                | "act", "lin"        |
-| 3RL-OUT  | 3-key Rolls — Outward               | "rea", "tes"        |
-| 3RL-SFB  | 3-key Rolls — Same Finger Bigram    | "ted", "ill"        |
-| RED      | Redirections total                  |                     |
-| RED-WEAK | Redirections — Weak                 | "was", "ese"        |
-| RED-SFS  | Redirections — Same Finger Skipgram | "you", "ter"        |
-| RED-NML  | Redirections — Other                | "ion", "ate", "ere" |
-| IN:OUT   | Inward:Outward rolls ratio          |          |
-| FLW      | Flowiness                           |          |
-| RBL      | Row Balance                         |          |
-| FBL      | Finger Balance                      |          |
-| POH      | Pinky Off Home (Weighted)           |          |
-| Not shown | Hand, row, column, and finger stats |          |
+- Bigram, skipgram, and trigram metrics follow the Keyboard Layouts Doc.
+- Examples are based on the Qwerty layout.
+- Spaces in the corpus are discarded.
 
+### Metrics
 
+#### Bigram Metrics
+| Acronym  | Metric                              | Description                                                           | Examples            |
+|----------|-------------------------------------|-----------------------------------------------------------------------|---------------------|
+| SFB      | Same Finger Bigram                  | Percentage of bigrams typed using the same finger (excluding repeats) | "ed", "lo" (not "ee") |
+| LSB      | Lateral Stretch Bigram              | Percentage of bigrams that map to lateral-stretch finger pairs        | "te", "be"          |
+| FSB      | Full Scissor Bigram                 | Percentage of bigrams forming scissor patterns that skip the home row    | "ct", "ex"          |
+| HSB      | Half Scissor Bigram                 | Percentage of bigrams forming scissor patterns that involve the home row | "st", "ca"          |
 
-### Metric details
+#### Skipgram Metrics
+| Acronym  | Metric                              | Description                                                           | Examples            |
+|----------|-------------------------------------|-----------------------------------------------------------------------|---------------------|
+| SFS      | Same Finger Skipgram                | Percentage of skipgrams typed using the same finger (excluding repeats) | "end", "tor" (not "ene") |
+| LSS      | Lateral Stretch Skipgram            | Percentage of skipgrams that map to lateral-stretch pairs             | "the", "ble"        |
+| FSS      | Full Scissor Skipgram               | Percentage of skipgrams forming full-scissor patterns                 | "cut", "roc"        |
+| HSS      | Half Scissor Skipgram               | Percentage of skipgrams forming half-scissor patterns                 | "sit", "rus"        |
 
-Keycraft aims to follow the Keyboard Layouts Doc (KLD) as much as possible.
-Some metrics are unique to Keycraft though: RBL, FBL, POH, FLW
+#### Trigram Metrics
+| Acronym  | Metric                              | Description                                                    | Examples            |
+|----------|-------------------------------------|----------------------------------------------------------------|---------------------|
+| ALT      | Alternation total                   | Total % of hand alternations (ALT-NML + ALT-SFS)               |                     |
+| ALT-SFS  | Alternation — Same Finger Skipgram  | Cross-hand alternations that are same-finger alternations      | "for", "men"        |
+| ALT-NML  | Alternation — Normal                | Cross-hand alternations not classified as SFS     | "and", "ent", "iti" |
+| 2RL      | 2-key Rolls total                   | Total % of two-key roll trigrams (2RL-IN + 2RL-OUT + 2RL-SFB)  |                     |
+| 2RL-IN   | 2-key Rolls — Inward                | Two-key roll trigrams classified as inward rolls               | "ing", "hat"        |
+| 2RL-OUT  | 2-key Rolls — Outward               | Two-key roll trigrams classified as outward rolls              | "tio", "thi"        |
+| 2RL-SFB  | 2-key Rolls — Same Finger Bigram    | Two-key rolls where both keys use the same finger              | "nce", "all"        |
+| 3RL      | 3-key Rolls total                   | Total % of three-key roll trigrams (3RL-IN + 3RL-OUT + 3RL-SFB) |                     |
+| 3RL-IN   | 3-key Rolls — Inward                | Three-key roll trigrams classified as inward sequences         | "act", "lin"        |
+| 3RL-OUT  | 3-key Rolls — Outward               | Three-key roll trigrams classified as outward sequences        | "rea", "tes"        |
+| 3RL-SFB  | 3-key Rolls — Same Finger Bigram    | Three-key rolls where first and last keys use the same finger  | "ted", "ill"        |
+| RED      | Redirections total                  | Total % of redirections                                        |                     |
+| RED-WEAK | Redirections — Weak                 | Redirections on one hand with no index and thumb involvement             | "was", "ese"        |
+| RED-SFS  | Redirections — Same Finger Skipgram | Redirections on one hand that are same-finger skipgrams        | "you", "ter"        |
+| RED-NML  | Redirections — Other                | Other (normal) redirections on one hand                        | "ion", "ate", "ere" |
 
-#### Bigrams
+#### Flow Metrics
+| Acronym  | Metric                              | Description                                                    | Examples            |
+|----------|-------------------------------------|----------------------------------------------------------------|---------------------|
+| IN:OUT   | Inward:Outward rolls ratio          | Ratio of inward to outward rolls: (2RL-IN + 3RL-IN) / (2RL-OUT + 3RL-OUT) |                     |
+| FLW      | Flowiness                           | Flow measure: ALT-NML + 2RL-IN + 2RL-OUT + 3RL-IN + 3RL-OUT   |                     |
 
-- SFB - percentage of bigrams typed using the same finger (excluding identical-key repeats)
-- LSB - percentage of bigrams that map to pre-defined lateral-stretch finger pairs
-- FSB - percentage of bigrams forming pre-defined full-scissor patterns (>1.5U vertical separation)
-- HSB - percentage of bigrams forming pre-defined half-scissor patterns (<=1.5U vertical separation)
+#### Load Distribution Deviation & Penalty Metrics
+| Acronym  | Metric                              | Description                                                    | Examples            |
+|----------|-------------------------------------|----------------------------------------------------------------|---------------------|
+| HLD      | Hand Load Deviation                 | Deviation from target hand load distribution (see below)            |                     |
+| FLD      | Finger Load Deviation               | Deviation from target finger load distribution (see below)          |                     |
+| RLD      | Row Load Deviation                  | Deviation from target row load distribution (see below)             |                     |
+| POH      | Pinky Off Home (Weighted)           | Weighted penalty for off-home pinky usage (see below)          |                     |
 
-#### Skipgrams
+#### Usage Distribution Measures
 
-- SFS - percentage of skipgrams typed using the same finger (excluding identical-key skips)
-- LSS - percentage of skipgrams that map to lateral-stretch pairs
-- FSS - percentage of skipgrams forming full-scissor patterns
-- HSS - percentage of skipgrams forming half-scissor patterns
+These measures report actual keystroke percentages. Unlike HLD/FLD/RLD, these are raw measurements, not deviations from targets.
 
-#### Trigrams
+| Acronym  | Measure                             | Description                                                    | Examples            |
+|----------|-------------------------------------|----------------------------------------------------------------|---------------------|
+| H0, H1   | Hand usage percentages              | Left/right hand % (main rows 0-2 only)                         |                     |
+| F0–F9    | Finger usage percentages            | Per-finger % (main rows 0-2 only). See below for mapping       |                     |
+| C0–C11   | Column usage percentages            | Per-column % (main rows 0-2 only)                              |                     |
+| R0–R3    | Row usage percentages               | Per-row % (all rows 0-3, includes thumbs)                      |                     |
 
-Alternations - First key on one hand, the second key on the other, the last key on the first hand again
+**Mappings**:
+- **F0-F9**: F0=Left Pinky, F1=Left Ring, F2=Left Middle, F3=Left Index, F4=Left Thumb (0% in main row counts), F5=Right Thumb (0% in main row counts), F6=Right Index, F7=Right Middle, F8=Right Ring, F9=Right Pinky
+- **R0-R3**: R0=Top row, R1=Home row, R2=Bottom row, R3=Thumb row
 
-- ALT - total percentage of hand alternations (ALT-NML + ALT-SFS)
-- ALT-SFS - portion of cross-hand trigram alternations that are same‑finger alternations (excluding identical-key skips)
-- ALT-NML - portion of cross-hand trigram alternations not classified as SFS (normal alts)
+### Load Deviation & Penalty Metrics
 
-Two-rolls - Two keys on one hand, and one on the other (or vv)
+Here are the detailed descriptions of the above listed metrics.
 
-- 2RL - total percentage of two-key roll trigrams (2RL-IN + 2RL-OUT + 2RL-SFB)
-- 2RL-IN - two-key roll trigrams classified as inward rolls
-- 2RL-OUT - two-key roll trigrams classified as outward rolls
-- 2RL-SFB - two-key roll trigrams where both keys use the same finger (any key). Argueably, identical-key repeats are not uncomfortable and should be separated out.
+- **HLD - Hand Load Deviation**: Measures the cumulative absolute deviation (in percentage points) from the target hand load distribution. Calculated as: HLD = |H0 - target_H0| + |H1 - target_H1|, where H0 and H1 are the actual left/right hand usage percentages. Lower values indicate better balance. Only counts main rows (0-2), excluding thumb cluster.
 
-Three-rolls - All three keys are typed on one hand
+- **FLD - Finger Load Deviation**: Measures the cumulative absolute deviation (in percentage points) from the target finger load distribution across 8 fingers (F0-F3, F6-F9). Calculated as: FLD = Σ|Fi - target_Fi| for all non-pinky fingers, plus only positive deviations for pinkies (F0, F9). The asymmetric calculation for pinkies avoids penalizing layouts that successfully reduce pinky load below target. Lower values indicate better balance. Only counts main rows (0-2), excluding thumb cluster.
 
-- 3RL - total percentage of three-key roll trigrams (3RL-IN + 3RL-OUT + 3RL-SFB)
-- 3RL-IN - three-key roll trigrams classified as inward sequences
-- 3RL-OUT - three-key roll trigrams classified as outward sequences
-- 3RL-SFB - three-key roll trigrams where the first and last keys use the same finger (any key). Argueably, identical-key skips are not uncomfortable and should be separated out.
+FLD includes only the main finger rows. What this means is that if an alpha key is moved to the thumb cluster and no other changes are made, each finger (except the one that used to type the moved key), will now have a higher load relative to the total load on all 8 fingers, and FLD wil go up.
 
-Redirections - All three keys on one hand
+- **RLD - Row Load Deviation**: Measures the weighted deviation from the target row load distribution across three main rows (top, home, bottom). Uses directional penalties: home row penalizes below-target usage (encouraging home row), while top/bottom rows penalize above-target usage (discouraging those rows). Calculated as: RLD = -(home_actual - home_target) + (top_actual - top_target) + (bottom_actual - bottom_target). Lower values indicate better balance. Only counts main rows (0-2), excluding thumb cluster.
 
-- RED - total percentage of redirections
-- RED-WEAK - all redirections on one hand with no index involvement (weaker/bad redirections)
-- RED-SFS - redirections on one hand that are same finger skipgrams (excluding identical-key skips)
-- RED-NML - other (normal) redirections on one hand
+- **POH - Pinky Off Home**: A weighted penalty score for pinky key usage, focusing on positions outside the ideal home row spot to minimize strain on the weakest finger. Each pinky position has a configurable penalty weight, with higher values indicating greater discomfort or penalty. Calculates as: the sum of (key frequency × position weight) for all pinky keys, expressed as a percentage of total keystrokes. Lower values are better.
 
-#### Other Metrics
+### Target Definitions
 
-- IN:OUT - ratio of inward rolls to outward rolls computed as (2RL-IN + 3RL-IN) / (2RL-OUT + 3RL-OUT)
-- FLW - total percentage of normal alternations and inward and outward sequences
-- RBL - cumulative deviation (percentage points) from some reference row-load distribution. More detail needed.
-- FBL - cumulative absolute deviation (percentage points) from the ideal finger-load distribution
-- POH - percentage of unigram frequency typed with a pinky while off the home row key, weighted using position-specific weights that penalize some pinky positions more heavily than others
+- **Target Hand Load Distribution**: The target distribution of typing load across the two hands, including only the fingers (excluding thumbs). It is configurable, with defaults of left: 50%, right: 50%. Values are normalized to sum to 100%.
 
-#### Reference Row-load distribution
+- **Target Finger Load Distribution**: The target distribution of typing load across the eight fingers (left and right pinky, ring, middle, and index). It is configurable, with defaults of left pinky: 7%, left ring: 10%, left middle: 16%, left index: 17%, right index: 17%, right middle: 16%, right ring: 10%, right pinky: 7%. Values are normalized to sum to 100%.
 
-More detail coming.
+- **Target Row Load Distribution**: The target distribution of typing load across the three main rows (top, home, and bottom), excluding the thumb cluster. It is configurable, with defaults of top row: 17.5%, home row: 75.0%, bottom row: 7.5%. Values are normalized to sum to 100%.
 
-|               | Top row | Home row | Bottom row |
-|--------------:|:-------:|:--------:|:----------:|
-| Reference (%) | 18.5    | 73.0     | 8.5        |
+- **Pinky Off Home (POH) Weights**: The weights for calculating the Pinky Off Home penalty. Defaults vary by position: 0.0 for home-inner (ideal), 1.0 for home-outer, 1.5 for top/bottom-inner, and 2.0 for top/bottom-outer (mirrored for both hands).
 
-#### Ideal Finger-load distribution
-
-More detail coming.
-
-|               | Left-Pinky | Left-Ring | Left-Middle | Left-Index | Right-Index | Right-Middle | Right-Ring | Right-Pinky |
-|--------------:|:----------:|:---------:|:-----------:|:----------:|:-----------:|:------------:|:----------:|:-----------:|
-| Ideal load (%)| 7.5        | 11.0      | 16.0        | 15.5       | 15.5        | 16.0         | 11.0       | 7.5         |
-
-
-#### Pinky Off Home (POH) weights
-
-The weights for calculating POH can be specified on the command-line. This can be used to penalize certain pinky keys more than others, for example the key in the top-right.
-
-The default weights resemble the Pinky Off stat used by getreuer and are shown below:
 ```
-╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮    
-│   │1.0│1.0│   │   │   │  │   │   │   │   │1.0│1.0│    
-╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮ ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮   
- │   │1.0│ 0 │   │   │   │  │   │   │   │   │ 0 │1.0│   
- ╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮ 
-   │   │1.0│1.0│   │   │   │  │   │   │   │   │1.0│1.0│ 
-   ╰───┴───┴───┼───┼───┼───┤  ├───┼───┼───┼───┴───┴───╯ 
-               │   │   │   │  │   │   │   │             
-               ╰───┴───┴───╯  ╰───┴───┴───╯             
+Target Loads and Penalty Weights
+
+Hand   ╭─────┬──────┬──────┬──────┬──────┬──────┬──────┬─────╮
+       │  LP │  LR  │  LM  │  LI  │  RI  │  RM  │  RR  │  RP │
+       ├─────┼──────┼──────┼──────┼──────┼──────┼──────┼─────┤
+       │ 7.0 │ 10.0 │ 16.0 │ 17.0 │ 17.0 │ 16.0 │ 10.0 │ 7.0 │
+       ├─────┴──────┴──────┴──────┼──────┴──────┴──────┴─────┤
+       │           50%            │            50%           │
+       ╰──────────────────────────┴──────────────────────────╯  
+Row              ╭───────┬───────┬────────┬───────╮           
+                 │  Top  │  Home │ Bottom │ Thumb │           
+                 ├───────┼───────┼────────┼───────┤           
+                 │ 17.5% │ 75.0% │  7.5%  │  N/A  │           
+                 ╰───────┴───────┴────────┴───────╯           
+Pinky  ╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮    
+       │2.0│1.5│   │   │   │   │  │   │   │   │   │1.5│2.0│    
+       ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮ ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮   
+        │1.0│ 0 │   │   │   │   │  │   │   │   │   │ 0 │1.0│   
+        ╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮ 
+          │2.0│1.5│   │   │   │   │  │   │   │   │   │1.5│2.0│ 
+          ╰───┴───┴───┼───┼───┼───┤  ├───┼───┼───┼───┴───┴───╯ 
+                      │   │   │   │  │   │   │   │             
+                      ╰───┴───┴───╯  ╰───┴───┴───╯             
 ```
 
-#### Hand balance metrics
+### Load Distribution Considerations
 
-Most hand balance metrics are based on characters on the first 3 rows only. That means keys on thumbclusters are not counted. Further, keys found on the shift layer (for example "?" and ":" on QWERTY) are not counted either.
+#### Finger Load Distribution
 
-- H0, H1 (Hand usage) - percentage of total keystrokes for each hand (H0 = left, H1 = right).
-- F0–F9 (Finger usage) - percentage of total keystrokes for each finger (F0 = left pinky … F3 = left index, F6 = right index … F9 = right pinky).
-- C0–C11 (Column usage) - percentage of total keystrokes per physical column on the layout.
-- R0–R3 (Row usage) - percentage of total keystrokes per physical row on the layout, including the thumb row.
+Finger load distribution in ergonomic keyboard layouts aims to allocate typing effort based on finger strength and dexterity. Stronger, more central fingers (index and middle) should handle higher loads, while weaker ones (pinky and ring) take less to reduce strain and fatigue. This is a core principle in optimizers like Carpalx, which penalizes overuse of weaker fingers through its effort model. Other sources (e.g., Colemak forums, Workman philosophy, and ergonomic studies) converge on similar non-uniform distributions, often assuming symmetry between hands.
+
+Here's a synthesis of reasonable targets:
+
+| Finger (Per Hand) | Reasonable Load Range (%) | Rationale / Sources |
+|----------|---------------------------------|-----------------------------|
+| Pinky | 6–8% | Weakest finger; minimize to avoid strain. Carpalx penalizes pinky heavily; Workman and Colemak aim low here. Ergonomic reviews (e.g., NIH studies on wrist deviation) note pinky overuse contributes to RSI. |
+| Ring | 8–12% | Slightly stronger than pinky but still limited; sources like Hands Down and MTGAP layouts target this to balance with middle finger. |
+| Middle | 12–15% | Strong and central; can handle moderate-high load. Colemak and Carpalx variants often place vowels here for efficiency. |
+| Index | 15–20% | Most dexterous; handles higher load but not overload (to avoid hand displacement). Workman reduces index stretching vs. Colemak; PDF study on English layouts weights index heavily for common bigrams. |
+
+#### Row Load Distribution
+
+Row distribution prioritizes the home row for most typing, as it aligns with natural finger rest positions and minimizes vertical reach (reducing extension/flexion strain). Carpalx incorporates row penalties in its model—higher effort for top/bottom rows due to distance from home. Optimized Carpalx layouts (e.g., QGMLWB) achieve ~70% home row usage.
+
+Common targets from other analyzers and layouts:
+
+| Row | Reasonable Load Range (%) | Rationale / Sources |
+|----------|---------------------------------|-----------------------------|
+| Top | 15–25% | Requires upward extension. Colemak reduces top-row load vs. QWERTY; ergonomic guides (e.g., Dygma, Truly Ergonomic) penalize it heavily. Kvikk layout: ~15–20%. |
+| Home | 60–75% | Core for efficiency; most common letters here. Colemak: 74%; Dvorak: 70%; QWERTY: only 32% (poor). Hands Down and MTGAP aim for 70%+ to keep fingers "fixed." |
+| Bottom | 10–15% | The Top row is generally preferred over the Bottom row. Reaching "up" is anatomically easier for most typists than curling the fingers "down" and "in." |
 
 ## Usage
 

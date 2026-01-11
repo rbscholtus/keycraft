@@ -10,10 +10,10 @@ import (
 // All layouts in LayoutsDir are analyzed for normalization, then filtered to LayoutFiles.
 type RankingInput struct {
 	LayoutsDir  string
-	LayoutFiles []string        // Specific layouts to rank; if empty, all layouts in LayoutsDir
+	LayoutFiles []string // Specific layouts to rank; if empty, all layouts in LayoutsDir
 	Corpus      *Corpus
-	Prefs       *PreferredLoads // Load preferences (row, finger, pinky penalties)
-	Weights     *Weights        // Metric weights for weighted scoring
+	Targets     *TargetLoads // Load targets (row, finger, pinky penalties)
+	Weights     *Weights     // Metric weights for weighted scoring
 }
 
 // RankingResult provides ranked layouts with normalization statistics.
@@ -28,7 +28,7 @@ type RankingResult struct {
 // It loads layouts, computes statistics, filters, scores, and returns results.
 func ComputeRankings(input RankingInput) (*RankingResult, error) {
 	// Load and analyze all layouts (needed for normalization even if we filter later)
-	analysers, err := LoadAnalysers(input.LayoutsDir, input.Corpus, input.Prefs)
+	analysers, err := LoadAnalysers(input.LayoutsDir, input.Corpus, input.Targets)
 	if err != nil {
 		return nil, err
 	}

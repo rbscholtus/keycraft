@@ -9,12 +9,59 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// corpusFlags defines flags specific to the corpus command.
+var corpusFlags = map[string]cli.Flag{
+	"corpus-rows": &cli.IntFlag{
+		Name:     "corpus-rows",
+		Aliases:  []string{"cr"},
+		Usage:    "Maximum number of rows to display in corpus data tables.",
+		Value:    100,
+		Category: "Display",
+		Action: func(ctx context.Context, c *cli.Command, value int) error {
+			if isShellCompletion() {
+				return nil
+			}
+			if value < 1 {
+				return fmt.Errorf("--corpus-rows must be at least 1 (got %d)", value)
+			}
+			return nil
+		},
+	},
+	"coverage": &cli.Float64Flag{
+		Name:  "coverage",
+		Usage: "Corpus word coverage percentage (0.1-100.0). Filters " +
+			"low-frequency words. Forces cache rebuild.",
+		Value:    98.0,
+		Category: "",
+		Action: func(ctx context.Context, c *cli.Command, value float64) error {
+			if isShellCompletion() {
+				return nil
+			}
+			if value < 0.1 || value > 100.0 {
+				return fmt.Errorf("--coverage must be 0.1-100 (got %f)", value)
+			}
+			return nil
+		},
+	},
+}
+
+// corpusFlagsSlice returns all flags for the corpus command.
+func corpusFlagsSlice() []cli.Flag {
+	commonFlags := flagsSlice("corpus")
+	allFlags := make([]cli.Flag, 0, len(commonFlags)+len(corpusFlags))
+	allFlags = append(allFlags, commonFlags...)
+	for _, f := range corpusFlags {
+		allFlags = append(allFlags, f)
+	}
+	return allFlags
+}
+
 // corpusCommand defines the CLI command for displaying corpus statistics.
 var corpusCommand = &cli.Command{
 	Name:          "corpus",
 	Aliases:       []string{"c"},
 	Usage:         "Display statistics for a text corpus",
-	Flags:         flagsSlice("corpus", "corpus-rows", "coverage"),
+	Flags:         corpusFlagsSlice(),
 	Before:        validateCorpusFlags,
 	Action:        corpusAction,
 	ShellComplete: layoutShellComplete,
@@ -72,7 +119,7 @@ func buildCorpusInput(c *cli.Command) (kc.CorpusInput, error) {
 		return kc.CorpusInput{}, err
 	}
 
-	nrows := c.Int("rows")
+	nrows := c.Int("corpus-rows")
 
 	return kc.CorpusInput{
 		Corpus: corpus,

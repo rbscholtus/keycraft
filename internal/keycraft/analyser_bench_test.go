@@ -24,16 +24,17 @@ func BenchmarkAnalyser(b *testing.B) {
 		b.Fatalf("Failed to load layout: %v", err)
 	}
 
-	// Use default ideal loads
-	prefs := &PreferredLoads{
-		IdealRowLoad:   DefaultIdealRowLoad(),
-		IdealFgrLoad:   DefaultIdealFingerLoad(),
-		PinkyPenalties: DefaultPinkyPenalties(),
+	// Use default target loads
+	targets := &TargetLoads{
+		TargetHandLoad:   DefaultTargetHandLoad(),
+		TargetFingerLoad: DefaultTargetFingerLoad(),
+		TargetRowLoad:    DefaultTargetRowLoad(),
+		PinkyPenalties:   DefaultPinkyPenalties(),
 	}
 
 	// Benchmark the analyser creation and metric computation
 	for b.Loop() {
-		_ = NewAnalyser(layout, corpus, prefs)
+		_ = NewAnalyser(layout, corpus, targets)
 	}
 }
 
@@ -133,10 +134,11 @@ func BenchmarkAnalyserWithScorer(b *testing.B) {
 		b.Fatalf("Failed to load layout: %v", err)
 	}
 
-	prefs := &PreferredLoads{
-		IdealRowLoad:   DefaultIdealRowLoad(),
-		IdealFgrLoad:   DefaultIdealFingerLoad(),
-		PinkyPenalties: DefaultPinkyPenalties(),
+	targets := &TargetLoads{
+		TargetRowLoad:    DefaultTargetRowLoad(),
+		TargetFingerLoad: DefaultTargetFingerLoad(),
+		TargetHandLoad:   DefaultTargetHandLoad(),
+		PinkyPenalties:   DefaultPinkyPenalties(),
 	}
 
 	// Load proper weights from default file
@@ -146,7 +148,7 @@ func BenchmarkAnalyserWithScorer(b *testing.B) {
 	}
 
 	// Create Scorer (pre-filters trigrams once)
-	scorer, err := NewScorer("../../data/layouts", corpus, prefs, weights)
+	scorer, err := NewScorer("../../data/layouts", corpus, targets, weights)
 	if err != nil {
 		b.Fatalf("Failed to create scorer: %v", err)
 	}
@@ -176,18 +178,20 @@ func BenchmarkAnalyserHand(b *testing.B) {
 		b.Fatalf("Failed to load layout: %v", err)
 	}
 
-	idealRowLoad := DefaultIdealRowLoad()
-	idealFingerLoad := DefaultIdealFingerLoad()
+	targetRowLoad := DefaultTargetRowLoad()
+	targetFingerLoad := DefaultTargetFingerLoad()
+	targetHandLoad := DefaultTargetHandLoad()
 	pinkyPenalties := DefaultPinkyPenalties()
 
 	for b.Loop() {
 		a := &Analyser{
-			Layout:         layout,
-			Corpus:         corpus,
-			IdealRowLoad:   idealRowLoad,
-			IdealfgrLoad:   idealFingerLoad,
-			PinkyPenalties: pinkyPenalties,
-			Metrics:        make(map[string]float64),
+			Layout:           layout,
+			Corpus:           corpus,
+			TargetRowLoad:    targetRowLoad,
+			TargetFingerLoad: targetFingerLoad,
+			TargetHandLoad:   targetHandLoad,
+			PinkyPenalties:   pinkyPenalties,
+			Metrics:          make(map[string]float64),
 		}
 		a.analyseHand()
 	}
@@ -209,15 +213,15 @@ func BenchmarkAnalyserBigramsWithCache(b *testing.B) {
 		b.Fatalf("Failed to load corpus: %v", err)
 	}
 
-	// idealRowLoad := DefaultIdealRowLoad()
-	// idealFingerLoad := DefaultIdealFingerLoad()
+	// targetRowLoad := DefaultTargetRowLoad()
+	// targetFingerLoad := DefaultTargetFingerLoad()
 
 	// weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
 	// if err != nil {
 	// 	b.Fatalf("Failed to load weights: %v", err)
 	// }
 
-	// scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, weights)
+	// scorer, err := NewScorer("../../data/layouts", corpus, targetRowLoad, targetFingerLoad, weights)
 	// if err != nil {
 	// 	b.Fatalf("Failed to create scorer: %v", err)
 	// }
@@ -252,15 +256,15 @@ func BenchmarkAnalyserSkipgramsWithCache(b *testing.B) {
 		b.Fatalf("Failed to load layout: %v", err)
 	}
 
-	// idealRowLoad := DefaultIdealRowLoad()
-	// idealFingerLoad := DefaultIdealFingerLoad()
+	// targetRowLoad := DefaultTargetRowLoad()
+	// targetFingerLoad := DefaultTargetFingerLoad()
 
 	// weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
 	// if err != nil {
 	// 	b.Fatalf("Failed to load weights: %v", err)
 	// }
 
-	// scorer, err := NewScorer("../../data/layouts", corpus, idealRowLoad, idealFingerLoad, weights)
+	// scorer, err := NewScorer("../../data/layouts", corpus, targetRowLoad, targetFingerLoad, weights)
 	// if err != nil {
 	// 	b.Fatalf("Failed to create scorer: %v", err)
 	// }
@@ -295,10 +299,11 @@ func BenchmarkAnalyserTrigramsWithCache(b *testing.B) {
 		b.Fatalf("Failed to load layout: %v", err)
 	}
 
-	prefs := &PreferredLoads{
-		IdealRowLoad:   DefaultIdealRowLoad(),
-		IdealFgrLoad:   DefaultIdealFingerLoad(),
-		PinkyPenalties: DefaultPinkyPenalties(),
+	targets := &TargetLoads{
+		TargetRowLoad:    DefaultTargetRowLoad(),
+		TargetFingerLoad: DefaultTargetFingerLoad(),
+		TargetHandLoad:   DefaultTargetHandLoad(),
+		PinkyPenalties:   DefaultPinkyPenalties(),
 	}
 
 	weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
@@ -306,7 +311,7 @@ func BenchmarkAnalyserTrigramsWithCache(b *testing.B) {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
 
-	scorer, err := NewScorer("../../data/layouts", corpus, prefs, weights)
+	scorer, err := NewScorer("../../data/layouts", corpus, targets, weights)
 	if err != nil {
 		b.Fatalf("Failed to create scorer: %v", err)
 	}
@@ -341,10 +346,11 @@ func BenchmarkAnalyserWithScorerAllCached(b *testing.B) {
 		b.Fatalf("Failed to load layout: %v", err)
 	}
 
-	prefs := &PreferredLoads{
-		IdealRowLoad:   DefaultIdealRowLoad(),
-		IdealFgrLoad:   DefaultIdealFingerLoad(),
-		PinkyPenalties: DefaultPinkyPenalties(),
+	targets := &TargetLoads{
+		TargetRowLoad:    DefaultTargetRowLoad(),
+		TargetFingerLoad: DefaultTargetFingerLoad(),
+		TargetHandLoad:   DefaultTargetHandLoad(),
+		PinkyPenalties:   DefaultPinkyPenalties(),
 	}
 
 	weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
@@ -352,7 +358,7 @@ func BenchmarkAnalyserWithScorerAllCached(b *testing.B) {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
 
-	scorer, err := NewScorer("../../data/layouts", corpus, prefs, weights)
+	scorer, err := NewScorer("../../data/layouts", corpus, targets, weights)
 	if err != nil {
 		b.Fatalf("Failed to create scorer: %v", err)
 	}
@@ -382,10 +388,11 @@ func BenchmarkAnalyserWithScorerNoCaches(b *testing.B) {
 		b.Fatalf("Failed to load layout: %v", err)
 	}
 
-	prefs := &PreferredLoads{
-		IdealRowLoad:   DefaultIdealRowLoad(),
-		IdealFgrLoad:   DefaultIdealFingerLoad(),
-		PinkyPenalties: DefaultPinkyPenalties(),
+	targets := &TargetLoads{
+		TargetRowLoad:    DefaultTargetRowLoad(),
+		TargetFingerLoad: DefaultTargetFingerLoad(),
+		TargetHandLoad:   DefaultTargetHandLoad(),
+		PinkyPenalties:   DefaultPinkyPenalties(),
 	}
 
 	weights, err := NewWeightsFromParams("../../data/config/weights.txt", "")
@@ -393,7 +400,7 @@ func BenchmarkAnalyserWithScorerNoCaches(b *testing.B) {
 		b.Fatalf("Failed to load weights: %v", err)
 	}
 
-	scorer, err := NewScorer("../../data/layouts", corpus, prefs, weights)
+	scorer, err := NewScorer("../../data/layouts", corpus, targets, weights)
 	if err != nil {
 		b.Fatalf("Failed to create scorer: %v", err)
 	}

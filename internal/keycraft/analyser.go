@@ -13,7 +13,7 @@ var MetricsMap = map[string][]string{
 		"SFS",
 		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
 		"IN:OUT", "FLW",
-		"POH",
+		"HLD", "FLD", "RLD", "POH",
 	},
 	"extended": {
 		"SFB", "LSB", "FSB", "HSB",
@@ -23,7 +23,7 @@ var MetricsMap = map[string][]string{
 		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
 		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
 		"IN:OUT", "FLW",
-		"RBL", "FBL", "POH",
+		"HLD", "FLD", "RLD", "POH",
 	},
 	"fingers": {
 		"F0", "F1", "F2", "F3", "F4",
@@ -41,8 +41,8 @@ var MetricsMap = map[string][]string{
 		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
 		// Flow metrics
 		"IN:OUT", "FLW",
-		// Balance metrics
-		"RBL", "FBL", "POH",
+		// Load deviation metrics
+		"HLD", "FLD", "RLD", "POH",
 		// Hand distribution
 		"H0", "H1",
 		// Finger distribution
@@ -54,30 +54,48 @@ var MetricsMap = map[string][]string{
 	},
 }
 
-// DefaultIdealRowLoad
-func DefaultIdealRowLoad() *[3]float64 {
-	return &[3]float64{
-		18.5, // top
-		73.0, // home
-		8.5,  // bottom
+// TargetLoads encapsulates user targets for load distributions and penalties.
+// These targets are used to evaluate how well a layout matches target typing patterns.
+type TargetLoads struct {
+	TargetHandLoad   *[2]float64  // Target distribution: [left, right] hands (scaled to 100%)
+	TargetFingerLoad *[10]float64 // Target distribution: F0-F9 fingers (scaled to 100%, thumbs=0)
+	TargetRowLoad    *[3]float64  // Target distribution: [top, home, bottom] rows (scaled to 100%)
+	PinkyPenalties   *[12]float64 // Penalty weights for pinky off-home positions (not scaled)
+}
+
+// DefaultTargetHandLoad returns the default target hand load distribution (as percentages).
+// A 50/50 split is the default for balanced typing.
+func DefaultTargetHandLoad() *[2]float64 {
+	return &[2]float64{
+		50.0, // left hand
+		50.0, // right hand
 	}
 }
 
-// DefaultIdealFingerLoad returns the default target finger load distribution (as percentages).
+// DefaultTargetFingerLoad returns the default target finger load distribution (as percentages).
 // Fingers 0-9: left pinky to right pinky. Thumbs (F4, F5) are set to 0 (not counted in main row usage).
 // Right-hand loads mirror the left for symmetry.
-func DefaultIdealFingerLoad() *[10]float64 {
+func DefaultTargetFingerLoad() *[10]float64 {
 	return &[10]float64{
-		7.5,  // F0
-		11.0, // F1
-		16.0, // F2
-		15.5, // F3
-		0.0,  // F4
-		0.0,  // F5
-		15.5, // F6 (mirror of F3)
-		16.0, // F7 (mirror of F2)
-		11.0, // F8 (mirror of F1)
-		7.5,  // F9 (mirror of F0)
+		7.0,  // F0 - Left Pinky
+		10.0, // F1 - Left Ring
+		16.0, // F2 - Left Middle
+		17.0, // F3 - Left Index
+		0.0,  // F4 - Left Thumb (not counted)
+		0.0,  // F5 - Right Thumb (not counted)
+		17.0, // F6 - Right Index (mirror of F3)
+		16.0, // F7 - Right Middle (mirror of F2)
+		10.0, // F8 - Right Ring (mirror of F1)
+		7.0,  // F9 - Right Pinky (mirror of F0)
+	}
+}
+
+// DefaultTargetRowLoad returns the default target row load distribution (as percentages).
+func DefaultTargetRowLoad() *[3]float64 {
+	return &[3]float64{
+		17.5, // top
+		75.0, // home
+		7.5,  // bottom
 	}
 }
 
@@ -126,39 +144,44 @@ type TrigramInfo struct {
 // Analyser computes ergonomic metrics for a keyboard layout using corpus n-gram frequencies.
 // Metrics are stored as percentages or ratios in the Metrics map.
 type Analyser struct {
-	Layout         *SplitLayout       // The keyboard layout being analyzed
-	Corpus         *Corpus            // Text corpus for n-gram frequencies
-	IdealRowLoad   *[3]float64        // Target row load distribution (percentages for top, home, bottom)
-	IdealfgrLoad   *[10]float64       // Target finger load distribution (percentages for F0-F9)
-	PinkyPenalties *[12]float64       // Pinky off-home penalty weights (6 per hand)
-	Metrics        map[string]float64 // Computed metrics (e.g., "SFB", "ALT", "FBL")
+	Layout           *SplitLayout       // The keyboard layout being analyzed
+	Corpus           *Corpus            // Text corpus for n-gram frequencies
+	TargetHandLoad   *[2]float64        // Target hand load distribution (percentages for left, right)
+	TargetFingerLoad *[10]float64       // Target finger load distribution (percentages for F0-F9)
+	TargetRowLoad    *[3]float64        // Target row load distribution (percentages for top, home, bottom)
+	PinkyPenalties   *[12]float64       // Pinky off-home penalty weights (6 per hand)
+	Metrics          map[string]float64 // Computed metrics (e.g., "SFB", "ALT", "FLD")
 
 	// Pre-filtered n-grams (injected by Scorer to avoid redundant filtering)
 	relevantTrigrams []TrigramInfo // Only trigrams with all 3 runes on layout
 }
 
 // NewAnalyser creates an Analyser and computes all metrics for the given layout.
-// If prefs is nil or any of its fields are nil, uses defaults.
-func NewAnalyser(layout *SplitLayout, corpus *Corpus, prefs *PreferredLoads) *Analyser {
-	if prefs == nil {
-		prefs = &PreferredLoads{}
+// If targets is nil or any of its fields are nil, uses defaults.
+func NewAnalyser(layout *SplitLayout, corpus *Corpus, targets *TargetLoads) *Analyser {
+	if targets == nil {
+		targets = &TargetLoads{}
 	}
-	if prefs.IdealRowLoad == nil {
-		prefs.IdealRowLoad = DefaultIdealRowLoad()
+	if targets.TargetHandLoad == nil {
+		targets.TargetHandLoad = DefaultTargetHandLoad()
 	}
-	if prefs.IdealFgrLoad == nil {
-		prefs.IdealFgrLoad = DefaultIdealFingerLoad()
+	if targets.TargetFingerLoad == nil {
+		targets.TargetFingerLoad = DefaultTargetFingerLoad()
 	}
-	if prefs.PinkyPenalties == nil {
-		prefs.PinkyPenalties = DefaultPinkyPenalties()
+	if targets.TargetRowLoad == nil {
+		targets.TargetRowLoad = DefaultTargetRowLoad()
+	}
+	if targets.PinkyPenalties == nil {
+		targets.PinkyPenalties = DefaultPinkyPenalties()
 	}
 	an := &Analyser{
-		Layout:         layout,
-		Corpus:         corpus,
-		IdealRowLoad:   prefs.IdealRowLoad,
-		IdealfgrLoad:   prefs.IdealFgrLoad,
-		PinkyPenalties: prefs.PinkyPenalties,
-		Metrics:        make(map[string]float64, 60),
+		Layout:           layout,
+		Corpus:           corpus,
+		TargetHandLoad:   targets.TargetHandLoad,
+		TargetFingerLoad: targets.TargetFingerLoad,
+		TargetRowLoad:    targets.TargetRowLoad,
+		PinkyPenalties:   targets.PinkyPenalties,
+		Metrics:          make(map[string]float64, 60),
 	}
 	an.analyseHand()
 	an.analyseBigrams()
@@ -168,8 +191,10 @@ func NewAnalyser(layout *SplitLayout, corpus *Corpus, prefs *PreferredLoads) *An
 }
 
 // analyseHand computes usage metrics for hands, fingers, columns, and rows from unigrams.
-// Also calculates finger balance (FBL) as the sum of absolute deviations from ideal loads,
-// with special handling for pinkies (only positive deviations count).
+// Also calculates load deviation metrics:
+//   - HLD: Hand Load Deviation - sum of absolute deviations from target hand loads
+//   - FLD: Finger Load Deviation - sum of absolute deviations from target finger loads (pinkies: only positive deviations)
+//   - RLD: Row Load Deviation - weighted deviations from target row loads
 func (an *Analyser) analyseHand() {
 	var totalUnigramCount uint64
 	var pinkyOffWeighted float64
@@ -204,34 +229,62 @@ func (an *Analyser) analyseHand() {
 			continue
 		}
 
-		// Count main row keys (rows 0-2) for balance calculations
+		// Count main row keys (rows 0-2) for load distribution calculations
 		if key.Row < 3 {
 			totalUnigramCount += uniCnt
+			handCount[key.Hand] += uniCnt
+			fingerCount[key.Finger] += uniCnt
+			columnCount[key.Column] += uniCnt
+
 			// POH: weighted pinky penalty
 			if key.Finger == LP || key.Finger == RP {
 				if idx, ok := pofIndex[[2]uint8{key.Row, key.Column}]; ok {
 					pinkyOffWeighted += an.PinkyPenalties[idx] * float64(uniCnt)
 				}
 			}
-			handCount[key.Hand] += uniCnt
-			fingerCount[key.Finger] += uniCnt
-			columnCount[key.Column] += uniCnt
 		}
 
 		rowCount[key.Row] += uniCnt
 	}
 
-	// Convert counts to percentages
+	// Scaling factor to convert counts to percentages
 	var totFactor float64
 	if totalUnigramCount > 0 {
 		totFactor = 100 / float64(totalUnigramCount)
 	}
 
+	// POH - pinky off home
 	an.Metrics["POH"] = pinkyOffWeighted * totFactor
+
+	// Hx and HLD
 	for i, c := range handCount {
 		an.Metrics["H"+strconv.Itoa(i)] = float64(c) * totFactor
 	}
+	// HLD: Hand Load Deviation - sum of absolute deviations from target hand load
+	an.Metrics["HLD"] = math.Abs(an.Metrics["H0"]-an.TargetHandLoad[0]) +
+		math.Abs(an.Metrics["H1"]-an.TargetHandLoad[1])
 
+	// Fx and FLD
+	for i, c := range fingerCount {
+		fi := "F" + strconv.Itoa(i)
+		an.Metrics[fi] = float64(c) * totFactor
+		// For pinkies (LP and RP), only add positive deviations to FLD
+		if i == int(LP) || i == int(RP) {
+			diff := an.Metrics[fi] - an.TargetFingerLoad[i]
+			if diff > 0 {
+				an.Metrics["FLD"] += diff
+			}
+		} else {
+			an.Metrics["FLD"] += math.Abs(an.Metrics[fi] - an.TargetFingerLoad[i])
+		}
+	}
+
+	// Cx
+	for i, c := range columnCount {
+		an.Metrics["C"+strconv.Itoa(i)] = float64(c) * totFactor
+	}
+
+	// Rx and RLD
 	const (
 		topRow    = 0
 		homeRow   = 1
@@ -243,36 +296,17 @@ func (an *Analyser) analyseHand() {
 		ri := "R" + strconv.Itoa(i)
 		an.Metrics[ri] = float64(c) * totFactor
 
-		// Calculate row balance (RBL) for main rows (top, home, bottom)
+		// Calculate row load deviation (RLD) for main rows (top, home, bottom)
 		if i < mainRows {
-			diff := an.Metrics[ri] - an.IdealRowLoad[i]
-			// Home row: penalize below ideal usage
-			// Top/Bottom rows: penalize above ideal usage
+			diff := an.Metrics[ri] - an.TargetRowLoad[i]
+			// Home row: penalize below target usage
+			// Top/Bottom rows: penalize above target usage
 			if i == homeRow {
-				an.Metrics["RBL"] -= diff
+				an.Metrics["RLD"] -= diff
 			} else {
-				an.Metrics["RBL"] += diff
+				an.Metrics["RLD"] += diff
 			}
 		}
-	}
-	// fmt.Printf("%.1f %.1f %.1f - %.1f\n", an.Metrics["R0"], an.Metrics["R1"], an.Metrics["R2"], an.Metrics["RBL"])
-
-	for i, c := range fingerCount {
-		fi := "F" + strconv.Itoa(i)
-		an.Metrics[fi] = float64(c) * totFactor
-		// For pinkies (LP and RP), only add positive deviations to FBL
-		if i == int(LP) || i == int(RP) {
-			diff := an.Metrics[fi] - an.IdealfgrLoad[i]
-			if diff > 0 {
-				an.Metrics["FBL"] += diff
-			}
-		} else {
-			an.Metrics["FBL"] += math.Abs(an.Metrics[fi] - an.IdealfgrLoad[i])
-		}
-	}
-
-	for i, c := range columnCount {
-		an.Metrics["C"+strconv.Itoa(i)] = float64(c) * totFactor
 	}
 }
 
@@ -423,9 +457,9 @@ func (an *Analyser) analyseTrigrams() {
 						rl3Out += cnt
 					}
 				default: // Non-monotonic (redirection)
-					if f0 != LI && f0 != RI &&
-						f1 != LI && f1 != RI &&
-						f2 != LI && f2 != RI {
+					if (f0 < LI || f0 > RI) &&
+						(f1 < LI || f1 > RI) &&
+						(f2 < LI || f2 > RI) {
 						redWeak += cnt
 					} else if f0 == f2 && k0.Index != k2.Index {
 						redSFS += cnt

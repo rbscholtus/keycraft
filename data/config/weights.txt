@@ -1,21 +1,25 @@
 # just some reasonable default weights
 # Docs: https://github.com/rbscholtus/keycraft
 
+# Bigrams
 SFB = -8.0
 LSB = -4.0
 FSB = -2.666
 HSB = -1.333
 
+# Skipgrams
 SFS = -3.0
 LSS = -1.0
 FSS = -0.666
 HSS = -0.333
 
+# Alternations
 #ALT = ALT-SFS + ALT-NML
 ALT     = 0
 ALT-SFS = -0.001
 ALT-NML = 4
 
+# 2-Rolls and 3-rolls
 #2RL = 2RL-IN + 2RL-OUT + 2RL-SFB
 2RL     = 0
 2RL-SFB = -0.001
@@ -28,14 +32,19 @@ ALT-NML = 4
 3RL-IN  = 0.25
 3RL-OUT = 0.25
 
+# Redirections
 #RED = RED-WEAK + RED-SFS + RED-NML
 RED      = -0.001
 RED-WEAK = -2
 RED-SFS  = -0.001
 RED-NML  = -2
 
+# Flow
 IN:OUT = 0
 FLW    = 0
-RBL    = -1.0
-FBL    = -2.0
+
+# Load Distribution Deviation
+HLD    = -0.5
+FLD    = -1.5
+RLD    = -1.0
 POH    = -2.0

@@ -3,9 +3,9 @@ package keycraft
 // ViewInput contains parameters for viewing layout analysis.
 // This is pure computational input - no display/rendering concerns.
 type ViewInput struct {
-	LayoutFiles []string        // Layout filenames to view
-	Corpus      *Corpus         // Text corpus for analysis
-	Prefs       *PreferredLoads // User preferences for ideal loads
+	LayoutFiles []string     // Layout filenames to view
+	Corpus      *Corpus      // Text corpus for analysis
+	Targets     *TargetLoads // User target loads
 }
 
 // ViewResult contains the analysis results for viewing layouts.
@@ -23,7 +23,7 @@ func ViewLayouts(input ViewInput) (*ViewResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		analyser := NewAnalyser(layout, input.Corpus, input.Prefs)
+		analyser := NewAnalyser(layout, input.Corpus, input.Targets)
 		analysers = append(analysers, analyser)
 	}
 
