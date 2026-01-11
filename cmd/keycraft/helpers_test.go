@@ -102,7 +102,7 @@ func TestEnsureKlf(t *testing.T) {
 		{"foo.klf", "foo.klf"},
 		{"foo.KLF", "foo.KLF"},
 		{"foo.bar", "foo.bar.klf"},
-		{"foo.klF", "foo.klF"}, // Only .klf (lowercase) triggers match
+		{"foo.klF", "foo.klF"},
 		{"foo.KlF", "foo.KlF"},
 		{"foo.", "foo..klf"},
 		{"", ".klf"},

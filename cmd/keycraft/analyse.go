@@ -10,8 +10,8 @@ import (
 )
 
 // analyseFlags defines flags specific to the analyse command.
-var analyseFlags = map[string]cli.Flag{
-	"rows": &cli.IntFlag{
+var analyseFlags = []cli.Flag{
+	&cli.IntFlag{
 		Name:     "rows",
 		Aliases:  []string{"r"},
 		Usage:    "Maximum number of rows to display in data tables.",
@@ -27,13 +27,13 @@ var analyseFlags = map[string]cli.Flag{
 			return nil
 		},
 	},
-	"compact-trigrams": &cli.BoolFlag{
+	&cli.BoolFlag{
 		Name:     "compact-trigrams",
 		Usage:    "Omit common trigram categories (ALT-NML, 2RL-IN, 2RL-OUT, 3RL-IN, 3RL-OUT) from trigram table.",
 		Value:    false,
 		Category: "Display",
 	},
-	"trigram-rows": &cli.IntFlag{
+	&cli.IntFlag{
 		Name:     "trigram-rows",
 		Usage:    "Maximum number of trigrams to display in trigram table.",
 		Value:    50,
@@ -52,14 +52,8 @@ var analyseFlags = map[string]cli.Flag{
 
 // analyseFlagsSlice returns all flags for the analyse command.
 func analyseFlagsSlice() []cli.Flag {
-	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load",
-		"target-finger-load", "target-row-load", "pinky-penalties")
-	allFlags := make([]cli.Flag, 0, len(commonFlags)+len(analyseFlags))
-	allFlags = append(allFlags, commonFlags...)
-	for _, f := range analyseFlags {
-		allFlags = append(allFlags, f)
-	}
-	return allFlags
+	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties")
+	return append(commonFlags, analyseFlags...)
 }
 
 // analyseCommand defines the "analyse" CLI command.
@@ -101,7 +95,7 @@ func analyseAction(ctx context.Context, c *cli.Command) error {
 	}
 
 	// 1. Load inputs
-	corpus, err := getCorpusFromFlags(c)
+	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return err
 	}

@@ -10,8 +10,8 @@ import (
 )
 
 // corpusFlags defines flags specific to the corpus command.
-var corpusFlags = map[string]cli.Flag{
-	"corpus-rows": &cli.IntFlag{
+var corpusFlags = []cli.Flag{
+	&cli.IntFlag{
 		Name:     "corpus-rows",
 		Aliases:  []string{"cr"},
 		Usage:    "Maximum number of rows to display in corpus data tables.",
@@ -27,8 +27,8 @@ var corpusFlags = map[string]cli.Flag{
 			return nil
 		},
 	},
-	"coverage": &cli.Float64Flag{
-		Name:  "coverage",
+	&cli.Float64Flag{
+		Name: "coverage",
 		Usage: "Corpus word coverage percentage (0.1-100.0). Filters " +
 			"low-frequency words. Forces cache rebuild.",
 		Value:    98.0,
@@ -48,12 +48,7 @@ var corpusFlags = map[string]cli.Flag{
 // corpusFlagsSlice returns all flags for the corpus command.
 func corpusFlagsSlice() []cli.Flag {
 	commonFlags := flagsSlice("corpus")
-	allFlags := make([]cli.Flag, 0, len(commonFlags)+len(corpusFlags))
-	allFlags = append(allFlags, commonFlags...)
-	for _, f := range corpusFlags {
-		allFlags = append(allFlags, f)
-	}
-	return allFlags
+	return append(commonFlags, corpusFlags...)
 }
 
 // corpusCommand defines the CLI command for displaying corpus statistics.
@@ -114,7 +109,7 @@ func corpusAction(ctx context.Context, c *cli.Command) error {
 
 // buildCorpusInput gathers all input parameters for corpus display.
 func buildCorpusInput(c *cli.Command) (kc.CorpusInput, error) {
-	corpus, err := getCorpusFromFlags(c)
+	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return kc.CorpusInput{}, err
 	}

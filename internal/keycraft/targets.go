@@ -39,7 +39,7 @@ func NewTargetLoadsFromFile(filePath string) (*TargetLoads, error) {
 		}
 
 		// Parse key: value pairs
-		parts := strings.SplitN(line, ":", 2)
+		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
@@ -49,38 +49,21 @@ func NewTargetLoadsFromFile(filePath string) (*TargetLoads, error) {
 
 		switch key {
 		case "target-hand-load":
-			handLoad, err := parseTargetHandLoad(value)
-			if err != nil {
-				return nil, fmt.Errorf("invalid target-hand-load in config file: %v", err)
+			if err := targets.SetHandLoad(value); err != nil {
+				return nil, fmt.Errorf("invalid target-hand-load in config file: %w", err)
 			}
-			if err := scaleTargetHandLoad(handLoad); err != nil {
-				return nil, fmt.Errorf("failed to scale target-hand-load in config file: %v", err)
-			}
-			targets.TargetHandLoad = handLoad
 		case "target-finger-load":
-			fingerLoad, err := parseFingerLoad(value)
-			if err != nil {
-				return nil, fmt.Errorf("invalid target-finger-load in config file: %v", err)
+			if err := targets.SetFingerLoad(value); err != nil {
+				return nil, fmt.Errorf("invalid target-finger-load in config file: %w", err)
 			}
-			if err := scaleFingerLoad(fingerLoad); err != nil {
-				return nil, fmt.Errorf("failed to scale target-finger-load in config file: %v", err)
-			}
-			targets.TargetFingerLoad = fingerLoad
 		case "target-row-load":
-			rowLoad, err := parseRowLoad(value)
-			if err != nil {
-				return nil, fmt.Errorf("invalid target-row-load in config file: %v", err)
+			if err := targets.SetRowLoad(value); err != nil {
+				return nil, fmt.Errorf("invalid target-row-load in config file: %w", err)
 			}
-			if err := scaleRowLoad(rowLoad); err != nil {
-				return nil, fmt.Errorf("failed to scale target-row-load in config file: %v", err)
-			}
-			targets.TargetRowLoad = rowLoad
 		case "pinky-penalties":
-			pinkyPenalties, err := parsePinkyPenalties(value)
-			if err != nil {
-				return nil, fmt.Errorf("invalid pinky-penalties in config file: %v", err)
+			if err := targets.SetPinkyPenalties(value); err != nil {
+				return nil, fmt.Errorf("invalid pinky-penalties in config file: %w", err)
 			}
-			targets.PinkyPenalties = pinkyPenalties
 		}
 	}
 

@@ -48,3 +48,4 @@ _cleanuipman
 authors.json
 likes.json
 run.jsonl
+.gemini/*

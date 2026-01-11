@@ -14,8 +14,8 @@ import (
 )
 
 // rankFlags defines flags specific to the rank command.
-var rankFlags = map[string]cli.Flag{
-	"metrics": &cli.StringFlag{
+var rankFlags = []cli.Flag{
+	&cli.StringFlag{
 		Name:    "metrics",
 		Aliases: []string{"m"},
 		Usage: fmt.Sprintf("Metrics to display. Options: %v, or \"weighted\" "+
@@ -24,7 +24,7 @@ var rankFlags = map[string]cli.Flag{
 		Value:    "weighted",
 		Category: "Display",
 	},
-	"deltas": &cli.StringFlag{
+	&cli.StringFlag{
 		Name:    "deltas",
 		Aliases: []string{"d"},
 		Usage: "Delta display mode: \"none\", \"rows\" (row-by-row), " +
@@ -32,7 +32,7 @@ var rankFlags = map[string]cli.Flag{
 		Value:    "none",
 		Category: "Display",
 	},
-	"output": &cli.StringFlag{
+	&cli.StringFlag{
 		Name:     "output",
 		Aliases:  []string{"o"},
 		Usage:    "Output format: \"table\", \"html\", or \"csv\".",
@@ -43,15 +43,8 @@ var rankFlags = map[string]cli.Flag{
 
 // rankFlagsSlice returns all flags for the rank command.
 func rankFlagsSlice() []cli.Flag {
-	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load",
-		"target-finger-load", "target-row-load", "pinky-penalties",
-		"weights-file", "weights")
-	allFlags := make([]cli.Flag, 0, len(commonFlags)+len(rankFlags))
-	allFlags = append(allFlags, commonFlags...)
-	for _, f := range rankFlags {
-		allFlags = append(allFlags, f)
-	}
-	return allFlags
+	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties", "weights-file", "weights")
+	return append(commonFlags, rankFlags...)
 }
 
 // rankCommand defines the "rank" CLI command for comparing and ranking layouts.
@@ -97,7 +90,7 @@ func rankAction(ctx context.Context, c *cli.Command) error {
 
 // buildRankingInput gathers all input parameters.
 func buildRankingInput(c *cli.Command, weights *kc.Weights) (kc.RankingInput, error) {
-	corpus, err := getCorpusFromFlags(c)
+	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return kc.RankingInput{}, err
 	}

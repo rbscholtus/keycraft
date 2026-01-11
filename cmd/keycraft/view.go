@@ -43,7 +43,7 @@ func viewAction(ctx context.Context, c *cli.Command) error {
 	}
 
 	// 1. Load inputs
-	corpus, err := getCorpusFromFlags(c)
+	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return err
 	}
