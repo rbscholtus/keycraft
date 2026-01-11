@@ -185,13 +185,15 @@ func BenchmarkAnalyserHand(b *testing.B) {
 
 	for b.Loop() {
 		a := &Analyser{
-			Layout:           layout,
-			Corpus:           corpus,
-			TargetRowLoad:    targetRowLoad,
-			TargetFingerLoad: targetFingerLoad,
-			TargetHandLoad:   targetHandLoad,
-			PinkyPenalties:   pinkyPenalties,
-			Metrics:          make(map[string]float64),
+			Layout: layout,
+			Corpus: corpus,
+			Targets: &TargetLoads{
+				TargetRowLoad:    targetRowLoad,
+				TargetFingerLoad: targetFingerLoad,
+				TargetHandLoad:   targetHandLoad,
+				PinkyPenalties:   pinkyPenalties,
+			},
+			Metrics: make(map[string]float64),
 		}
 		a.analyseHand()
 	}

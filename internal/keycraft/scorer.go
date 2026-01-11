@@ -30,10 +30,7 @@ func layoutCacheKey(layout *SplitLayout) string {
 // Thread-safe for concurrent scoring operations.
 type Scorer struct {
 	corpus            *Corpus            // Text corpus used for analysis
-	targetHandLoad    *[2]float64        // Target load distribution across hands
-	targetFingerLoad  *[10]float64       // Target load distribution across fingers
-	targetRowLoad     *[3]float64        // Target load distribution across rows
-	pinkyPenalties    *[12]float64       // Pinky off-home penalty weights
+	targets           *TargetLoads       // Target load distributions and penalty weights
 	medians           map[string]float64 // Median values for each metric (filtered)
 	iqrs              map[string]float64 // Interquartile ranges for each metric (filtered)
 	weights           map[string]float64 // Importance weights for each metric (filtered)
@@ -84,15 +81,12 @@ func NewScorer(layoutsDir string, corpus *Corpus, targets *TargetLoads, weights 
 	}
 
 	sc := &Scorer{
-		corpus:           corpus,
-		targetRowLoad:    targets.TargetRowLoad,
-		targetFingerLoad: targets.TargetFingerLoad,
-		targetHandLoad:   targets.TargetHandLoad,
-		pinkyPenalties:   targets.PinkyPenalties,
-		medians:          filteredMedians,
-		iqrs:             filteredIQRs,
-		weights:          filteredWeights,
-		scoreCache:       make(map[string]float64, 1000),
+		corpus:     corpus,
+		targets:    targets,
+		medians:    filteredMedians,
+		iqrs:       filteredIQRs,
+		weights:    filteredWeights,
+		scoreCache: make(map[string]float64, 1000),
 	}
 
 	return sc, nil
@@ -180,10 +174,7 @@ func (sc *Scorer) Score(layout *SplitLayout) float64 {
 	an := &Analyser{
 		Layout:           layout,
 		Corpus:           sc.corpus,
-		TargetRowLoad:    sc.targetRowLoad,
-		TargetFingerLoad: sc.targetFingerLoad,
-		TargetHandLoad:   sc.targetHandLoad,
-		PinkyPenalties:   sc.pinkyPenalties,
+		Targets:          sc.targets,
 		Metrics:          make(map[string]float64, 60),
 		relevantTrigrams: sc.trigramCache, // Inject pre-filtered trigrams for performance optimization
 	}

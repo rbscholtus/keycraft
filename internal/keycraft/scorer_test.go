@@ -245,10 +245,13 @@ func createTestScorer() *Scorer {
 		corpus = createTestCorpus()
 	}
 	return &Scorer{
-		corpus:           corpus,
-		targetRowLoad:    &[3]float64{0.3, 0.4, 0.3},
-		targetFingerLoad: &[10]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-		targetHandLoad:   &[2]float64{50.0, 50.0},
+		corpus: corpus,
+		targets: &TargetLoads{
+			TargetRowLoad:    &[3]float64{0.3, 0.4, 0.3},
+			TargetFingerLoad: &[10]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
+			TargetHandLoad:   &[2]float64{50.0, 50.0},
+			PinkyPenalties:   DefaultPinkyPenalties(),
+		},
 		medians: map[string]float64{
 			"SFB": 1.5,
 			"LSB": 2.0,
