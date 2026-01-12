@@ -75,6 +75,7 @@ func DefaultTargetHandLoad() *[2]float64 {
 // DefaultTargetFingerLoad returns the default target finger load distribution (as percentages).
 // Fingers 0-9: left pinky to right pinky. Thumbs (F4, F5) are set to 0 (not counted in main row usage).
 // Right-hand loads mirror the left for symmetry.
+// Default values: [7, 10, 16, 17, 0, 0, 17, 16, 10, 7].
 func DefaultTargetFingerLoad() *[10]float64 {
 	return &[10]float64{
 		7.0,  // F0 - Left Pinky
@@ -91,6 +92,7 @@ func DefaultTargetFingerLoad() *[10]float64 {
 }
 
 // DefaultTargetRowLoad returns the default target row load distribution (as percentages).
+// Default values: [17.5, 75.0, 7.5] (top, home, bottom).
 func DefaultTargetRowLoad() *[3]float64 {
 	return &[3]float64{
 		17.5, // top
@@ -102,6 +104,7 @@ func DefaultTargetRowLoad() *[3]float64 {
 // DefaultPinkyPenalties returns the default pinky off-home penalty weights.
 // Order per hand: top-outer, top-inner, home-outer, home-inner, bottom-outer, bottom-inner.
 // Left hand uses columns 0 (outer) and 1 (inner), right hand uses columns 11 (outer) and 10 (inner).
+// Default values: [2.0, 1.5, 1.0, 0.0, 2.0, 1.5] per hand.
 func DefaultPinkyPenalties() *[12]float64 {
 	return &[12]float64{
 		// Left pinky
