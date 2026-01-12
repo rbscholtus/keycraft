@@ -9,16 +9,6 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// loadWeightsFromFlags loads weights from the --weights-file and --weights flags.
-// Weights specified via --weights take precedence over file-based weights.
-func loadWeightsFromFlags(c *cli.Command) (*kc.Weights, error) {
-	weightsPath := c.String("weights-file")
-	if weightsPath != "" {
-		weightsPath = filepath.Join(configDir, weightsPath)
-	}
-	return kc.NewWeightsFromParams(weightsPath, c.String("weights"))
-}
-
 // loadCorpus loads a corpus from corpusDir.
 // forceReload bypasses cache, and coverage filters low-frequency words.
 func loadCorpus(filename string, forceReload bool, coverage float64) (*kc.Corpus, error) {
@@ -70,17 +60,19 @@ func ensureNoKlf(name string) string {
 // loadTargetLoadsFromFlags loads TargetLoads from flags and config file.
 // Command-line flags override config file values.
 func loadTargetLoadsFromFlags(c *cli.Command) (*kc.TargetLoads, error) {
-	// Try to load from config file first
+	var targets *kc.TargetLoads
+	var err error
+
+	// Load from config file if specified, or default targets if not
 	configFile := c.String("load-targets-file")
 	if configFile == "" {
-		configFile = "load_targets.txt"
-	}
-	configPath := filepath.Join(configDir, configFile)
-
-	targets, err := kc.NewTargetLoadsFromFile(configPath)
-	if err != nil {
-		// If config file doesn't exist, use defaults
 		targets = kc.NewTargetLoads()
+	} else {
+		configPath := filepath.Join(configDir, configFile)
+		targets, err = kc.NewTargetLoadsFromFile(configPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Apply CLI flag overrides
@@ -109,4 +101,14 @@ func loadTargetLoadsFromFlags(c *cli.Command) (*kc.TargetLoads, error) {
 	}
 
 	return targets, nil
+}
+
+// loadWeightsFromFlags loads weights from the --weights-file and --weights flags.
+// Weights specified via --weights take precedence over file-based weights.
+func loadWeightsFromFlags(c *cli.Command) (*kc.Weights, error) {
+	weightsPath := c.String("weights-file")
+	if weightsPath != "" {
+		weightsPath = filepath.Join(configDir, weightsPath)
+	}
+	return kc.NewWeightsFromParams(weightsPath, c.String("weights"))
 }

@@ -35,36 +35,41 @@ func validateViewFlags(ctx context.Context, c *cli.Command) (context.Context, er
 	return ctx, nil
 }
 
-// viewAction loads data and performs layout analysis.
+// viewAction gathers the necessary corpus and target load parameters, performs
+// a high-level ergonomic analysis of the specified layouts, and renders a summary view.
 func viewAction(ctx context.Context, c *cli.Command) error {
-	// During shell completion, action should not run
 	if isShellCompletion() {
 		return nil
 	}
 
-	// 1. Load inputs
-	corpus, err := loadCorpusFromFlags(c)
+	input, err := buildViewInput(c)
 	if err != nil {
 		return err
+	}
+
+	result, err := kc.ViewLayouts(input)
+	if err != nil {
+		return err
+	}
+
+	return tui.RenderView(result)
+}
+
+// buildViewInput gathers all input parameters for layout viewing.
+func buildViewInput(c *cli.Command) (kc.ViewInput, error) {
+	corpus, err := loadCorpusFromFlags(c)
+	if err != nil {
+		return kc.ViewInput{}, err
 	}
 
 	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
-		return err
+		return kc.ViewInput{}, err
 	}
 
-	layouts := getLayoutArgs(c)
-
-	// 2. Perform computation (pure, no display concerns)
-	result, err := kc.ViewLayouts(kc.ViewInput{
-		LayoutFiles: layouts,
+	return kc.ViewInput{
+		LayoutFiles: getLayoutArgs(c),
 		Corpus:      corpus,
 		Targets:     targets,
-	})
-	if err != nil {
-		return err
-	}
-
-	// 3. Render results
-	return tui.RenderView(result)
+	}, nil
 }

@@ -33,7 +33,8 @@ func validateFlipFlags(ctx context.Context, c *cli.Command) (context.Context, er
 	return ctx, nil
 }
 
-// flipAction loads a layout, flips it horizontally, and saves it with "-flipped" suffix.
+// flipAction loads a keyboard layout, performs a horizontal mirror transformation,
+// and saves the resulting layout to a new file with a "-flipped" suffix.
 func flipAction(ctx context.Context, c *cli.Command) error {
 	// During shell completion, action should not run
 	if isShellCompletion() {

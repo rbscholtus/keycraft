@@ -84,7 +84,9 @@ func validateCorpusFlags(ctx context.Context, c *cli.Command) (context.Context, 
 	return ctx, nil
 }
 
-// corpusAction loads the specified corpus and displays its statistics.
+// corpusAction processes a text corpus to extract and display n-gram frequency
+// statistics, optionally applying word coverage filtering to prune low-frequency
+// vocabulary.
 func corpusAction(ctx context.Context, c *cli.Command) error {
 	// During shell completion, action should not run
 	if isShellCompletion() {

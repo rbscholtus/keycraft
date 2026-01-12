@@ -84,40 +84,23 @@ func validateAnalyseFlags(ctx context.Context, c *cli.Command) (context.Context,
 	return ctx, nil
 }
 
-// analyseAction loads the specified corpus, load distribution targets, and layouts,
-// then executes the analysis process.
-// It returns an error if loading or analysis fails.
-// TODO: move flag parsing into dedicated buildAnalyseInput function
+// analyseAction coordinates the loading of corpus and target data, executes a
+// detailed ergonomic analysis for one or more layouts, and renders the results.
 func analyseAction(ctx context.Context, c *cli.Command) error {
-	// During shell completion, action should not run
 	if isShellCompletion() {
 		return nil
 	}
 
-	// 1. Load inputs
-	corpus, err := loadCorpusFromFlags(c)
+	input, err := buildAnalyseInput(c)
 	if err != nil {
 		return err
 	}
 
-	targets, err := loadTargetLoadsFromFlags(c)
+	result, err := kc.AnalyseLayouts(input)
 	if err != nil {
 		return err
 	}
 
-	layouts := getLayoutArgs(c)
-
-	// 2. Perform computation (pure, no display concerns)
-	result, err := kc.AnalyseLayouts(kc.AnalyseInput{
-		LayoutFiles: layouts,
-		Corpus:      corpus,
-		TargetLoads: targets,
-	})
-	if err != nil {
-		return err
-	}
-
-	// 3. Render results with display options
 	displayOpts := kc.AnalyseDisplayOptions{
 		MaxRows:         c.Int("rows"),
 		CompactTrigrams: c.Bool("compact-trigrams"),
@@ -125,4 +108,23 @@ func analyseAction(ctx context.Context, c *cli.Command) error {
 	}
 
 	return tui.RenderAnalyse(result, displayOpts)
+}
+
+// buildAnalyseInput gathers all input parameters for layout analysis.
+func buildAnalyseInput(c *cli.Command) (kc.AnalyseInput, error) {
+	corpus, err := loadCorpusFromFlags(c)
+	if err != nil {
+		return kc.AnalyseInput{}, err
+	}
+
+	targets, err := loadTargetLoadsFromFlags(c)
+	if err != nil {
+		return kc.AnalyseInput{}, err
+	}
+
+	return kc.AnalyseInput{
+		LayoutFiles: getLayoutArgs(c),
+		Corpus:      corpus,
+		TargetLoads: targets,
+	}, nil
 }
