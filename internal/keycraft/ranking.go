@@ -9,9 +9,9 @@ import (
 // RankingInput encapsulates all configuration for layout ranking computation.
 // All layouts in LayoutsDir are analyzed for normalization, then filtered to LayoutFiles.
 type RankingInput struct {
-	LayoutsDir  string
-	LayoutFiles []string // Specific layouts to rank; if empty, all layouts in LayoutsDir
-	Corpus      *Corpus
+	LayoutsDir  string       // Used to load all layouts for calculating medians/IQRs for normalization
+	LayoutFiles []string     // Full filepaths for specific layouts to rank.
+	Corpus      *Corpus      // The corpus that ranking is based on
 	Targets     *TargetLoads // Load targets (row, finger, pinky penalties)
 	Weights     *Weights     // Metric weights for weighted scoring
 }
@@ -19,7 +19,7 @@ type RankingInput struct {
 // RankingResult provides ranked layouts with normalization statistics.
 // Medians and IQRs are computed across all layouts for robust scaling.
 type RankingResult struct {
-	Scores  []LayoutScore
+	Scores  []LayoutScore      // Ranked layouts, not in sorted order
 	Medians map[string]float64 // Median values for each metric across all layouts
 	IQRs    map[string]float64 // Interquartile ranges for normalization
 }
@@ -43,9 +43,16 @@ func ComputeRankings(input RankingInput) (*RankingResult, error) {
 	// Filter to requested layouts
 	filteredAnalysers := make([]*Analyser, 0, len(input.LayoutFiles))
 	for _, fname := range input.LayoutFiles {
-		layoutName := strings.TrimSuffix(fname, filepath.Ext(fname))
+		// Extract layout name from full filepath (basename without extension)
+		layoutName := strings.TrimSuffix(filepath.Base(fname), filepath.Ext(fname))
 		analyser, ok := analyserMap[layoutName]
 		if !ok {
+			// // Layout not in the reference set, load it explicitly
+			// layout, err := NewLayoutFromFile(layoutName, fname)
+			// if err != nil {
+			// 	return nil, fmt.Errorf("failed to load layout %s: %v", fname, err)
+			// }
+			// analyser = NewAnalyser(layout, input.Corpus, input.Targets)
 			return nil, fmt.Errorf("layout file %s was not found", fname)
 		}
 		filteredAnalysers = append(filteredAnalysers, analyser)

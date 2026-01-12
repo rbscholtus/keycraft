@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -94,11 +95,22 @@ func isShellCompletion() bool {
 }
 
 // getLayoutArgs retrieves the list of layout arguments passed to the CLI command.
-// Each layout name is normalized by ensuring it has the ".klf" extension.
+// Each layout name is checked if it's an existing file. If so, its absolute path is used.
+// Otherwise, it is assumed to be a layout name in the data/layouts directory.
 func getLayoutArgs(c *cli.Command) []string {
 	layouts := c.Args().Slice()
 	for i := range layouts {
-		layouts[i] = ensureKlf(layouts[i])
+		// arg := layouts[i]
+		// // Check if it's an existing file
+		// if _, err := os.Stat(arg); err == nil {
+		// 	absPath, err := filepath.Abs(arg)
+		// 	if err == nil {
+		// 		layouts[i] = absPath
+		// 		continue
+		// 	}
+		// }
+
+		layouts[i] = filepath.Join(layoutDir, ensureKlf(layouts[i]))
 	}
 	return layouts
 }

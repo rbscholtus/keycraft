@@ -1,9 +1,14 @@
 package keycraft
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 // ViewInput contains parameters for viewing layout analysis.
 // This is pure computational input - no display/rendering concerns.
 type ViewInput struct {
-	LayoutFiles []string     // Layout filenames to view
+	LayoutFiles []string     // Full filepaths to layout files to view
 	Corpus      *Corpus      // Text corpus for analysis
 	Targets     *TargetLoads // User target loads
 }
@@ -18,8 +23,10 @@ type ViewResult struct {
 // Pure computation - no I/O, no rendering, no display logic.
 func ViewLayouts(input ViewInput) (*ViewResult, error) {
 	analysers := make([]*Analyser, 0, len(input.LayoutFiles))
-	for _, filename := range input.LayoutFiles {
-		layout, err := NewLayoutFromFile(filename, "data/layouts/"+filename)
+	for _, path := range input.LayoutFiles {
+		// Extract layout name from filename (remove directory and extension)
+		name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		layout, err := NewLayoutFromFile(name, path)
 		if err != nil {
 			return nil, err
 		}

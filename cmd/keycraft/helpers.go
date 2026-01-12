@@ -28,15 +28,31 @@ func loadCorpusFromFlags(c *cli.Command) (*kc.Corpus, error) {
 	return loadCorpus(c.String("corpus"), c.IsSet("coverage"), c.Float64("coverage"))
 }
 
-// loadLayout loads a layout from layoutDir, automatically appending .klf if needed.
+// loadLayout loads a layout from a file.
+// If the filename exists, it loads it directly.
+// Otherwise, it assumes it's a layout name in layoutDir.
 func loadLayout(filename string) (*kc.SplitLayout, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("layout is required")
 	}
 
-	layoutName := ensureNoKlf(filename)
-	filename = ensureKlf(filename)
-	path := filepath.Join(layoutDir, filename)
+	var path string
+	var layoutName string
+
+	// // Check if it's an existing file
+	// if _, err := os.Stat(filename); err == nil {
+	// 	absPath, err := filepath.Abs(filename)
+	// 	if err == nil {
+	// 		path = absPath
+	// 		layoutName = strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+	// 	}
+	// }
+
+	if path == "" {
+		layoutName = ensureNoKlf(filename)
+		filename = ensureKlf(filename)
+		path = filepath.Join(layoutDir, filename)
+	}
 
 	return kc.NewLayoutFromFile(layoutName, path)
 }

@@ -126,13 +126,13 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
+	origPath := filepath.Join(layoutDir, optResult.OriginalLayout.Name+".klf")
 	bestPath := filepath.Join(layoutDir, optResult.BestLayout.Name+".klf")
 	if err := optResult.BestLayout.SaveToFile(bestPath); err != nil {
 		return fmt.Errorf("failed to save best layout to %s: %v", bestPath, err)
 	}
 
-	layoutsToCompare := []string{ensureKlf(optResult.OriginalLayout.Name), ensureKlf(optResult.BestLayout.Name)}
-
+	layoutsToCompare := []string{origPath, bestPath}
 	viewResult, err := kc.ViewLayouts(kc.ViewInput{
 		LayoutFiles: layoutsToCompare,
 		Corpus:      input.Corpus,

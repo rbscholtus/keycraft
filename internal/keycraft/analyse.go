@@ -1,9 +1,14 @@
 package keycraft
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 // AnalyseInput contains parameters needed for layout analysis computation.
 // This is pure computational input - no display/rendering concerns.
 type AnalyseInput struct {
-	LayoutFiles []string     // Layout filenames to analyse
+	LayoutFiles []string     // Full filepaths to layout files to analyse
 	Corpus      *Corpus      // Text corpus for analysis
 	TargetLoads *TargetLoads // User target loads
 }
@@ -26,8 +31,10 @@ type AnalyseDisplayOptions struct {
 // Pure computation - no I/O, no rendering, no display logic.
 func AnalyseLayouts(input AnalyseInput) (*AnalyseResult, error) {
 	analysers := make([]*Analyser, 0, len(input.LayoutFiles))
-	for _, filename := range input.LayoutFiles {
-		layout, err := NewLayoutFromFile(filename, "data/layouts/"+filename)
+	for _, path := range input.LayoutFiles {
+		// Extract layout name from filename (remove directory and extension)
+		name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		layout, err := NewLayoutFromFile(name, path)
 		if err != nil {
 			return nil, err
 		}

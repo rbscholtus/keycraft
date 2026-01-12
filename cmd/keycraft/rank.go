@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -233,14 +234,32 @@ func getLayoutsFromArgs(c *cli.Command, baseLayout string) ([]string, error) {
 	} else {
 		layouts = c.Args().Slice()
 		for i := range layouts {
-			layouts[i] = ensureKlf(layouts[i])
+			arg := layouts[i]
+			// // Check if it's an existing file
+			// if _, err := os.Stat(arg); err == nil {
+			// 	absPath, err := filepath.Abs(arg)
+			// 	if err == nil {
+			// 		layouts[i] = absPath
+			// 		continue
+			// 	}
+			// }
+
+			// Otherwise assume it's a name in layoutDir
+			layouts[i] = filepath.Join(layoutDir, ensureKlf(arg))
 		}
 	}
 
 	if baseLayout != "" {
-		baseLayout = ensureKlf(baseLayout)
-		if !slices.Contains(layouts, baseLayout) {
-			layouts = append(layouts, baseLayout)
+		// // Handle baseLayout similarly
+		var baseLayoutPath string
+		// if _, err := os.Stat(baseLayout); err == nil {
+		// 	baseLayoutPath, _ = filepath.Abs(baseLayout)
+		// } else {
+		baseLayoutPath = filepath.Join(layoutDir, ensureKlf(baseLayout))
+		// }
+
+		if !slices.Contains(layouts, baseLayoutPath) {
+			layouts = append(layouts, baseLayoutPath)
 		}
 	}
 
@@ -258,7 +277,7 @@ func allLayoutFiles() ([]string, error) {
 	for _, entry := range entries {
 		entryName := entry.Name()
 		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entryName), ".klf") {
-			layoutsToCmp = append(layoutsToCmp, entryName)
+			layoutsToCmp = append(layoutsToCmp, filepath.Join(layoutDir, entryName))
 		}
 	}
 
