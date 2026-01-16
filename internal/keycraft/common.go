@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand/v2"
 	"os"
 	"sort"
+	"time"
 )
 
 // IfThen returns `a` if the condition is true, otherwise returns `b`.
@@ -118,4 +120,20 @@ func FlushWriter(writer *bufio.Writer) {
 	if err := writer.Flush(); err != nil {
 		log.Printf("Error flushing writer: %v", err)
 	}
+}
+
+func getRNG(seed uint64) *rand.Rand {
+	if seed == 0 {
+		seed = uint64(time.Now().UnixNano())
+	}
+	return rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
+}
+
+// IsVowel returns true if the rune is a vowel (lowercase or uppercase).
+func IsVowel(r rune) bool {
+	switch r {
+	case 'A', 'E', 'I', 'O', 'U', 'a', 'e', 'i', 'o', 'u':
+		return true
+	}
+	return false
 }

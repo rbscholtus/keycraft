@@ -28,7 +28,7 @@ func main() {
 		EnableShellCompletion: true,
 		Suggest:               true,
 		CommandNotFound:       customCommandNotFound,
-		Description: "Keycraft is a CLI tool for analyzing, comparing, and " +
+		Description: "Keycraft is a CLI tool for analyzing, comparing, generating, and " +
 			"optimizing keyboard layouts. It evaluates layouts using a wide " +
 			"range of metrics including same-finger bigrams (SFB), lateral " +
 			"stretch bigrams (LSB), finger and row load distribution, and " +
@@ -49,6 +49,7 @@ func main() {
 			rankCommand,
 			flipCommand,
 			optimiseCommand,
+			generateCommand,
 		},
 	}
 
