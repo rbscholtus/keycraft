@@ -2,6 +2,14 @@
 
 Keycraft supports dynamic shell completion for bash, zsh, fish, and PowerShell, making it easier to use commands and flags.
 
+## Features
+
+With shell completion enabled, you can:
+
+- **Tab-complete commands**: Type the first few letters of a command and press TAB
+- **Tab-complete flags**: Type `--` followed by at least one letter and press TAB to see matching flags
+- **Get command suggestions**: Mistyped commands will show helpful "Did you mean?" suggestions
+
 ## Installation
 
 First, ensure you have the latest version of keycraft installed:
@@ -78,21 +86,17 @@ keycraft corpus --corpus <TAB>  # Shows available corpus files
 keycraft rank --co<TAB>     # Completes to --corpus or --coverage
 ```
 
-**Note**: Typing just `--<TAB>` (without any letters after `--`) will not show flag completions due to a framework limitation. The CLI framework treats `--` as an argument terminator. To see available flags, type at least one letter after `--` (e.g., `--c<TAB>`) or use the `-<TAB>` pattern first.
+**Note**: Typing just `--<TAB>` (without any letters after `--`) will not show flag completions due to a framework limitation. The CLI framework treats `--` as an argument terminator. To see available flags, type at least one letter after `--` (e.g., `--c<TAB>`).
 
 ### Layout File Completion
 
-All commands that work with keyboard layouts support tab completion for `.klf` files:
+All commands that work with keyboard layouts support tab completion for `.klf` files, for example:
 
 ```bash
 keycraft view <TAB>         # Complete layout file names
-keycraft analyse apt<TAB>   # Complete to "apt-v3" or "apt-v4"
+keycraft analyse ar<TAB>    # Complete to "arensito" or "arts"
 keycraft rank qwer<TAB>     # Complete to "qwerty"
-keycraft flip colemak<TAB>  # Complete to "colemak-dh"
-keycraft optimise <TAB>     # Complete layout names
 ```
-
-**Supported commands**: `view`, `analyse`, `rank`, `flip`, `optimise`
 
 The completion automatically:
 - Lists all `.klf` files from `data/layouts/` directory
@@ -101,32 +105,19 @@ The completion automatically:
 
 ### Corpus File Completion
 
-All commands that accept the `--corpus` flag support tab completion for corpus files:
+All commands that accept the `--corpus` flag support tab completion for corpus files, for example:
 
 ```bash
 keycraft corpus --corpus <TAB>     # Complete corpus file names
-keycraft view --corpus <TAB>       # Complete corpus file names
+keycraft view -c <TAB>             # Complete corpus file names
 keycraft analyse -c def<TAB>       # Complete to "default.txt"
-keycraft rank --corpus <TAB>       # Complete corpus file names
-keycraft optimise -c <TAB>         # Complete corpus file names
 ```
-
-**Supported commands**: `corpus`, `view`, `analyse`, `rank`, `optimise`
 
 The completion automatically:
 - Lists all corpus files from `data/corpus/` directory
 - Handles both source files (`.txt`) and cached files (`.txt.json`)
 - Deduplicates files (shows "english.txt" even if both "english.txt" and "english.txt.json" exist)
 - Filters out hidden files (files starting with `.`)
-
-## Features
-
-With shell completion enabled, you can:
-
-- **Tab-complete commands**: Type the first few letters of a command and press TAB
-- **Tab-complete flags**: Type `--` followed by at least one letter and press TAB to see matching flags
-- **Tab-complete subcommands**: Navigate through command hierarchies with TAB
-- **Get command suggestions**: Mistyped commands will show helpful "Did you mean?" suggestions
 
 ## Troubleshooting
 
@@ -172,50 +163,3 @@ With shell completion enabled, you can:
    ```bash
    source ~/.bashrc  # or ~/.zshrc
    ```
-
-### Flag completion behavior
-
-**Known limitation**: Typing `--<TAB>` (just `--` without any letters) will produce no completions (shell beeps). This is because the CLI framework treats `--` as an argument terminator.
-
-**Workaround**: Type at least one letter after `--` to trigger completion:
-
-**Zsh users:** When typing flags, the completion workflow is:
-- Type `keycraft corpus -<TAB>` → completes to `--` (common prefix)
-- Type `keycraft corpus --c<TAB>` → shows `--corpus` and `--coverage`
-- Type `keycraft corpus --co<TAB>` → completes based on match
-
-**Bash users:** Flag completion filters automatically:
-- Type `keycraft corpus --c<TAB>` → immediately shows `--corpus` and `--coverage`
-- Type `keycraft corpus --co<TAB>` → narrows down matches
-
-This difference is by design - zsh's completion system requires partial matches, while bash's `compgen` automatically filters based on what you've typed.
-
-### Old version still active
-
-If you see "No help topic for 'completion'", you may have an old version of keycraft in your PATH. Update it with:
-
-```bash
-go install ./cmd/keycraft
-```
-
-Then verify the version:
-
-```bash
-keycraft --version
-```
-
-## Additional Features
-
-Keycraft also provides:
-
-- **Command suggestions**: When you mistype a command, keycraft suggests the correct one
-  ```bash
-  $ keycraft optimze
-  Command 'optimze' is not a thing. Did you mean: optimise?
-  ```
-
-- **Helpful error messages**: Clear guidance when commands aren't found
-  ```bash
-  $ keycraft xyz
-  Command 'xyz' is not a thing. Run 'keycraft help' to see available commands.
-  ```
