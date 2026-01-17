@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -82,12 +83,22 @@ func loadTargetLoadsFromFlags(c *cli.Command) (*kc.TargetLoads, error) {
 	// Load from config file if specified, or default targets if not
 	configFile := c.String("load-targets-file")
 	if configFile == "" {
+		// Explicitly set to empty string - use hardcoded defaults
 		targets = kc.NewTargetLoads()
 	} else {
 		configPath := filepath.Join(configDir, configFile)
 		targets, err = kc.NewTargetLoadsFromFile(configPath)
 		if err != nil {
-			return nil, err
+			// Check if user didn't explicitly set the flag
+			if !c.IsSet("load-targets-file") {
+				// Using default file and it's missing - warn and use defaults
+				fmt.Fprintf(os.Stderr, "Warning: Config file '%s' not found at %s. Using hardcoded defaults.\n",
+					configFile, configPath)
+				targets = kc.NewTargetLoads()
+			} else {
+				// User explicitly requested this file - fail with error
+				return nil, err
+			}
 		}
 	}
 

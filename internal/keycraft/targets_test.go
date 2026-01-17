@@ -50,10 +50,10 @@ func TestNewTargetLoads(t *testing.T) {
 
 func TestParseTargetHandLoad(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		wantErr   bool
-		expected  *[2]float64
+		name       string
+		input      string
+		wantErr    bool
+		expected   *[2]float64
 		afterScale *[2]float64
 	}{
 		{
@@ -341,10 +341,10 @@ func TestNewTargetLoadsFromFile(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "test_targets.txt")
 
 	content := `# Test config
-target-hand-load: 55, 45
-target-finger-load: 8, 11, 15, 16
-target-row-load: 20, 70, 10
-pinky-penalties: 1.5, 1.0, 0.5, 0.0, 1.5, 1.0
+target-hand-load= 55, 45
+target-finger-load= 8, 11, 15, 16
+target-row-load= 20, 70, 10
+pinky-penalties= 1.5, 1.0, 0.5, 0.0, 1.5, 1.0
 `
 
 	err := os.WriteFile(configPath, []byte(content), 0644)
@@ -399,7 +399,7 @@ func TestNewTargetLoadsFromFile_PartialConfig(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "partial_targets.txt")
 
 	content := `# Partial config
-target-hand-load: 60, 40
+target-hand-load= 60, 40
 # Other fields are missing
 `
 

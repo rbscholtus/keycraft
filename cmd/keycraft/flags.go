@@ -24,7 +24,7 @@ var appFlagsMap = map[string]cli.Flag{
 	},
 	"load-targets-file": &cli.StringFlag{
 		Name:    "load-targets-file",
-		Aliases: []string{"ldt"},
+		Aliases: []string{"ltf"},
 		Usage: "Configuration file for target load distributions (row/finger/hand loads, pinky penalties). " +
 			"Overridden by individual flags. (from data/config directory)",
 		Value:    "load_targets.txt",
@@ -81,7 +81,9 @@ var appFlagsMap = map[string]cli.Flag{
 func flagsSlice(keys ...string) []cli.Flag {
 	flags := make([]cli.Flag, 0, len(keys))
 	for _, k := range keys {
-		if f, ok := appFlagsMap[k]; ok {
+		if f, ok := appFlagsMap[k]; !ok {
+			panic(fmt.Sprintf("flag %q not found in appFlagsMap", k))
+		} else {
 			flags = append(flags, f)
 		}
 	}
@@ -95,8 +97,7 @@ func isShellCompletion() bool {
 }
 
 // getLayoutArgs retrieves the list of layout arguments passed to the CLI command.
-// Each layout name is checked if it's an existing file. If so, its absolute path is used.
-// Otherwise, it is assumed to be a layout name in the data/layouts directory.
+// It is assumed to be a layout name in the data/layouts directory.
 func getLayoutArgs(c *cli.Command) []string {
 	layouts := c.Args().Slice()
 	for i := range layouts {
