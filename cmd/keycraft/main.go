@@ -23,12 +23,12 @@ var (
 func main() {
 	cmd := &cli.Command{
 		Name:                  "keycraft",
-		Version:               "v0.4.0",
+		Version:               "v0.5.0",
 		Usage:                 "A CLI tool for crafting better keyboard layouts",
 		EnableShellCompletion: true,
 		Suggest:               true,
 		CommandNotFound:       customCommandNotFound,
-		Description: "Keycraft is a CLI tool for analyzing, comparing, generating, and " +
+		Description: "Keycraft is a CLI tool for analyzing, comparing, flipping, generating, and " +
 			"optimizing keyboard layouts. It evaluates layouts using a wide " +
 			"range of metrics including same-finger bigrams (SFB), lateral " +
 			"stretch bigrams (LSB), finger and row load distribution, and " +
