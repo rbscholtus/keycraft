@@ -64,9 +64,15 @@ func processCharacters(vowelsRight bool, thumbAlpha bool, rand *rand.Rand) ([]ru
 			}
 		}
 
+		// Shuffle the left segment (consonants)
+		lLen := left // number of consonants on the left
+		rand.Shuffle(lLen, func(i, j int) {
+			selected[i], selected[j] = selected[j], selected[i]
+		})
+
 		// Shuffle the right segment (vowels)
-		rStart := 4
-		rLen := len(selected) - 4
+		rStart := left
+		rLen := len(selected) - left
 		rand.Shuffle(rLen, func(i, j int) {
 			selected[rStart+i], selected[rStart+j] = selected[rStart+j], selected[rStart+i]
 		})

@@ -143,9 +143,11 @@ func TestCharacterDistribution(t *testing.T) {
 			if cfg.tAlpha {
 				length = 9
 			}
+			// Create a single RNG and reuse it to avoid time-based seed collision issues
+			rng := getRNG(0)
 
 			for range iterations {
-				res, _ := processCharacters(cfg.vRight, cfg.tAlpha, nil)
+				res, _ := processCharacters(cfg.vRight, cfg.tAlpha, rng)
 				for _, r := range res {
 					freq[r]++
 				}
@@ -173,9 +175,11 @@ func TestCharacterDistribution(t *testing.T) {
 func TestInternalOrderRandomness(t *testing.T) {
 	orders := make(map[string]int)
 	iterations := 1000
+	// Create a single RNG and reuse it to avoid time-based seed collision issues
+	rng := getRNG(0)
 
 	for range iterations {
-		result, _ := processCharacters(true, true, nil)
+		result, _ := processCharacters(true, true, rng)
 		firstFour := string(result[:4])
 		orders[firstFour]++
 	}

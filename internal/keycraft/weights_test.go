@@ -250,7 +250,7 @@ HSB = -1.333
 			weightsStr:  "",
 			wantErr:     false,
 			checkMetric: "SFB",
-			checkValue:  0.0,
+			checkValue:  -1.0, // DefaultMetrics value
 		},
 	}
 
