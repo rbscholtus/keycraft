@@ -1,28 +1,72 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
-	"github.com/urfave/cli/v2"
+	"github.com/rbscholtus/keycraft/internal/tui"
+	"github.com/urfave/cli/v3"
 )
+
+// rankFlags defines flags specific to the rank command.
+var rankFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:    "metrics",
+		Aliases: []string{"m"},
+		Usage: fmt.Sprintf("Metrics to display. Options: %v, or \"weighted\" "+
+			"(metrics with |weight|>=0.01), or comma-separated list.",
+			slices.Sorted(maps.Keys(kc.MetricsMap))),
+		Value:    "weighted",
+		Category: "Display",
+	},
+	&cli.StringFlag{
+		Name:    "deltas",
+		Aliases: []string{"d"},
+		Usage: "Delta display mode: \"none\", \"rows\" (row-by-row), " +
+			"\"median\" (vs median), or \"<layout>\" name to compare against.",
+		Value:    "none",
+		Category: "Display",
+	},
+	&cli.StringFlag{
+		Name:     "output",
+		Aliases:  []string{"o"},
+		Usage:    "Output format: \"table\", \"html\", or \"csv\".",
+		Value:    "table",
+		Category: "Display",
+	},
+}
+
+// rankFlagsSlice returns all flags for the rank command.
+func rankFlagsSlice() []cli.Flag {
+	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties", "weights-file", "weights")
+	return append(commonFlags, rankFlags...)
+}
 
 // rankCommand defines the "rank" CLI command for comparing and ranking layouts.
 // It supports filtering layouts, displaying metric deltas, and applying custom weights.
 var rankCommand = &cli.Command{
-	Name:      "rank",
-	Aliases:   []string{"r"},
-	Usage:     "Rank keyboard layouts, view detailed metrics, and view deltas",
-	Flags:     flagsSlice("metrics", "deltas", "output", "corpus", "row-load", "finger-load", "pinky-penalties", "weights-file", "weights"),
-	ArgsUsage: "<layout1> <layout2> ...",
-	Action:    rankAction,
+	Name:          "rank",
+	Aliases:       []string{"r"},
+	Usage:         "Rank keyboard layouts and view detailed metrics and deltas",
+	Flags:         rankFlagsSlice(),
+	ArgsUsage:     "<layout1> <layout2> ...",
+	Action:        rankAction,
+	ShellComplete: layoutShellComplete,
 }
 
 // rankAction handles the rank command, loading data and displaying layout rankings.
-func rankAction(c *cli.Context) error {
+func rankAction(ctx context.Context, c *cli.Command) error {
+	// During shell completion, action should not run
+	if isShellCompletion() {
+		return nil
+	}
+
 	// 1. Build display options (includes loading weights)
 	displayOpts, err := buildDisplayOptions(c)
 	if err != nil {
@@ -42,27 +86,17 @@ func rankAction(c *cli.Context) error {
 	}
 
 	// 4. Render results (presentation layer)
-	return RenderRankingTable(rankings, displayOpts)
+	return tui.RenderRankingTable(rankings, displayOpts)
 }
 
 // buildRankingInput gathers all input parameters.
-func buildRankingInput(c *cli.Context, weights *kc.Weights) (kc.RankingInput, error) {
-	corpus, err := getCorpusFromFlags(c)
+func buildRankingInput(c *cli.Command, weights *kc.Weights) (kc.RankingInput, error) {
+	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return kc.RankingInput{}, err
 	}
 
-	rowLoad, err := getRowLoadFromFlag(c)
-	if err != nil {
-		return kc.RankingInput{}, err
-	}
-
-	fingerBal, err := getFingerLoadFromFlag(c)
-	if err != nil {
-		return kc.RankingInput{}, err
-	}
-
-	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
+	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
 		return kc.RankingInput{}, err
 	}
@@ -81,53 +115,51 @@ func buildRankingInput(c *cli.Context, weights *kc.Weights) (kc.RankingInput, er
 	}
 
 	return kc.RankingInput{
-		LayoutsDir:     layoutDir,
-		LayoutFiles:    layouts,
-		Corpus:         corpus,
-		IdealRowLoad:   rowLoad,
-		IdealFgrLoad:   fingerBal,
-		PinkyPenalties: pinkyPenalties,
-		Weights:        weights,
+		LayoutsDir:  layoutDir,
+		LayoutFiles: layouts,
+		Corpus:      corpus,
+		Targets:     targets,
+		Weights:     weights,
 	}, nil
 }
 
 // buildDisplayOptions gathers display configuration.
-func buildDisplayOptions(c *cli.Context) (RankingDisplayOptions, error) {
+func buildDisplayOptions(c *cli.Command) (tui.RankingDisplayOptions, error) {
 	// Load weights for display and delta coloring
 	weights, err := loadWeightsFromFlags(c)
 	if err != nil {
-		return RankingDisplayOptions{}, err
+		return tui.RankingDisplayOptions{}, err
 	}
 
 	// Parse output format
-	outputFmt := OutputTable
+	outputFmt := tui.OutputTable
 	if c.IsSet("output") {
 		switch strings.ToLower(c.String("output")) {
 		case "table":
-			outputFmt = OutputTable
+			outputFmt = tui.OutputTable
 		case "html":
-			outputFmt = OutputHTML
+			outputFmt = tui.OutputHTML
 		case "csv":
-			outputFmt = OutputCSV
+			outputFmt = tui.OutputCSV
 		default:
-			return RankingDisplayOptions{}, fmt.Errorf("invalid output format; must be one of: table, html, csv")
+			return tui.RankingDisplayOptions{}, fmt.Errorf("invalid output format; must be one of: table, html, csv")
 		}
 	}
 
 	metricsValue := strings.ToLower(c.String("metrics"))
 
-	var metricsOpt MetricsOption
+	var metricsOpt tui.MetricsOption
 	var customMetrics []string
 
 	// Check if it's "weighted" (special case - computed dynamically)
 	if metricsValue == "weighted" {
-		metricsOpt = MetricsWeighted
+		metricsOpt = tui.MetricsWeighted
 	} else if _, ok := kc.MetricsMap[metricsValue]; ok {
 		// Check if it's a predefined metrics set
-		metricsOpt = MetricsOption(metricsValue)
+		metricsOpt = tui.MetricsOption(metricsValue)
 	} else {
 		// Treat as custom comma-separated list
-		metricsOpt = MetricsCustom
+		metricsOpt = tui.MetricsCustom
 		customMetrics = strings.Split(metricsValue, ",")
 		for i := range customMetrics {
 			customMetrics[i] = strings.TrimSpace(customMetrics[i])
@@ -136,28 +168,28 @@ func buildDisplayOptions(c *cli.Context) (RankingDisplayOptions, error) {
 
 		// Validate that all custom metrics exist
 		if err := validateMetrics(customMetrics); err != nil {
-			return RankingDisplayOptions{}, err
+			return tui.RankingDisplayOptions{}, err
 		}
 	}
 
 	deltasValue := c.String("deltas")
 	deltasValueLower := strings.ToLower(deltasValue)
-	var deltasOpt DeltasOption
+	var deltasOpt tui.DeltasOption
 	var baseLayoutName string
 
 	switch deltasValueLower {
 	case "none":
-		deltasOpt = DeltasNone
+		deltasOpt = tui.DeltasNone
 	case "rows":
-		deltasOpt = DeltasRows
+		deltasOpt = tui.DeltasRows
 	case "median":
-		deltasOpt = DeltasMedian
+		deltasOpt = tui.DeltasMedian
 	default:
-		deltasOpt = DeltasCustom
+		deltasOpt = tui.DeltasCustom
 		baseLayoutName = ensureNoKlf(deltasValue)
 	}
 
-	return RankingDisplayOptions{
+	return tui.RankingDisplayOptions{
 		OutputFormat:   outputFmt,
 		MetricsOption:  metricsOpt,
 		CustomMetrics:  customMetrics,
@@ -191,7 +223,7 @@ func validateMetrics(metrics []string) error {
 }
 
 // getLayoutsFromArgs returns layouts from CLI args, or all .klf files if no args provided.
-func getLayoutsFromArgs(c *cli.Context, baseLayout string) ([]string, error) {
+func getLayoutsFromArgs(c *cli.Command, baseLayout string) ([]string, error) {
 	var layouts []string
 	if c.Args().Len() == 0 {
 		var err error
@@ -202,14 +234,32 @@ func getLayoutsFromArgs(c *cli.Context, baseLayout string) ([]string, error) {
 	} else {
 		layouts = c.Args().Slice()
 		for i := range layouts {
-			layouts[i] = ensureKlf(layouts[i])
+			arg := layouts[i]
+			// // Check if it's an existing file
+			// if _, err := os.Stat(arg); err == nil {
+			// 	absPath, err := filepath.Abs(arg)
+			// 	if err == nil {
+			// 		layouts[i] = absPath
+			// 		continue
+			// 	}
+			// }
+
+			// Otherwise assume it's a name in layoutDir
+			layouts[i] = filepath.Join(layoutDir, ensureKlf(arg))
 		}
 	}
 
 	if baseLayout != "" {
-		baseLayout = ensureKlf(baseLayout)
-		if !slices.Contains(layouts, baseLayout) {
-			layouts = append(layouts, baseLayout)
+		// // Handle baseLayout similarly
+		var baseLayoutPath string
+		// if _, err := os.Stat(baseLayout); err == nil {
+		// 	baseLayoutPath, _ = filepath.Abs(baseLayout)
+		// } else {
+		baseLayoutPath = filepath.Join(layoutDir, ensureKlf(baseLayout))
+		// }
+
+		if !slices.Contains(layouts, baseLayoutPath) {
+			layouts = append(layouts, baseLayoutPath)
 		}
 	}
 
@@ -227,7 +277,7 @@ func allLayoutFiles() ([]string, error) {
 	for _, entry := range entries {
 		entryName := entry.Name()
 		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entryName), ".klf") {
-			layoutsToCmp = append(layoutsToCmp, entryName)
+			layoutsToCmp = append(layoutsToCmp, filepath.Join(layoutDir, entryName))
 		}
 	}
 

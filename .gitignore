@@ -21,9 +21,8 @@ vendor/
 
 # My files
 /data/corpus/sources
-/data/pins/hieamtsrn.pin
+/data/config/hieamtsrn.pin
 /data/layouts/enthium-promax.klf
-/data/layouts/northwest.klf
 /data/layouts/northeast.klf
 /data/layouts2
 *-opt*.klf
@@ -48,3 +47,4 @@ _cleanuipman
 authors.json
 likes.json
 run.jsonl
+.gemini/*

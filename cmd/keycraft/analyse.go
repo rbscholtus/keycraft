@@ -1,175 +1,130 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/jedib0t/go-pretty/v6/text"
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
-	"github.com/urfave/cli/v2"
+	"github.com/rbscholtus/keycraft/internal/tui"
+	"github.com/urfave/cli/v3"
 )
+
+// analyseFlags defines flags specific to the analyse command.
+var analyseFlags = []cli.Flag{
+	&cli.IntFlag{
+		Name:     "rows",
+		Aliases:  []string{"r"},
+		Usage:    "Maximum number of rows to display in data tables.",
+		Value:    10,
+		Category: "Display",
+		Action: func(ctx context.Context, c *cli.Command, value int) error {
+			if isShellCompletion() {
+				return nil
+			}
+			if value < 1 {
+				return fmt.Errorf("--rows must be at least 1 (got %d)", value)
+			}
+			return nil
+		},
+	},
+	&cli.BoolFlag{
+		Name:     "compact-trigrams",
+		Usage:    "Omit common trigram categories (ALT-NML, 2RL-IN, 2RL-OUT, 3RL-IN, 3RL-OUT) from trigram table.",
+		Value:    false,
+		Category: "Display",
+	},
+	&cli.IntFlag{
+		Name:     "trigram-rows",
+		Usage:    "Maximum number of trigrams to display in trigram table.",
+		Value:    50,
+		Category: "Display",
+		Action: func(ctx context.Context, c *cli.Command, value int) error {
+			if isShellCompletion() {
+				return nil
+			}
+			if value < 1 {
+				return fmt.Errorf("--trigram-rows must be at least 1 (got %d)", value)
+			}
+			return nil
+		},
+	},
+}
+
+// analyseFlagsSlice returns all flags for the analyse command.
+func analyseFlagsSlice() []cli.Flag {
+	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties")
+	return append(commonFlags, analyseFlags...)
+}
 
 // analyseCommand defines the "analyse" CLI command.
 // It prints detailed analysis for one or more layouts,
 // optionally including data tables.
 var analyseCommand = &cli.Command{
-	Name:      "analyse",
-	Aliases:   []string{"a"},
-	Usage:     "Analyse one or more keyboard layouts in detail",
-	Flags:     flagsSlice("rows", "corpus", "row-load", "finger-load", "pinky-penalties", "compact-trigrams", "trigram-rows"),
-	ArgsUsage: "<layout1> <layout2> ...",
-	Before:    validateAnalyseFlags,
-	Action:    analyseAction,
+	Name:          "analyse",
+	Aliases:       []string{"a"},
+	Usage:         "Analyse one or more keyboard layouts in detail",
+	Flags:         analyseFlagsSlice(),
+	ArgsUsage:     "<layout1> <layout2> ...",
+	Before:        validateAnalyseFlags,
+	Action:        analyseAction,
+	ShellComplete: layoutShellComplete,
 }
 
 // validateAnalyseFlags validates CLI flags before running the analyse command.
-func validateAnalyseFlags(c *cli.Context) error {
+func validateAnalyseFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
+	// Skip validation during shell completion
+	// Check os.Args directly since -- prevents flag parsing
+	if isShellCompletion() {
+		return ctx, nil
+	}
+
 	if c.NArg() < 1 {
-		return fmt.Errorf("need at least 1 layout")
+		return ctx, fmt.Errorf("need at least 1 layout")
 	}
-	return nil
+	return ctx, nil
 }
 
-// analyseAction loads the specified corpus, row load, finger load, and layouts,
-// then executes the analysis process.
-// It returns an error if loading or analysis fails.
-func analyseAction(c *cli.Context) error {
-	corpus, err := getCorpusFromFlags(c)
+// analyseAction coordinates the loading of corpus and target data, executes a
+// detailed ergonomic analysis for one or more layouts, and renders the results.
+func analyseAction(ctx context.Context, c *cli.Command) error {
+	if isShellCompletion() {
+		return nil
+	}
+
+	input, err := buildAnalyseInput(c)
 	if err != nil {
 		return err
 	}
 
-	rowLoad, err := getRowLoadFromFlag(c)
+	result, err := kc.AnalyseLayouts(input)
 	if err != nil {
 		return err
 	}
 
-	fingerBal, err := getFingerLoadFromFlag(c)
-	if err != nil {
-		return err
+	displayOpts := kc.AnalyseDisplayOptions{
+		MaxRows:         c.Int("rows"),
+		CompactTrigrams: c.Bool("compact-trigrams"),
+		TrigramRows:     c.Int("trigram-rows"),
 	}
 
-	pinkyPenalties, err := getPinkyPenaltiesFromFlag(c)
-	if err != nil {
-		return err
-	}
-
-	layouts := getLayoutArgs(c)
-	compactTrigrams := c.Bool("compact-trigrams")
-	trigramRows := c.Int("trigram-rows")
-
-	// Run detailed analysis on all specified layouts with the given corpus and loads.
-	if err := DoAnalysis(layouts, corpus, rowLoad, fingerBal, pinkyPenalties, true, c.Int("rows")); err != nil {
-		return err
-	}
-
-	return nil
+	return tui.RenderAnalyse(result, displayOpts)
 }
 
-// DoAnalysis loads analysers for the provided layouts, generates overview
-// rows (board, hand, row, stats), and optionally appends detailed metric
-// tables. The rendered table output is printed to stdout.
-func DoAnalysis(layoutFilenames []string, corpus *kc.Corpus, rowLoad *[3]float64, fgrLoad *[10]float64, pinkyPenalties *[12]float64, dataTables bool, nRows int) error {
-	// load an analyser for each layout
-	analysers := make([]*kc.Analyser, 0, len(layoutFilenames))
-	for _, fn := range layoutFilenames {
-		layout, err := loadLayout(fn)
-		if err != nil {
-			return err
-		}
-		an := kc.NewAnalyser(layout, corpus, rowLoad, fgrLoad, pinkyPenalties)
-		analysers = append(analysers, an)
+// buildAnalyseInput gathers all input parameters for layout analysis.
+func buildAnalyseInput(c *cli.Command) (kc.AnalyseInput, error) {
+	corpus, err := loadCorpusFromFlags(c)
+	if err != nil {
+		return kc.AnalyseInput{}, err
 	}
 
-	if len(analysers) < 1 {
-		return fmt.Errorf("need at least 1 layout")
+	targets, err := loadTargetLoadsFromFlags(c)
+	if err != nil {
+		return kc.AnalyseInput{}, err
 	}
 
-	// Make a table with a column for each layout
-	twOuter := table.NewWriter()
-	twOuter.SetStyle(EmptyStyle())
-	twOuter.Style().Options.SeparateRows = true
-	colConfigs := make([]table.ColumnConfig, 0, len(layoutFilenames))
-	for i := range len(layoutFilenames) {
-		colConfigs = append(colConfigs, table.ColumnConfig{Number: i + 2,
-			AlignHeader: text.AlignCenter, Align: text.AlignCenter})
-	}
-	twOuter.SetColumnConfigs(colConfigs)
-
-	// Add header
-	h := table.Row{""}
-	for _, an := range analysers {
-		h = append(h, an.Layout.Name)
-	}
-	twOuter.AppendHeader(h)
-
-	// Layout picture
-	h = table.Row{"Board"}
-	for _, an := range analysers {
-		h = append(h, SplitLayoutString(an.Layout))
-	}
-	twOuter.AppendRow(h)
-
-	// Hand balance
-	h = table.Row{"Hand"}
-	for _, an := range analysers {
-		h = append(h, HandUsageString(an))
-	}
-	twOuter.AppendRow(h)
-
-	// Row balance
-	h = table.Row{"Row"}
-	for _, an := range analysers {
-		h = append(h, RowUsageString(an))
-	}
-	twOuter.AppendRow(h)
-
-	// Metrics overview
-	h = table.Row{"Stats"}
-	for _, an := range analysers {
-		h = append(h, MetricsString(an))
-	}
-	twOuter.AppendRow(h)
-
-	// Add data rows
-	if dataTables {
-		details := make([][]*kc.MetricDetails, 0, len(layoutFilenames))
-		for _, an := range analysers {
-			details = append(details, an.AllMetricsDetails())
-		}
-
-		metrics := details[0] // get the first entry to get the metrics
-		for i, ma := range metrics {
-			data := table.Row{ma.Metric}
-			for _, mas := range details {
-				data = append(data, MetricDetailsString(mas[i], nRows))
-			}
-			twOuter.AppendRow(data)
-		}
-
-		// details = make([][]*kc.MetricDetails, 0, len(layoutFilenames))
-		// for _, an := range analysers {
-		// 	details = append(details, an.AllCorpusDetails(nRows))
-		// }
-
-		// metrics = details[0] // get the first entry to get the metrics
-		// for i, ma := range metrics {
-		// 	data := table.Row{ma.Metric}
-		// 	for _, mas := range details {
-		// 		data = append(data, MetricDetailsString(mas[i], nRows))
-		// 	}
-		// 	twOuter.AppendRow(data)
-		// }
-
-		// Add trigram table row
-		h = table.Row{"Trigr"}
-		for _, an := range analysers {
-			h = append(h, TopTrigramsString(an, compactTrigrams, trigramRows))
-		}
-		twOuter.AppendRow(h)
-	}
-
-	// Print layout(s) in the table
-	fmt.Println(twOuter.Render())
-	return nil
+	return kc.AnalyseInput{
+		LayoutFiles: getLayoutArgs(c),
+		Corpus:      corpus,
+		TargetLoads: targets,
+	}, nil
 }

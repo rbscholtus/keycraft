@@ -2,6 +2,7 @@ package keycraft
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"strconv"
 	"strings"
@@ -22,16 +23,16 @@ var DefaultMetrics = map[string]float64{
 // NewWeights creates an empty Weights structure ready to be populated.
 func NewWeights() *Weights {
 	weights := make(map[string]float64)
-	// maps.Copy(weights, DefaultMetrics)
+	maps.Copy(weights, DefaultMetrics)
 	return &Weights{weights}
 }
 
 // NewWeightsFromString parses a comma-separated `metric=weight` string into a Weights instance.
 // Returns an error if the format is invalid or weights cannot be parsed.
 func NewWeightsFromString(weightsStr string) (*Weights, error) {
-	w := Weights{}
+	w := NewWeights()
 	err := w.AddWeightsFromString(weightsStr)
-	return &w, err
+	return w, err
 }
 
 // NewWeightsFromParams constructs weights from an optional file and CLI string.

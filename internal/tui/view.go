@@ -1,4 +1,4 @@
-package main
+package tui
 
 import (
 	"fmt"
@@ -51,6 +51,64 @@ const (
                     ╰───╯  ╰───╯                    `
 )
 
+// RenderView renders the view results to stdout.
+// Displays board, hand/finger/row load, and stats overview for each layout.
+func RenderView(result *kc.ViewResult) error {
+	if len(result.Analysers) < 1 {
+		return fmt.Errorf("need at least 1 layout")
+	}
+
+	// Make a table with a column for each layout
+	twOuter := table.NewWriter()
+	twOuter.SetStyle(EmptyStyle())
+	twOuter.Style().Options.SeparateRows = true
+	colConfigs := make([]table.ColumnConfig, 0, len(result.Analysers))
+	for i := range len(result.Analysers) {
+		colConfigs = append(colConfigs, table.ColumnConfig{Number: i + 2,
+			AlignHeader: text.AlignCenter, Align: text.AlignCenter})
+	}
+	twOuter.SetColumnConfigs(colConfigs)
+
+	// Add header
+	h := table.Row{""}
+	for _, an := range result.Analysers {
+		h = append(h, an.Layout.Name)
+	}
+	twOuter.AppendHeader(h)
+
+	// Layout picture
+	h = table.Row{"Board"}
+	for _, an := range result.Analysers {
+		h = append(h, SplitLayoutString(an.Layout))
+	}
+	twOuter.AppendRow(h)
+
+	// Hand load distribution
+	h = table.Row{"Hand"}
+	for _, an := range result.Analysers {
+		h = append(h, HandUsageString(an))
+	}
+	twOuter.AppendRow(h)
+
+	// Row load distribution
+	h = table.Row{"Row"}
+	for _, an := range result.Analysers {
+		h = append(h, RowUsageString(an))
+	}
+	twOuter.AppendRow(h)
+
+	// Metrics overview
+	h = table.Row{"Stats"}
+	for _, an := range result.Analysers {
+		h = append(h, MetricsString(an))
+	}
+	twOuter.AppendRow(h)
+
+	// Print layout(s) in the table
+	fmt.Println(twOuter.Render())
+	return nil
+}
+
 // SplitLayoutString returns a formatted ASCII representation of a keyboard layout.
 func SplitLayoutString(sl *kc.SplitLayout) string {
 	switch sl.LayoutType {
@@ -95,83 +153,6 @@ func genLayoutStringFor(sl *kc.SplitLayout, template string, mapper []int) strin
 		}
 	}
 	return fmt.Sprintf(strings.ReplaceAll(template, " ", "\u00A0"), args...)
-}
-
-// MetricDetailsString renders metric details as a paginated table.
-func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
-	t := createSimpleTable()
-
-	// Collect unique custom keys
-	customKeys := []string{}
-	customKeySet := make(map[string]bool)
-	for _, fields := range ma.Custom {
-		for k := range fields {
-			if !customKeySet[k] {
-				customKeySet[k] = true
-				customKeys = append(customKeys, k)
-			}
-		}
-		break // we don't need to visit all rows - they all have the same custom fields
-	}
-
-	// Header
-	header := table.Row{"orderby", ma.Metric, "Count", "%", "Dist"}
-	for _, ck := range customKeys {
-		header = append(header, ck)
-	}
-	t.AppendHeader(header)
-
-	// Rows
-	for ngram := range ma.NGramCount {
-		row := []any{
-			ma.NGramCount[ngram],
-			ngram,
-			ma.NGramCount[ngram],
-			float64(ma.NGramCount[ngram]) / float64(ma.CorpusNGramC),
-			ma.NGramDist[ngram],
-		}
-		for _, ck := range customKeys {
-			if fields, ok := ma.Custom[ngram]; ok {
-				row = append(row, fields[ck])
-			} else {
-				row = append(row, "")
-			}
-		}
-		t.AppendRow(row)
-	}
-
-	footer := table.Row{"", "", ma.TotalNGrams, float64(ma.TotalNGrams) / float64(ma.CorpusNGramC)}
-	for range customKeys {
-		footer = append(footer, "")
-	}
-	t.AppendFooter(footer)
-
-	return t.Pager(table.PageSize(nrows)).Render()
-}
-
-// createSimpleTable returns a configured table writer with rounded style and common settings.
-func createSimpleTable() table.Writer {
-	tw := table.NewWriter()
-	tw.SetAutoIndex(true)
-	tw.SetStyle(table.StyleRounded)
-	tw.Style().Title.Align = text.AlignCenter
-	tw.Style().Box.PaddingLeft = ""
-	tw.Style().Box.PaddingRight = ""
-	tw.SetColumnConfigs([]table.ColumnConfig{
-		{Name: "orderby", Hidden: true},
-		{Name: "Distance", Transformer: Fraction, TransformerFooter: Fraction},
-		{Name: "Dist", Transformer: Fraction, TransformerFooter: Fraction},
-		{Name: "Row", Transformer: Fraction},
-		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
-		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
-		{Name: "Cum%", Transformer: Percentage, TransformerFooter: Percentage},
-		{Name: "Δrow", Transformer: Fraction, TransformerFooter: Fraction},
-		{Name: "Δcol", Transformer: Fraction, TransformerFooter: Fraction},
-		{Name: "Angle", Transformer: Angle, TransformerFooter: Angle},
-		{Name: "Length", Align: text.AlignRight},
-	})
-	tw.SortBy([]table.SortBy{{Name: "orderby", Mode: table.DscNumeric}})
-	return tw
 }
 
 // HandUsageString renders column, finger, and hand usage percentages as a table.
@@ -300,225 +281,13 @@ func MetricsString(an *kc.Analyser) string {
 			"",
 		},
 		{
-			fmt.Sprintf("RBL: %.2f", an.Metrics["RBL"]),
-			fmt.Sprintf("FBL: %.2f%%", an.Metrics["FBL"]),
+			fmt.Sprintf("HLD: %.2f", an.Metrics["HLD"]),
+			fmt.Sprintf("FLD: %.2f%%", an.Metrics["FLD"]),
+			fmt.Sprintf("RLD: %.2f", an.Metrics["RLD"]),
 			fmt.Sprintf("POH: %.2f%%", an.Metrics["POH"]),
-			"",
 		},
 	}
 	tw.AppendRows(data)
 
 	return tw.Render()
-}
-
-// EmptyStyle returns a table style with minimal separators for compact layout display.
-func EmptyStyle() table.Style {
-	s := table.StyleDefault
-	s.Box = table.StyleBoxRounded
-	s.Box = table.BoxStyle{
-		BottomLeft:       s.Box.BottomLeft,
-		BottomRight:      s.Box.BottomRight,
-		BottomSeparator:  s.Box.BottomSeparator,
-		Left:             " ",
-		LeftSeparator:    s.Box.LeftSeparator,
-		MiddleHorizontal: " ",
-		MiddleSeparator:  s.Box.MiddleSeparator,
-		MiddleVertical:   " ",
-		Right:            " ",
-		RightSeparator:   s.Box.RightSeparator,
-		TopLeft:          s.Box.TopLeft,
-		TopRight:         s.Box.TopRight,
-		TopSeparator:     s.Box.TopSeparator,
-		UnfinishedRow:    " ",
-	}
-	return s
-}
-
-// Comma formats a numeric value with thousand separators.
-// Accepts integer types (int, int32, int64, uint, uint32, uint64) via generics.
-func Comma[T ~int | ~int32 | ~int64 | ~uint | ~uint32 | ~uint64](v T) string {
-	// Convert to uint64 for processing
-	val := uint64(v)
-
-	// Calculate the number of digits and commas needed.
-	var count byte
-	for n := val; n != 0; n = n / 10 {
-		count++
-	}
-	count += (count - 1) / 3
-
-	// Create an output slice to hold the formatted number.
-	output := make([]byte, count)
-	j := len(output) - 1
-
-	// Populate the output slice with digits and commas.
-	var counter byte
-	for val > 9 {
-		output[j] = byte(val%10) + '0'
-		val = val / 10
-		j--
-		if counter == 2 {
-			counter = 0
-			output[j] = ','
-			j--
-		} else {
-			counter++
-		}
-	}
-
-	output[j] = byte(val) + '0'
-
-	return string(output)
-}
-
-// Thousands formats a uint64 count using comma separators, or falls back to %v for other types.
-func Thousands(val any) string {
-	if number, ok := val.(uint64); ok {
-		return Comma(number)
-	}
-	return fmt.Sprintf("%v", val)
-}
-
-// Fraction formats a float64 with two decimals, or falls back to %v for other types.
-func Fraction(val any) string {
-	if number, ok := val.(float64); ok {
-		return fmt.Sprintf("%.2f", number)
-	}
-	return fmt.Sprintf("%v", val)
-}
-
-// Angle formats numeric values as degree strings.
-func Angle(val any) string {
-	switch v := val.(type) {
-	case float32, float64:
-		return fmt.Sprintf("%.1f°", v)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		return fmt.Sprintf("%d°", v)
-	default:
-		return fmt.Sprint(val)
-	}
-}
-
-// Percentage formats a fractional value (0..1) as a percentage with two decimals.
-func Percentage(val any) string {
-	if number, ok := val.(float64); ok {
-		return fmt.Sprintf("%.2f%%", 100*number)
-	}
-	return fmt.Sprintf("%v", val)
-}
-
-// Percentage3 formats a fractional value (0..1) as a percentage with three decimals.
-func Percentage3(val any) string {
-	if number, ok := val.(float64); ok {
-		return fmt.Sprintf("%.3f%%", 100*number)
-	}
-	return fmt.Sprintf("%v", val)
-}
-
-// TopTrigramsString generates a table showing the top N trigrams with their
-// classifications (ALT, 2RL, 3RL, RED) and their specific categories.
-func TopTrigramsString(an *kc.Analyser, compactTrigrams bool, trigramRows int) string {
-	t := createSimpleTable()
-
-	// Get trigram classifications from TrigramDetails
-	alt, rl2, rl3, red := an.TrigramDetails()
-
-	// Helper to get classification for a trigram
-	getClassification := func(triStr string) string {
-		// Check each metric category
-		if _, ok := alt.NGramCount[triStr]; ok {
-			if cat, hasCat := alt.Custom[triStr]["Dir"]; hasCat {
-				return fmt.Sprintf("ALT-%v", cat)
-			}
-			return "ALT"
-		}
-		if _, ok := rl2.NGramCount[triStr]; ok {
-			if cat, hasCat := rl2.Custom[triStr]["Dir"]; hasCat {
-				return fmt.Sprintf("2RL-%v", cat)
-			}
-			return "2RL"
-		}
-		if _, ok := rl3.NGramCount[triStr]; ok {
-			if cat, hasCat := rl3.Custom[triStr]["Dir"]; hasCat {
-				return fmt.Sprintf("3RL-%v", cat)
-			}
-			return "3RL"
-		}
-		if _, ok := red.NGramCount[triStr]; ok {
-			if cat, hasCat := red.Custom[triStr]["Dir"]; hasCat {
-				return fmt.Sprintf("RED-%v", cat)
-			}
-			return "RED"
-		}
-		return "OTHER"
-	}
-
-	// Common classifications that should not be highlighted
-	commonClassifications := map[string]bool{
-		"ALT-NML": true,
-		"2RL-IN":  true,
-		"2RL-OUT": true,
-		"3RL-IN":  true,
-		"3RL-OUT": true,
-	}
-
-	// Get top N trigrams from corpus
-	topTrigrams := an.Corpus.TopTrigrams(trigramRows)
-
-	// Header
-	header := table.Row{"orderby", "Tri", "Count", "%", "Cum%", "Class"}
-	t.AppendHeader(header)
-
-	// Calculate cumulative percentages and build rows
-	totalTrigramCount := an.Corpus.TotalTrigramsCount
-	cumulativeCount := uint64(0)
-	rowNum := 0
-
-	for _, pair := range topTrigrams {
-		triStr := pair.Key.String()
-		count := pair.Count
-		classification := getClassification(triStr)
-
-		// Skip if compact mode and category is common
-		if compactTrigrams && commonClassifications[classification] {
-			continue
-		}
-
-		cumulativeCount += count
-		percentage := float64(count) / float64(totalTrigramCount)
-		cumulativePercentage := float64(cumulativeCount) / float64(totalTrigramCount)
-
-		rowNum++
-
-		// Color the entire row if it's a non-common classification
-		isNonCommon := !commonClassifications[classification]
-		var row table.Row
-		if isNonCommon {
-			row = table.Row{
-				count,                              // orderby (hidden, for sorting)
-				text.FgHiRed.Sprintf("%s", triStr), // Tri (colored)
-				text.FgHiRed.Sprintf("%d", count),  // Count (colored)
-				text.FgHiRed.Sprintf("%.2f%%", percentage*100),           // % (colored)
-				text.FgHiRed.Sprintf("%.2f%%", cumulativePercentage*100), // Cum% (colored)
-				text.FgHiRed.Sprintf("%s", classification),               // Classification (colored)
-			}
-		} else {
-			row = table.Row{
-				count,                // orderby (hidden, for sorting)
-				triStr,               // Tri
-				count,                // Count
-				percentage,           // %
-				cumulativePercentage, // Cum%
-				classification,       // Classification
-			}
-		}
-		t.AppendRow(row)
-	}
-
-	// Footer with totals
-	finalPercentage := float64(cumulativeCount) / float64(totalTrigramCount)
-	footer := table.Row{"", "", cumulativeCount, finalPercentage, finalPercentage, ""}
-	t.AppendFooter(footer)
-
-	return t.Render()
 }

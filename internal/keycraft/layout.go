@@ -61,8 +61,8 @@ const (
 	COLSTAG                    // Column-staggered (ergonomic)
 )
 
-// layoutTypeStrings maps LayoutType constants to their string representations.
-var layoutTypeStrings = map[LayoutType]string{
+// LayoutTypeStrings maps LayoutType constants to their string representations.
+var LayoutTypeStrings = map[LayoutType]string{
 	ROWSTAG:  "rowstag",
 	ANGLEMOD: "anglemod",
 	ORTHO:    "ortho",
@@ -295,7 +295,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	case strings.HasPrefix(layoutTypeStr, "colstag"):
 		layoutType = COLSTAG
 	default:
-		types := slices.Collect(maps.Values(layoutTypeStrings))
+		types := slices.Collect(maps.Values(LayoutTypeStrings))
 		return nil, fmt.Errorf("invalid layout type in %s: %s. Must start with one of: %v",
 			path, layoutTypeStr, types)
 	}
@@ -376,7 +376,7 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 	}
 
 	// Write layout type
-	_, _ = fmt.Fprintln(writer, layoutTypeStrings[sl.LayoutType])
+	_, _ = fmt.Fprintln(writer, LayoutTypeStrings[sl.LayoutType])
 
 	// Write main keys
 	for row := range 3 {

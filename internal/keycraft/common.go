@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand/v2"
 	"os"
 	"sort"
+	"time"
 )
 
 // IfThen returns `a` if the condition is true, otherwise returns `b`.
@@ -120,54 +122,18 @@ func FlushWriter(writer *bufio.Writer) {
 	}
 }
 
-// Median calculates the median of a sorted slice.
-// The slice must already be sorted in ascending order.
-func Median(sortedData []float64) float64 {
-	n := len(sortedData)
-	mid := n / 2
-	if n%2 == 0 {
-		return (sortedData[mid-1] + sortedData[mid]) / 2.0
-	} else {
-		return sortedData[mid]
+func getRNG(seed uint64) *rand.Rand {
+	if seed == 0 {
+		seed = uint64(time.Now().UnixNano())
 	}
+	return rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
 }
 
-// Quartiles calculates the first and third quartiles (Q1 and Q3) of a sorted slice.
-// The slice must already be sorted in ascending order.
-func Quartiles(sortedData []float64) (float64, float64) {
-	n := len(sortedData)
-	q1 := Median(sortedData[:n/2])
-	q3 := Median(sortedData[(n+1)/2:])
-	return q1, q3
-}
-
-// RobustScale applies robust scaling to the data using median and interquartile range (IQR).
-// This scaling method is less sensitive to outliers than standard normalization.
-// Each value is transformed to: (value - median) / IQR
-func RobustScale(data []float64) []float64 {
-	if len(data) == 0 {
-		return []float64{}
+// IsVowel returns true if the rune is a vowel (lowercase or uppercase).
+func IsVowel(r rune) bool {
+	switch r {
+	case 'A', 'E', 'I', 'O', 'U', 'a', 'e', 'i', 'o', 'u':
+		return true
 	}
-
-	// Create a sorted copy for computing statistics
-	sortedData := make([]float64, len(data))
-	copy(sortedData, data)
-	sort.Float64s(sortedData)
-
-	medianValue := Median(sortedData)
-	q1, q3 := Quartiles(sortedData)
-	iqr := q3 - q1
-
-	// If all values are identical, return zeros
-	if iqr == 0 {
-		return make([]float64, len(data))
-	}
-
-	// Apply robust scaling transformation
-	scaledData := make([]float64, len(data))
-	for i, x := range data {
-		scaledData[i] = (x - medianValue) / iqr
-	}
-
-	return scaledData
+	return false
 }

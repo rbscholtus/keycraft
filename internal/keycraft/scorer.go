@@ -29,16 +29,14 @@ func layoutCacheKey(layout *SplitLayout) string {
 // Statistics are tracked to monitor cache effectiveness.
 // Thread-safe for concurrent scoring operations.
 type Scorer struct {
-	corpus              *Corpus            // Text corpus used for analysis
-	targetRowBalance    *[3]float64        // Ideal distribution across rows
-	targetFingerBalance *[10]float64       // Ideal distribution across fingers
-	pinkyPenalties      *[12]float64       // Pinky off-home penalty weights
-	medians             map[string]float64 // Median values for each metric (filtered)
-	iqrs                map[string]float64 // Interquartile ranges for each metric (filtered)
-	weights             map[string]float64 // Importance weights for each metric (filtered)
-	scoreCache          map[string]float64 // Cache of computed scores by layout identifier
-	cacheMu             sync.RWMutex       // Protects scoreCache for concurrent access
-	DisableScoreCache   bool               // If true, skip score cache lookup/storage
+	corpus            *Corpus            // Text corpus used for analysis
+	targets           *TargetLoads       // Target load distributions and penalty weights
+	medians           map[string]float64 // Median values for each metric (filtered)
+	iqrs              map[string]float64 // Interquartile ranges for each metric (filtered)
+	weights           map[string]float64 // Importance weights for each metric (filtered)
+	scoreCache        map[string]float64 // Cache of computed scores by layout identifier
+	cacheMu           sync.RWMutex       // Protects scoreCache for concurrent access
+	DisableScoreCache bool               // If true, skip score cache lookup/storage
 
 	// Pre-filtered n-gram caches (computed lazily on first Score() call)
 	trigramCache      []TrigramInfo // Pre-filtered trigrams with KeyInfo lookups
@@ -53,8 +51,8 @@ type Scorer struct {
 // NewScorer creates a new Scorer by analyzing reference layouts from the given directory.
 // It computes median and IQR statistics from the reference layouts and filters out metrics
 // with insignificant variance or weight to ensure robust scoring.
-func NewScorer(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyPenalties *[12]float64, weights *Weights) (*Scorer, error) {
-	analysers, err := LoadAnalysers(layoutsDir, corpus, idealRowLoad, idealfgrLoad, pinkyPenalties)
+func NewScorer(layoutsDir string, corpus *Corpus, targets *TargetLoads, weights *Weights) (*Scorer, error) {
+	analysers, err := LoadAnalysers(layoutsDir, corpus, targets)
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +81,12 @@ func NewScorer(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idea
 	}
 
 	sc := &Scorer{
-		corpus:              corpus,
-		targetRowBalance:    idealRowLoad,
-		targetFingerBalance: idealfgrLoad,
-		pinkyPenalties:      pinkyPenalties,
-		medians:             filteredMedians,
-		iqrs:                filteredIQRs,
-		weights:             filteredWeights,
-		scoreCache:          make(map[string]float64, 1000),
+		corpus:     corpus,
+		targets:    targets,
+		medians:    filteredMedians,
+		iqrs:       filteredIQRs,
+		weights:    filteredWeights,
+		scoreCache: make(map[string]float64, 1000),
 	}
 
 	return sc, nil
@@ -178,9 +174,7 @@ func (sc *Scorer) Score(layout *SplitLayout) float64 {
 	an := &Analyser{
 		Layout:           layout,
 		Corpus:           sc.corpus,
-		IdealRowLoad:     sc.targetRowBalance,
-		IdealfgrLoad:     sc.targetFingerBalance,
-		PinkyPenalties:   sc.pinkyPenalties,
+		Targets:          sc.targets,
 		Metrics:          make(map[string]float64, 60),
 		relevantTrigrams: sc.trigramCache, // Inject pre-filtered trigrams for performance optimization
 	}
@@ -300,7 +294,7 @@ type LayoutScore struct {
 
 // LoadAnalysers loads and analyses all .klf layout files from a directory in parallel.
 // Uses bounded concurrency based on GOMAXPROCS to avoid overloading the system.
-func LoadAnalysers(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, idealfgrLoad *[10]float64, pinkyPenalties *[12]float64) ([]*Analyser, error) {
+func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*Analyser, error) {
 	layoutFiles, err := os.ReadDir(layoutsDir)
 	if err != nil {
 		return nil, fmt.Errorf("error reading layout files from %v: %v", layoutsDir, err)
@@ -331,7 +325,7 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, idealRowLoad *[3]float64, 
 				fmt.Println(err)
 				return
 			}
-			analyser := NewAnalyser(layout, corpus, idealRowLoad, idealfgrLoad, pinkyPenalties)
+			analyser := NewAnalyser(layout, corpus, targets)
 
 			mu.Lock()
 			analysers = append(analysers, analyser)
@@ -394,4 +388,56 @@ func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weigh
 	}
 
 	return layoutScores
+}
+
+// Median calculates the median of a sorted slice.
+// The slice must already be sorted in ascending order.
+func Median(sortedData []float64) float64 {
+	n := len(sortedData)
+	mid := n / 2
+	if n%2 == 0 {
+		return (sortedData[mid-1] + sortedData[mid]) / 2.0
+	} else {
+		return sortedData[mid]
+	}
+}
+
+// Quartiles calculates the first and third quartiles (Q1 and Q3) of a sorted slice.
+// The slice must already be sorted in ascending order.
+func Quartiles(sortedData []float64) (float64, float64) {
+	n := len(sortedData)
+	q1 := Median(sortedData[:n/2])
+	q3 := Median(sortedData[(n+1)/2:])
+	return q1, q3
+}
+
+// RobustScale applies robust scaling to the data using median and interquartile range (IQR).
+// This scaling method is less sensitive to outliers than standard normalization.
+// Each value is transformed to: (value - median) / IQR
+func RobustScale(data []float64) []float64 {
+	if len(data) == 0 {
+		return []float64{}
+	}
+
+	// Create a sorted copy for computing statistics
+	sortedData := make([]float64, len(data))
+	copy(sortedData, data)
+	sort.Float64s(sortedData)
+
+	medianValue := Median(sortedData)
+	q1, q3 := Quartiles(sortedData)
+	iqr := q3 - q1
+
+	// If all values are identical, return zeros
+	if iqr == 0 {
+		return make([]float64, len(data))
+	}
+
+	// Apply robust scaling transformation
+	scaledData := make([]float64, len(data))
+	for i, x := range data {
+		scaledData[i] = (x - medianValue) / iqr
+	}
+
+	return scaledData
 }

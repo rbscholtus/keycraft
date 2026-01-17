@@ -9,7 +9,7 @@ import (
 const (
 	layoutDir = "../data/layouts/"
 	corpusDir = "../data/corpus/"
-	// weightsDir = "../data/weights/"
+	// configDir = "../data/config/"
 )
 
 func Benchmark_Rankings(b *testing.B) {
@@ -22,15 +22,21 @@ func Benchmark_Rankings(b *testing.B) {
 		panic(err)
 	}
 
-	// weightsPath := filepath.Join(weightsDir, "default.txt")
+	// weightsPath := filepath.Join(configDir, "weights.txt")
 	// weights, err := kc.NewWeightsFromParams(weightsPath, "")
 	// if err != nil {
 	// 	panic(err)
 	// }
 
 	// Load all analysers for layouts in the directory
+	targets := &TargetLoads{
+		TargetHandLoad:   DefaultTargetHandLoad(),
+		TargetFingerLoad: DefaultTargetFingerLoad(),
+		TargetRowLoad:    DefaultTargetRowLoad(),
+		PinkyPenalties:   DefaultPinkyPenalties(),
+	}
 	for b.Loop() {
-		analysers, err := LoadAnalysers(layoutDir, corpus, DefaultIdealRowLoad(), DefaultIdealFingerLoad(), DefaultPinkyPenalties())
+		analysers, err := LoadAnalysers(layoutDir, corpus, targets)
 		if err != nil {
 			panic(err)
 		}

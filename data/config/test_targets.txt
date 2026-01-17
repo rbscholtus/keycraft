@@ -1,0 +1,5 @@
+# Test configuration file for --load-targets-file flag
+target-hand-load = 60,40
+target-row-load = 20, 70, 10
+target-finger-load = 8, 12, 15, 15
+pinky-penalties = 2, 2, 2, 0, 2, 2

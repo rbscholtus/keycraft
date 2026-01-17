@@ -1,338 +1,125 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"maps"
-	"slices"
-	"sort"
-	"strings"
-	"unicode"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/jedib0t/go-pretty/v6/text"
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
-	"github.com/urfave/cli/v2"
+	"github.com/rbscholtus/keycraft/internal/tui"
+	"github.com/urfave/cli/v3"
 )
+
+// corpusFlags defines flags specific to the corpus command.
+var corpusFlags = []cli.Flag{
+	&cli.IntFlag{
+		Name:     "corpus-rows",
+		Aliases:  []string{"cr"},
+		Usage:    "Maximum number of rows to display in corpus data tables.",
+		Value:    100,
+		Category: "Display",
+		Action: func(ctx context.Context, c *cli.Command, value int) error {
+			if isShellCompletion() {
+				return nil
+			}
+			if value < 1 {
+				return fmt.Errorf("--corpus-rows must be at least 1 (got %d)", value)
+			}
+			return nil
+		},
+	},
+	&cli.Float64Flag{
+		Name: "coverage",
+		Usage: "Corpus word coverage percentage (0.1-100.0). Filters " +
+			"low-frequency words. Forces cache rebuild.",
+		Value:    98.0,
+		Category: "",
+		Action: func(ctx context.Context, c *cli.Command, value float64) error {
+			if isShellCompletion() {
+				return nil
+			}
+			if value < 0.1 || value > 100.0 {
+				return fmt.Errorf("--coverage must be 0.1-100 (got %f)", value)
+			}
+			return nil
+		},
+	},
+}
+
+// corpusFlagsSlice returns all flags for the corpus command.
+func corpusFlagsSlice() []cli.Flag {
+	commonFlags := flagsSlice("corpus")
+	return append(commonFlags, corpusFlags...)
+}
 
 // corpusCommand defines the CLI command for displaying corpus statistics.
 var corpusCommand = &cli.Command{
-	Name:    "corpus",
-	Aliases: []string{"c"},
-	Usage:   "Display statistics for a text corpus",
-	Flags:   flagsSlice("corpus", "corpus-rows", "coverage"),
-	Action:  corpusAction,
+	Name:          "corpus",
+	Aliases:       []string{"c"},
+	Usage:         "Display statistics for a text corpus",
+	Flags:         corpusFlagsSlice(),
+	Before:        validateCorpusFlags,
+	Action:        corpusAction,
+	ShellComplete: layoutShellComplete,
 }
 
-// corpusAction loads the specified corpus and displays its statistics.
-// It returns an error if the corpus cannot be loaded.
-func corpusAction(c *cli.Context) error {
-	corpus, err := getCorpusFromFlags(c)
+// validateCorpusFlags validates CLI flags before running the corpus command.
+func validateCorpusFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
+	// Skip validation during shell completion
+	// Check os.Args directly since -- prevents flag parsing
+	if isShellCompletion() {
+		return ctx, nil
+	}
+
+	// Skip validation if help is requested
+	// The framework handles help display, but we need to allow it through validation
+	if c.NArg() == 1 && c.Args().First() == "help" {
+		return ctx, nil
+	}
+
+	// Corpus command takes no arguments, only flags
+	if c.NArg() != 0 {
+		return ctx, fmt.Errorf("corpus command takes no arguments, got %d. Did you mean: '--corpus %s'?", c.NArg(), c.Args().First())
+	}
+
+	return ctx, nil
+}
+
+// corpusAction processes a text corpus to extract and display n-gram frequency
+// statistics, optionally applying word coverage filtering to prune low-frequency
+// vocabulary.
+func corpusAction(ctx context.Context, c *cli.Command) error {
+	// During shell completion, action should not run
+	if isShellCompletion() {
+		return nil
+	}
+
+	// 1. Build input from CLI flags
+	input, err := buildCorpusInput(c)
 	if err != nil {
 		return err
 	}
 
-	nrows := c.Int("rows")
+	// 2. Process (business logic in internal/keycraft/)
+	result, err := kc.DisplayCorpus(input)
+	if err != nil {
+		return err
+	}
 
-	fmt.Printf("Corpus: %s\n\n", corpus.Name)
-
-	fmt.Println(corpusWordLenDistStr(corpus))
-	fmt.Println()
-
-	fmt.Println(corpusWordsStr(corpus, nrows))
-	fmt.Println()
-
-	fmt.Println(corpusUnigramsStr(corpus, nrows))
-	fmt.Println()
-
-	fmt.Println(corpusBigramsStr(corpus, nrows))
-	fmt.Println()
-
-	fmt.Println(corpusBigramConsonStr(corpus, nrows))
-	fmt.Println()
-
-	fmt.Println(corpusDoubleLettersStr(corpus, nrows))
-	fmt.Println()
-
-	fmt.Println(corpusTrigramsStr(corpus, nrows))
-	fmt.Println()
-
-	fmt.Println(corpusSkipgramsStr(corpus, nrows))
-
-	return nil
+	// 3. Render (presentation layer in tui package)
+	return tui.RenderCorpus(result)
 }
 
-// calculatePagination calculates the number of rows per table and number of tables
-// for paginated display based on the total number of rows.
-// For up to 50 rows of data, the number of rows per table is fixed at 10.
-// For over 50 rows of data, the maximum number of tables is fixed at 5.
-func calculatePagination(nrows int) (rowsPerTable, numTables int) {
-	rowsPerTable, numTables = 10, (nrows+9)/10
-	if nrows > 50 {
-		rowsPerTable, numTables = (nrows+4)/5, 5
-	}
-	return rowsPerTable, numTables
-}
-
-// renderOuterCorpusTable renders the outer table layout, including pagination and title,
-// for displaying corpus statistics.
-func renderOuterCorpusTable(inner table.Writer, title string, rowsPerTable int, numTables int) string {
-	tables := make(table.Row, 0, numTables)
-	p := inner.Pager(table.PageSize(rowsPerTable))
-	tables = append(tables, p.Render())
-	for p.Location() < numTables {
-		next := strings.TrimSpace(p.Next())
-		if next == "" {
-			break
-		}
-		tables = append(tables, next)
+// buildCorpusInput gathers all input parameters for corpus display.
+func buildCorpusInput(c *cli.Command) (kc.CorpusInput, error) {
+	corpus, err := loadCorpusFromFlags(c)
+	if err != nil {
+		return kc.CorpusInput{}, err
 	}
 
-	outer := table.NewWriter()
-	outer.SetStyle(table.Style{
-		Box:     table.BoxStyle{MiddleVertical: " ", MiddleHorizontal: ""},
-		Options: table.OptionsNoBorders,
-	})
-	outer.Style().Title.Align = text.AlignCenter
-	outer.SetTitle(title)
-	outer.AppendRow(tables)
+	nrows := c.Int("corpus-rows")
 
-	return outer.Render()
-}
-
-// corpusWordLenDistStr renders the word length distribution as a formatted table.
-func corpusWordLenDistStr(corpus *kc.Corpus) string {
-	lengthCounts := make(map[int]uint64)
-
-	for word, count := range corpus.Words {
-		length := len([]rune(word))
-		lengthCounts[length] += count
-	}
-
-	t := createSimpleTable()
-	t.SetTitle("Word Length Distribution")
-	t.SetAutoIndex(false)
-
-	t.AppendHeader(table.Row{"orderby", "Length", "Count", "%", "Cum%"})
-
-	if len(lengthCounts) > 0 {
-		maxLength := slices.Max(slices.Collect(maps.Keys(lengthCounts)))
-
-		cumPct := 0.0
-		for length := 1; length <= maxLength; length++ {
-			if count, exists := lengthCounts[length]; exists {
-				pct := float64(count) / float64(corpus.TotalWordsCount)
-				cumPct += pct
-				t.AppendRow(table.Row{-length, length, count, pct, cumPct})
-			}
-		}
-	}
-
-	t.AppendFooter(table.Row{"", "Total", corpus.TotalWordsCount, 1.0, ""})
-
-	return t.Render()
-}
-
-// corpusWordFrequencyString renders the word frequency distribution as a formatted table.
-// It shows how many unique words occur N times (e.g., "100 words appear exactly 5 times").
-//
-//nolint:unused // reserved for future corpus analysis features
-func corpusWordFrequencyString(corpus *kc.Corpus) string {
-	freqCounts := make(map[uint64]uint64)
-
-	for _, count := range corpus.Words {
-		freqCounts[count]++
-	}
-
-	t := createSimpleTable()
-	t.SetTitle("Word Frequency Distribution")
-
-	t.AppendHeader(table.Row{"orderby", "Occurrences", "# of Words", "%"})
-
-	type freqPair struct {
-		freq  uint64
-		count uint64
-	}
-	var pairs []freqPair
-	for freq, count := range freqCounts {
-		pairs = append(pairs, freqPair{freq, count})
-	}
-
-	sort.Slice(pairs, func(i, j int) bool {
-		if pairs[i].count == pairs[j].count {
-			return pairs[i].freq < pairs[j].freq
-		}
-		return pairs[i].count > pairs[j].count
-	})
-
-	uniqueWords := len(corpus.Words)
-
-	for _, pair := range pairs {
-		pct := float64(pair.count) / float64(uniqueWords)
-		label := fmt.Sprintf("%d times", pair.freq)
-		if pair.freq == 1 {
-			label = "1 time"
-		}
-		t.AppendRow(table.Row{pair.freq, label, pair.count, pct})
-	}
-
-	t.AppendFooter(table.Row{"", "Total unique", uniqueWords, 1.0})
-
-	return t.Render()
-}
-
-// displayChar returns a printable string representation of a given rune.
-// Special characters like space, tab, newline, and carriage return are
-// represented by symbols (e.g., '_', '\t', '\n', '\r'). Non-printable
-// characters are shown as Unicode code points (e.g., 'U+004X').
-func displayChar(r rune) string {
-	switch r {
-	case ' ':
-		return "_"
-	case '\t':
-		return "\\t"
-	case '\n':
-		return "\\n"
-	case '\r':
-		return "\\r"
-	default:
-		if unicode.IsPrint(r) {
-			return fmt.Sprintf("%c", r)
-		}
-		return fmt.Sprintf("U+%04X", r)
-	}
-}
-
-// corpusUnigramsStr renders the top unigrams as paginated tables.
-func corpusUnigramsStr(corpus *kc.Corpus, nrows int) string {
-	topUnigrams := corpus.TopUnigrams(nrows)
-	rowsPerTable, numTables := calculatePagination(len(topUnigrams))
-	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Ch", "Count", "%", "Cum%"})
-	cumPct := 0.0
-	for _, pair := range topUnigrams {
-		char := displayChar(rune(pair.Key))
-		pct := float64(pair.Count) / float64(corpus.TotalUnigramsCount)
-		cumPct += pct
-		t.AppendRow(table.Row{pair.Count, char, pair.Count, pct, cumPct})
-	}
-	title := fmt.Sprintf("Top-%d Unigrams (Total %s occurrences of %s unigrams)",
-		len(topUnigrams), Comma(corpus.TotalUnigramsCount), Comma(len(corpus.Unigrams)))
-	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
-}
-
-// corpusBigramsStr renders the top bigrams as paginated tables.
-func corpusBigramsStr(corpus *kc.Corpus, nrows int) string {
-	topBigrams := corpus.TopBigrams(nrows)
-	rowsPerTable, numTables := calculatePagination(len(topBigrams))
-	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
-	cumPct := 0.0
-	for _, pair := range topBigrams {
-		pct := float64(pair.Count) / float64(corpus.TotalBigramsCount)
-		cumPct += pct
-		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
-	}
-	title := fmt.Sprintf("Top-%d Bigrams (Total %s occurrences of %s bigrams)",
-		len(topBigrams), Comma(corpus.TotalBigramsCount), Comma(len(corpus.Bigrams)))
-	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
-}
-
-// corpusBigramConsonStr renders the top consonant-only bigrams as paginated tables.
-func corpusBigramConsonStr(corpus *kc.Corpus, nrows int) string {
-	topConsonantBigrams, totalConsOnly, uniqueConsOnly := corpus.TopConsonantBigrams(nrows)
-	rowsPerTable, numTables := calculatePagination(len(topConsonantBigrams))
-
-	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
-	t.SetColumnConfigs([]table.ColumnConfig{
-		{Name: "orderby", Hidden: true},
-		{Name: "Count", Transformer: Thousands},
-		{Name: "%", Transformer: Percentage3},
-		{Name: "Cum%", Transformer: Percentage3},
-	})
-	cumPct := 0.0
-	for _, pair := range topConsonantBigrams {
-		pct := float64(pair.Count) / float64(corpus.TotalBigramsCount)
-		cumPct += pct
-		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
-	}
-	title := fmt.Sprintf("Top-%d Consonant-Only Bigrams (Total %s occurrences of %s bigrams)",
-		len(topConsonantBigrams), Comma(totalConsOnly), Comma(uniqueConsOnly))
-	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
-}
-
-// corpusDoubleLettersStr renders the top double-letter bigrams as paginated tables.
-func corpusDoubleLettersStr(corpus *kc.Corpus, nrows int) string {
-	topDoubleLetters, totalDouble, uniqueDouble := corpus.TopDoubleLetters(nrows)
-	rowsPerTable, numTables := calculatePagination(len(topDoubleLetters))
-
-	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
-	t.SetColumnConfigs([]table.ColumnConfig{
-		{Name: "orderby", Hidden: true},
-		{Name: "Count", Transformer: Thousands},
-		{Name: "%", Transformer: Percentage3},
-		{Name: "Cum%", Transformer: Percentage3},
-	})
-
-	cumPct := 0.0
-	for _, pair := range topDoubleLetters {
-		pct := float64(pair.Count) / float64(corpus.TotalBigramsCount)
-		cumPct += pct
-		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
-	}
-	title := fmt.Sprintf("Top-%d Double-Letter Bigrams (Total %s occurrences of %s bigrams)",
-		len(topDoubleLetters), Comma(totalDouble), Comma(uniqueDouble))
-	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
-}
-
-// corpusTrigramsStr renders the top trigrams as paginated tables.
-func corpusTrigramsStr(corpus *kc.Corpus, nrows int) string {
-	topTrigrams := corpus.TopTrigrams(nrows)
-	rowsPerTable, numTables := calculatePagination(len(topTrigrams))
-	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Tri", "Count", "%", "Cum%"})
-	cumPct := 0.0
-	for _, pair := range topTrigrams {
-		pct := float64(pair.Count) / float64(corpus.TotalTrigramsCount)
-		cumPct += pct
-		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
-	}
-	title := fmt.Sprintf("Top-%d Trigrams (Total %s occurrences of %s trigrams)",
-		len(topTrigrams), Comma(corpus.TotalTrigramsCount), Comma(len(corpus.Trigrams)))
-	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
-}
-
-// corpusSkipgramsStr renders the top skipgrams as paginated tables.
-func corpusSkipgramsStr(corpus *kc.Corpus, nrows int) string {
-	topSkipgrams := corpus.TopSkipgrams(nrows)
-	rowsPerTable, numTables := calculatePagination(len(topSkipgrams))
-	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Skp", "Count", "%", "Cum%"})
-	cumPct := 0.0
-	for _, pair := range topSkipgrams {
-		pct := float64(pair.Count) / float64(corpus.TotalSkipgramsCount)
-		cumPct += pct
-		t.AppendRow(table.Row{pair.Count, pair.Key.String(), pair.Count, pct, cumPct})
-	}
-	title := fmt.Sprintf("Top-%d Skipgrams (Total %s occurrences of %s skipgrams)",
-		len(topSkipgrams), Comma(corpus.TotalSkipgramsCount), Comma(len(corpus.Skipgrams)))
-	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
-}
-
-// corpusWordsStr renders the top words as a paginated table.
-func corpusWordsStr(corpus *kc.Corpus, nrows int) string {
-	topWords := corpus.TopWords(nrows)
-	rowsPerTable, numTables := calculatePagination(len(topWords))
-	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Word", "Count", "%", "Cum%"})
-	cumPct := 0.0
-	for _, pair := range topWords {
-		pct := float64(pair.Count) / float64(corpus.TotalWordsCount)
-		cumPct += pct
-		t.AppendRow(table.Row{pair.Count, pair.Key, pair.Count, pct, cumPct})
-	}
-	title := fmt.Sprintf("Top-%d Words (Total %s occurrences of %s words)",
-		len(topWords), Comma(corpus.TotalWordsCount), Comma(len(corpus.Words)))
-	return renderOuterCorpusTable(t, title, rowsPerTable, numTables)
+	return kc.CorpusInput{
+		Corpus: corpus,
+		NRows:  nrows,
+	}, nil
 }
