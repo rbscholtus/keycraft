@@ -155,7 +155,7 @@ func createSimpleTable() table.Writer {
 		{Name: "Row", Transformer: Fraction},
 		{Name: "Count", Transformer: Thousands, TransformerFooter: Thousands},
 		{Name: "%", Transformer: Percentage, TransformerFooter: Percentage},
-		{Name: "Cum%", Transformer: Percentage, TransformerFooter: Percentage},
+		{Name: "Cumul%", Transformer: Percentage, TransformerFooter: Percentage},
 		{Name: "Δrow", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Δcol", Transformer: Fraction, TransformerFooter: Fraction},
 		{Name: "Angle", Transformer: Angle, TransformerFooter: Angle},
@@ -216,7 +216,7 @@ func TopTrigramsString(an *kc.Analyser, compactTrigrams bool, trigramRows int) s
 	topTrigrams := an.Corpus.TopTrigrams(trigramRows)
 
 	// Header
-	header := table.Row{"orderby", "Tri", "Count", "%", "Cum%", "Class"}
+	header := table.Row{"orderby", "Tri", "Count", "%", "Cumul%", "Class"}
 	t.AppendHeader(header)
 
 	// Calculate cumulative percentages and build rows
@@ -249,7 +249,7 @@ func TopTrigramsString(an *kc.Analyser, compactTrigrams bool, trigramRows int) s
 				text.FgHiRed.Sprintf("%s", triStr), // Tri (colored)
 				text.FgHiRed.Sprintf("%d", count),  // Count (colored)
 				text.FgHiRed.Sprintf("%.2f%%", percentage*100),           // % (colored)
-				text.FgHiRed.Sprintf("%.2f%%", cumulativePercentage*100), // Cum% (colored)
+				text.FgHiRed.Sprintf("%.2f%%", cumulativePercentage*100), // Cumul% (colored)
 				text.FgHiRed.Sprintf("%s", classification),               // Classification (colored)
 			}
 		} else {
@@ -258,7 +258,7 @@ func TopTrigramsString(an *kc.Analyser, compactTrigrams bool, trigramRows int) s
 				triStr,               // Tri
 				count,                // Count
 				percentage,           // %
-				cumulativePercentage, // Cum%
+				cumulativePercentage, // Cumul%
 				classification,       // Classification
 			}
 		}

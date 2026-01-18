@@ -97,7 +97,7 @@ func corpusWordLenDistStr(corpus *kc.Corpus) string {
 	t.SetTitle("Word Length Distribution")
 	t.SetAutoIndex(false)
 
-	t.AppendHeader(table.Row{"orderby", "Length", "Count", "%", "Cum%"})
+	t.AppendHeader(table.Row{"orderby", "Length", "Count", "%", "Cumul%"})
 
 	if len(lengthCounts) > 0 {
 		maxLength := slices.Max(slices.Collect(maps.Keys(lengthCounts)))
@@ -192,7 +192,7 @@ func corpusUnigramsStr(corpus *kc.Corpus, nrows int) string {
 	topUnigrams := corpus.TopUnigrams(nrows)
 	rowsPerTable, numTables := calculatePagination(len(topUnigrams))
 	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Ch", "Count", "%", "Cum%"})
+	t.AppendHeader(table.Row{"orderby", "Ch", "Count", "%", "Cumul%"})
 	cumPct := 0.0
 	for _, pair := range topUnigrams {
 		char := displayChar(rune(pair.Key))
@@ -210,7 +210,7 @@ func corpusBigramsStr(corpus *kc.Corpus, nrows int) string {
 	topBigrams := corpus.TopBigrams(nrows)
 	rowsPerTable, numTables := calculatePagination(len(topBigrams))
 	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
+	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cumul%"})
 	cumPct := 0.0
 	for _, pair := range topBigrams {
 		pct := float64(pair.Count) / float64(corpus.TotalBigramsCount)
@@ -228,12 +228,12 @@ func corpusBigramConsonStr(corpus *kc.Corpus, nrows int) string {
 	rowsPerTable, numTables := calculatePagination(len(topConsonantBigrams))
 
 	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
+	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cumul%"})
 	t.SetColumnConfigs([]table.ColumnConfig{
 		{Name: "orderby", Hidden: true},
 		{Name: "Count", Transformer: Thousands},
 		{Name: "%", Transformer: Percentage3},
-		{Name: "Cum%", Transformer: Percentage3},
+		{Name: "Cumul%", Transformer: Percentage3},
 	})
 	cumPct := 0.0
 	for _, pair := range topConsonantBigrams {
@@ -252,12 +252,12 @@ func corpusDoubleLettersStr(corpus *kc.Corpus, nrows int) string {
 	rowsPerTable, numTables := calculatePagination(len(topDoubleLetters))
 
 	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cum%"})
+	t.AppendHeader(table.Row{"orderby", "Bi", "Count", "%", "Cumul%"})
 	t.SetColumnConfigs([]table.ColumnConfig{
 		{Name: "orderby", Hidden: true},
 		{Name: "Count", Transformer: Thousands},
 		{Name: "%", Transformer: Percentage3},
-		{Name: "Cum%", Transformer: Percentage3},
+		{Name: "Cumul%", Transformer: Percentage3},
 	})
 
 	cumPct := 0.0
@@ -276,7 +276,7 @@ func corpusTrigramsStr(corpus *kc.Corpus, nrows int) string {
 	topTrigrams := corpus.TopTrigrams(nrows)
 	rowsPerTable, numTables := calculatePagination(len(topTrigrams))
 	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Tri", "Count", "%", "Cum%"})
+	t.AppendHeader(table.Row{"orderby", "Tri", "Count", "%", "Cumul%"})
 	cumPct := 0.0
 	for _, pair := range topTrigrams {
 		pct := float64(pair.Count) / float64(corpus.TotalTrigramsCount)
@@ -293,7 +293,7 @@ func corpusSkipgramsStr(corpus *kc.Corpus, nrows int) string {
 	topSkipgrams := corpus.TopSkipgrams(nrows)
 	rowsPerTable, numTables := calculatePagination(len(topSkipgrams))
 	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Skp", "Count", "%", "Cum%"})
+	t.AppendHeader(table.Row{"orderby", "Skp", "Count", "%", "Cumul%"})
 	cumPct := 0.0
 	for _, pair := range topSkipgrams {
 		pct := float64(pair.Count) / float64(corpus.TotalSkipgramsCount)
@@ -310,7 +310,7 @@ func corpusWordsStr(corpus *kc.Corpus, nrows int) string {
 	topWords := corpus.TopWords(nrows)
 	rowsPerTable, numTables := calculatePagination(len(topWords))
 	t := createSimpleTable()
-	t.AppendHeader(table.Row{"orderby", "Word", "Count", "%", "Cum%"})
+	t.AppendHeader(table.Row{"orderby", "Word", "Count", "%", "Cumul%"})
 	cumPct := 0.0
 	for _, pair := range topWords {
 		pct := float64(pair.Count) / float64(corpus.TotalWordsCount)
