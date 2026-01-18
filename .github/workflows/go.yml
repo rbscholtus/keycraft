@@ -1,7 +1,7 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: Go
+name: Build, Upload, Release Go binaries and data
 
 on:
   push:
@@ -36,6 +36,9 @@ jobs:
         CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o ${{ github.event.repository.name }}-darwin-arm64 ./cmd/keycraft
         CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o ${{ github.event.repository.name }}-windows-amd64.exe ./cmd/keycraft
 
+    - name: Package data
+      run: tar -czf data.tar.gz data/
+
     - name: Upload binaries as artifact
       uses: actions/upload-artifact@v4
       with:
@@ -44,9 +47,7 @@ jobs:
           ${{ github.event.repository.name }}-linux-amd64
           ${{ github.event.repository.name }}-darwin-arm64
           ${{ github.event.repository.name }}-windows-amd64.exe
-
-    - name: Package data
-      run: tar -czf data.tar.gz data/
+          data.tar.gz
 
     - name: Release
       if: startsWith(github.ref, 'refs/tags/')
