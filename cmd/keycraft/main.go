@@ -23,7 +23,7 @@ var (
 func main() {
 	cmd := &cli.Command{
 		Name:                  "keycraft",
-		Version:               "v0.5.0",
+		Version:               "v0.6.0-dev",
 		Usage:                 "A CLI tool for crafting better keyboard layouts",
 		EnableShellCompletion: true,
 		Suggest:               true,
