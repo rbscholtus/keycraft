@@ -49,11 +49,12 @@ const (
 type RankingDisplayOptions struct {
 	OutputFormat   OutputFormat
 	MetricsOption  MetricsOption
-	CustomMetrics  []string    // Used when MetricsOption == MetricsCustom
-	ShowWeights    bool        // Display weight row in output
-	Weights        *kc.Weights // Metric weights for display and delta coloring
-	DeltasOption   DeltasOption
-	BaseLayoutName string // Name of reference layout when DeltasOption == DeltasCustom
+	CustomMetrics  []string     // Used when MetricsOption == MetricsCustom
+	ShowWeights    bool         // Display weight row in output
+	Weights        *kc.Weights  // Metric weights for display and delta coloring
+	DeltasOption   DeltasOption // "none", "rows", "median", "custom"
+	BaseLayoutName string       // Name of reference layout when DeltasOption == DeltasCustom
+	CorpusName     string       // Name of the corpus used for ranking
 	// baseLayoutScores *kc.LayoutScore // Cached reference to base layout scores (set during rendering)
 }
 
@@ -136,7 +137,11 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 	case DeltasMedian:
 		tw.SetTitle("Layout Ranking (Compare to median)")
 	default:
-		tw.SetTitle("Layout Ranking")
+		if opts.CorpusName != "" {
+			tw.SetTitle(fmt.Sprintf("Layout Ranking (%s)", opts.CorpusName))
+		} else {
+			tw.SetTitle("Layout Ranking")
+		}
 	}
 
 	// Configure column alignment

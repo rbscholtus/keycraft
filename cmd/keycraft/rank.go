@@ -79,6 +79,9 @@ func rankAction(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
+	// Set corpus name for display (used in table title when deltas are not shown)
+	displayOpts.CorpusName = input.Corpus.Name
+
 	// 3. Compute rankings (business logic)
 	rankings, err := kc.ComputeRankings(input)
 	if err != nil {

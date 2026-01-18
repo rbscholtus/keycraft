@@ -1,5 +1,5 @@
 {
-  "Name": "Sanitized Reddit Corpus (10M words, layouts.wiki default) - reddit_small.txt",
+  "Name": "Sanitized Reddit Corpus (10M words)",
   "Unigrams": {
     "\u0002": 1,
     "\u0010": 1,
