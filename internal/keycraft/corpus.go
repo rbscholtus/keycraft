@@ -301,45 +301,38 @@ func (c *Corpus) addText(text string) {
 	}
 }
 
-// loadFromFile reads a text file line by line and extracts n-grams.
-// Empty or whitespace-only lines are skipped.
-//
-//nolint:unused // Superseded by loadFromFileWithWords but kept for potential future use.
-func (c *Corpus) loadFromFile(path string) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer CloseFile(file)
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		c.addText(line)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // addTextWithWords processes text, extracting both words and n-grams.
-// Words are defined as sequences of letters and numbers, separated by other characters.
-//
-//nolint:unused // Superseded by addTextWithWords but kept for potential future use.
+// Words are defined as sequences of letters and numbers, with support for apostrophes
+// in contractions (e.g., "don't", "she'll") and possessives (e.g., "John's", "users'").
 func (c *Corpus) addTextWithWords(text string) {
 	text = strings.ToLower(text)
 
-	// Extract words (alphanumeric sequences)
+	// Helper function to check if a rune is an apostrophe (ASCII or Unicode)
+	isApostrophe := func(r rune) bool {
+		return r == '\'' || r == '\u2019' // ' or '
+	}
+
+	// Extract words (alphanumeric sequences with apostrophes)
 	words := strings.FieldsFunc(text, func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r) && !isApostrophe(r)
 	})
+
+	// Post-process words to trim leading/trailing apostrophes
 	for _, word := range words {
+		if word == "" {
+			continue
+		}
+		// Trim leading apostrophes (e.g., "'hello" -> "hello")
+		word = strings.TrimLeftFunc(word, isApostrophe)
+		// Trim trailing apostrophes only if multiple (e.g., "hello''" -> "hello'")
+		// Keep single trailing apostrophe for possessives (e.g., "users'")
+		for len(word) > 0 && isApostrophe(rune(word[len(word)-1])) {
+			if len(word) > 1 && isApostrophe(rune(word[len(word)-2])) {
+				word = word[:len(word)-1]
+			} else {
+				break
+			}
+		}
 		if word != "" {
 			c.addWord(word)
 		}
@@ -368,6 +361,33 @@ func (c *Corpus) addTextWithWords(text string) {
 		prev2 = prev1
 		prev1 = r
 	}
+}
+
+// loadFromFile reads a text file line by line and extracts n-grams.
+// Empty or whitespace-only lines are skipped.
+//
+//nolint:unused // Superseded by loadFromFileWithWords but kept for potential future use.
+func (c *Corpus) loadFromFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer CloseFile(file)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		c.addText(line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // loadFromFileWithWords loads text from a file, extracting both words and n-grams.
