@@ -45,15 +45,15 @@ Keycraft is a Golang-based command-line utility for analysing, comparing, and op
          ├───────────┼────────────┼────────────┼───────────┤   
          │SFS: 11.08%│LSS:   6.50%│FSS:   1.57%│HSS:  5.19%│   
          ├───────────┼────────────┼────────────┼───────────┤   
+         │RED: 13.04%│.NML:  7.38%│.WEAK: 1.41%│.SFS: 4.25%│   
+         ├───────────┼────────────┼────────────┼───────────┤   
          │ALT: 26.11%│.NML: 20.65%│.SFS:  5.45%│           │   
          ├───────────┼────────────┼────────────┼───────────┤   
          │2RL: 46.42%│.IN:  19.85%│.OUT: 16.97%│.SFB: 9.60%│   
          ├───────────┼────────────┼────────────┼───────────┤   
          │3RL: 11.82%│.IN:   1.29%│.OUT:  1.45%│.SFB: 9.08%│   
          ├───────────┼────────────┼────────────┼───────────┤   
-         │RED: 13.04%│.NML:  7.38%│.WEAK: 1.41%│.SFS: 4.25%│   
-         ├───────────┼────────────┼────────────┼───────────┤   
-         │I:O:   1.15│FLW:  60.21%│            │           │
+         │FLW: 60.21%│I:O:    1.15│            │           │
          ├───────────┼────────────┼────────────┼───────────┤
          │HLD:   0.00│FLD:   0.00%│RLD:   0.00%│POH:  4.80%│
          ╰───────────┴────────────┴────────────┴───────────╯   
@@ -192,6 +192,10 @@ Keycraft supports the following metrics. Here are some notes:
 #### Trigram Metrics
 | Acronym  | Metric                              | Description                                                    | Examples            |
 |----------|-------------------------------------|----------------------------------------------------------------|---------------------|
+| RED      | Redirections total                  | Total % of redirections                                        |                     |
+| RED-WEAK | Redirections — Weak                 | Redirections on one hand with no index and thumb involvement             | "was", "ese"        |
+| RED-SFS  | Redirections — Same Finger Skipgram | Redirections on one hand that are same-finger skipgrams        | "you", "ter"        |
+| RED-NML  | Redirections — Other                | Other (normal) redirections on one hand                        | "ion", "ate", "ere" |
 | ALT      | Alternation total                   | Total % of hand alternations (ALT-NML + ALT-SFS)               |                     |
 | ALT-SFS  | Alternation — Same Finger Skipgram  | Cross-hand alternations that are same-finger alternations      | "for", "men"        |
 | ALT-NML  | Alternation — Normal                | Cross-hand alternations not classified as SFS     | "and", "ent", "iti" |
@@ -203,16 +207,12 @@ Keycraft supports the following metrics. Here are some notes:
 | 3RL-IN   | 3-key Rolls — Inward                | Three-key roll trigrams classified as inward sequences         | "act", "lin"        |
 | 3RL-OUT  | 3-key Rolls — Outward               | Three-key roll trigrams classified as outward sequences        | "rea", "tes"        |
 | 3RL-SFB  | 3-key Rolls — Same Finger Bigram    | Three-key rolls where first and last keys use the same finger  | "ted", "ill"        |
-| RED      | Redirections total                  | Total % of redirections                                        |                     |
-| RED-WEAK | Redirections — Weak                 | Redirections on one hand with no index and thumb involvement             | "was", "ese"        |
-| RED-SFS  | Redirections — Same Finger Skipgram | Redirections on one hand that are same-finger skipgrams        | "you", "ter"        |
-| RED-NML  | Redirections — Other                | Other (normal) redirections on one hand                        | "ion", "ate", "ere" |
 
 #### Flow Metrics
 | Acronym  | Metric                              | Description                                                    | Examples            |
 |----------|-------------------------------------|----------------------------------------------------------------|---------------------|
-| IN:OUT   | Inward:Outward rolls ratio          | Ratio of inward to outward rolls: (2RL-IN + 3RL-IN) / (2RL-OUT + 3RL-OUT) |                     |
 | FLW      | Flowiness                           | Flow measure: ALT-NML + 2RL-IN + 2RL-OUT + 3RL-IN + 3RL-OUT   |                     |
+| IN:OUT   | Inward:Outward rolls ratio          | Ratio of inward to outward rolls: (2RL-IN + 3RL-IN) / (2RL-OUT + 3RL-OUT) |                     |
 
 #### Load Distribution Deviation & Penalty Metrics
 | Acronym  | Metric                              | Description                                                    | Examples            |

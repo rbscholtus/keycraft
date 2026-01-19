@@ -3,7 +3,7 @@
 // This package supports various keyboard geometries (row-staggered, ortholinear,
 // column-staggered, angle-mod) and computes ergonomic metrics based on n-gram
 // frequencies from text corpora. Metrics include same-finger patterns, lateral stretches,
-// scissors, alternations, rolls, and redirections. See README.md for full metric descriptions.
+// scissors, redirections, alternations, and rolls. See README.md for full metric descriptions.
 package keycraft
 
 import (

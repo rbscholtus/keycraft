@@ -11,18 +11,18 @@ var MetricsMap = map[string][]string{
 	"basic": {
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS",
-		"ALT", "2RL", "3RL", "RED", "RED-WEAK",
-		"IN:OUT", "FLW",
+		"RED", "RED-WEAK", "ALT", "2RL", "3RL",
+		"FLW", "IN:OUT",
 		"HLD", "FLD", "RLD", "POH",
 	},
 	"extended": {
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS", "LSS", "FSS", "HSS",
 		"ALT", "ALT-NML", "ALT-SFS",
+		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
 		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
 		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
-		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
-		"IN:OUT", "FLW",
+		"FLW", "IN:OUT",
 		"HLD", "FLD", "RLD", "POH",
 	},
 	"fingers": {
@@ -35,12 +35,12 @@ var MetricsMap = map[string][]string{
 		"SFB", "LSB", "FSB", "HSB",
 		"SFS", "LSS", "FSS", "HSS",
 		// Trigram metrics
+		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
 		"ALT", "ALT-NML", "ALT-SFS",
 		"2RL", "2RL-IN", "2RL-OUT", "2RL-SFB",
 		"3RL", "3RL-IN", "3RL-OUT", "3RL-SFB",
-		"RED", "RED-NML", "RED-WEAK", "RED-SFS",
 		// Flow metrics
-		"IN:OUT", "FLW",
+		"FLW", "IN:OUT",
 		// Load deviation metrics
 		"HLD", "FLD", "RLD", "POH",
 		// Hand distribution
@@ -396,12 +396,12 @@ func (an *Analyser) analyseSkipgrams() {
 }
 
 // analyseTrigrams computes trigram-based flow metrics by categorizing each trigram:
+//   - RED: Redirections (all on same hand, non-monotonic)
 //   - ALT: Alternations (hand switching)
 //   - 2RL: Two-key rolls (two fingers on same hand)
 //   - 3RL: Three-key rolls (all on same hand, monotonic finger order)
-//   - RED: Redirections (all on same hand, non-monotonic)
 //
-// Each category includes subcategories (e.g., ALT-SFS, 2RL-IN, RED-WEAK).
+// Each category includes subcategories (e.g., RED-WEAK, ALT-SFS, 2RL-IN).
 func (an *Analyser) analyseTrigrams() {
 	var rl2SFB, rl2In, rl2Out, altSFS, altNml, rl3SFB, rl3In, rl3Out, redWeak, redSFS, redNml uint64
 
@@ -487,6 +487,12 @@ func (an *Analyser) analyseTrigrams() {
 	}
 
 	factor := 100 / float64(an.Corpus.TotalTrigramsCount)
+
+	an.Metrics["RED-WEAK"] = float64(redWeak) * factor
+	an.Metrics["RED-SFS"] = float64(redSFS) * factor
+	an.Metrics["RED-NML"] = float64(redNml) * factor
+	an.Metrics["RED"] = an.Metrics["RED-NML"] + an.Metrics["RED-SFS"] + an.Metrics["RED-WEAK"]
+
 	an.Metrics["ALT-SFS"] = float64(altSFS) * factor
 	an.Metrics["ALT-NML"] = float64(altNml) * factor
 	an.Metrics["ALT"] = an.Metrics["ALT-NML"] + an.Metrics["ALT-SFS"]
@@ -501,13 +507,8 @@ func (an *Analyser) analyseTrigrams() {
 	an.Metrics["3RL-OUT"] = float64(rl3Out) * factor
 	an.Metrics["3RL"] = an.Metrics["3RL-SFB"] + an.Metrics["3RL-IN"] + an.Metrics["3RL-OUT"]
 
-	an.Metrics["RED-WEAK"] = float64(redWeak) * factor
-	an.Metrics["RED-SFS"] = float64(redSFS) * factor
-	an.Metrics["RED-NML"] = float64(redNml) * factor
-	an.Metrics["RED"] = an.Metrics["RED-NML"] + an.Metrics["RED-SFS"] + an.Metrics["RED-WEAK"]
-
-	an.Metrics["IN:OUT"] = (an.Metrics["2RL-IN"] + an.Metrics["3RL-IN"]) / (an.Metrics["2RL-OUT"] + an.Metrics["3RL-OUT"])
 	an.Metrics["FLW"] = an.Metrics["2RL-IN"] + an.Metrics["2RL-OUT"] + an.Metrics["3RL-IN"] + an.Metrics["3RL-OUT"] + an.Metrics["ALT-NML"]
+	an.Metrics["IN:OUT"] = (an.Metrics["2RL-IN"] + an.Metrics["3RL-IN"]) / (an.Metrics["2RL-OUT"] + an.Metrics["3RL-OUT"])
 }
 
 // AllMetricsDetails computes detailed analysis for all major metrics.
@@ -896,10 +897,10 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 }
 
 // TrigramDetails categorizes all trigrams into flow patterns:
+//   - RED: Redirections, with subcategories (NML, SFS, WEAK)
 //   - ALT: Alternations (hand switches), with subcategories ALT-NML and ALT-SFS
 //   - 2RL: Two-key rolls, with directions (IN, OUT, SFB)
 //   - 3RL: Three-key rolls, with directions (IN, OUT, SFB)
-//   - RED: Redirections, with subcategories (NML, SFS, WEAK)
 //
 // Returns four MetricDetails, one for each category.
 func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDetails, *MetricDetails) {

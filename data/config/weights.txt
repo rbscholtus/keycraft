@@ -13,6 +13,13 @@ LSS = -1.0
 FSS = -0.666
 HSS = -0.333
 
+# Redirections
+#RED = RED-WEAK + RED-SFS + RED-NML
+RED      = -0.001
+RED-WEAK = -2.666
+RED-SFS  = -0.001
+RED-NML  = -1.333
+
 # Alternations
 #ALT = ALT-SFS + ALT-NML
 ALT     = 0
@@ -32,16 +39,9 @@ ALT-NML = 0
 3RL-IN  = 0
 3RL-OUT = 0
 
-# Redirections
-#RED = RED-WEAK + RED-SFS + RED-NML
-RED      = -0.001
-RED-WEAK = -2.666
-RED-SFS  = -0.001
-RED-NML  = -1.333
-
 # Flow
-IN:OUT = 0
 FLW    = 8
+IN:OUT = 0
 
 # Load Distribution Deviation
 HLD    = -0.5
