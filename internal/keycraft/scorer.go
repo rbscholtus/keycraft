@@ -54,7 +54,7 @@ type Scorer struct {
 func NewScorer(layoutsDir string, corpus *Corpus, targets *TargetLoads, weights *Weights) (*Scorer, error) {
 	analysers, err := LoadAnalysers(layoutsDir, corpus, targets)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not load analysers: %w", err)
 	}
 	medians, iqrs := computeMediansAndIQR(analysers)
 
@@ -297,7 +297,7 @@ type LayoutScore struct {
 func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*Analyser, error) {
 	layoutFiles, err := os.ReadDir(layoutsDir)
 	if err != nil {
-		return nil, fmt.Errorf("error reading layout files from %v: %v", layoutsDir, err)
+		return nil, fmt.Errorf("error reading layout files from %v: %w", layoutsDir, err)
 	}
 
 	var (
@@ -305,6 +305,7 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*
 		mu        sync.Mutex
 		wg        sync.WaitGroup
 		sem       = make(chan struct{}, runtime.GOMAXPROCS(0)) // Semaphore to limit concurrent goroutines
+		errs      = make(chan error, len(layoutFiles))
 	)
 
 	for _, file := range layoutFiles {
@@ -322,7 +323,7 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*
 			layoutPath := filepath.Join(layoutsDir, f.Name())
 			layout, err := NewLayoutFromFile(layoutName, layoutPath)
 			if err != nil {
-				fmt.Println(err)
+				errs <- fmt.Errorf("could not load layout from file %s: %w", layoutPath, err)
 				return
 			}
 			analyser := NewAnalyser(layout, corpus, targets)
@@ -334,6 +335,16 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*
 	}
 
 	wg.Wait()
+	close(errs)
+
+	var allErrors []error
+	for err := range errs {
+		allErrors = append(allErrors, err)
+	}
+
+	if len(allErrors) > 0 {
+		return nil, fmt.Errorf("could not load all analysers: %v", allErrors)
+	}
 
 	return analysers, nil
 }

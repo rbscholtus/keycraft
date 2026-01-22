@@ -1,6 +1,7 @@
 package keycraft
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -42,7 +43,7 @@ func OptimizeLayout(input OptimiseInput, consoleWriter io.Writer) (*OptimiseResu
 		input.LogFile,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not optimize layout: %w", err)
 	}
 
 	return &OptimiseResult{

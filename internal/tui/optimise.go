@@ -23,7 +23,7 @@ func RenderOptimise(result *kc.OptimiseResult, rankingResult *kc.RankingResult, 
 
 	// Render view comparison
 	if err := RenderView(viewResult); err != nil {
-		return fmt.Errorf("failed to render layout analysis: %v", err)
+		return fmt.Errorf("could not render layout analysis: %w", err)
 	}
 
 	// Then render ranking table
@@ -37,7 +37,7 @@ func RenderOptimise(result *kc.OptimiseResult, rankingResult *kc.RankingResult, 
 	}
 
 	if err := RenderRankingTable(rankingResult, displayOpts); err != nil {
-		return fmt.Errorf("failed to render layout rankings: %v", err)
+		return fmt.Errorf("could not render layout rankings: %w", err)
 	}
 
 	return nil

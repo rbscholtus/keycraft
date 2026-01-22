@@ -107,7 +107,7 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 
 	input, err := buildOptimiseInput(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse user input: %w", err)
 	}
 
 	// Open log file if requested
@@ -115,7 +115,7 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 	if logFilePath != "" {
 		f, err := os.Create(logFilePath)
 		if err != nil {
-			return fmt.Errorf("failed to create log file %s: %v", logFilePath, err)
+			return fmt.Errorf("could not create log file %s: %w", logFilePath, err)
 		}
 		defer kc.CloseFile(f)
 		input.LogFile = f
@@ -123,13 +123,13 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 
 	optResult, err := kc.OptimizeLayout(input, os.Stdout)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not optimize layout: %w", err)
 	}
 
 	origPath := filepath.Join(layoutDir, optResult.OriginalLayout.Name+".klf")
 	bestPath := filepath.Join(layoutDir, optResult.BestLayout.Name+".klf")
 	if err := optResult.BestLayout.SaveToFile(bestPath); err != nil {
-		return fmt.Errorf("failed to save best layout to %s: %v", bestPath, err)
+		return fmt.Errorf("could not save best layout to %s: %w", bestPath, err)
 	}
 
 	layoutsToCompare := []string{origPath, bestPath}
@@ -139,11 +139,11 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 		Targets:     input.Targets,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to perform layout analysis: %v", err)
+		return fmt.Errorf("could not perform layout analysis: %w", err)
 	}
 
 	if err := tui.RenderView(viewResult); err != nil {
-		return fmt.Errorf("failed to render view: %v", err)
+		return fmt.Errorf("could not render view: %w", err)
 	}
 
 	rankingInput := kc.RankingInput{
@@ -156,7 +156,7 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 
 	rankingResult, err := kc.ComputeRankings(rankingInput)
 	if err != nil {
-		return fmt.Errorf("failed to compute layout rankings: %v", err)
+		return fmt.Errorf("could not compute layout rankings: %w", err)
 	}
 
 	displayOpts := tui.RankingDisplayOptions{
@@ -169,7 +169,7 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 	}
 
 	if err := tui.RenderRankingTable(rankingResult, displayOpts); err != nil {
-		return fmt.Errorf("failed to render layout rankings: %v", err)
+		return fmt.Errorf("could not render layout rankings: %w", err)
 	}
 
 	return nil
@@ -179,17 +179,17 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 func buildOptimiseInput(c *cli.Command) (kc.OptimiseInput, error) {
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
-		return kc.OptimiseInput{}, err
+		return kc.OptimiseInput{}, fmt.Errorf("could not load corpus: %w", err)
 	}
 
 	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
-		return kc.OptimiseInput{}, err
+		return kc.OptimiseInput{}, fmt.Errorf("could not load target loads: %w", err)
 	}
 
 	weights, err := loadWeightsFromFlags(c)
 	if err != nil {
-		return kc.OptimiseInput{}, err
+		return kc.OptimiseInput{}, fmt.Errorf("could not load weights: %w", err)
 	}
 
 	numGenerations := c.Uint("generations")
@@ -204,7 +204,7 @@ func buildOptimiseInput(c *cli.Command) (kc.OptimiseInput, error) {
 
 	layout, err := loadLayout(c.Args().First())
 	if err != nil {
-		return kc.OptimiseInput{}, err
+		return kc.OptimiseInput{}, fmt.Errorf("could not load layout: %w", err)
 	}
 
 	pinsPath := c.String("pins-file")
@@ -213,7 +213,7 @@ func buildOptimiseInput(c *cli.Command) (kc.OptimiseInput, error) {
 	}
 	pinned, err := kc.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free"), layout)
 	if err != nil {
-		return kc.OptimiseInput{}, err
+		return kc.OptimiseInput{}, fmt.Errorf("could not load pins: %w", err)
 	}
 
 	return kc.OptimiseInput{

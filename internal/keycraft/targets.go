@@ -24,7 +24,7 @@ func NewTargetLoads() *TargetLoads {
 func NewTargetLoadsFromFile(filePath string) (*TargetLoads, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not open file: %w", err)
 	}
 	defer file.Close()
 
@@ -68,7 +68,7 @@ func NewTargetLoadsFromFile(filePath string) (*TargetLoads, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading config file: %v", err)
+		return nil, fmt.Errorf("error reading config file: %w", err)
 	}
 
 	// Fill in any missing fields with defaults
@@ -94,10 +94,10 @@ func NewTargetLoadsFromFile(filePath string) (*TargetLoads, error) {
 func (tl *TargetLoads) SetHandLoad(s string) error {
 	handLoad, err := parseTargetHandLoad(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse target hand load: %w", err)
 	}
 	if err := scaleTargetHandLoad(handLoad); err != nil {
-		return err
+		return fmt.Errorf("could not scale target hand load: %w", err)
 	}
 	tl.TargetHandLoad = handLoad
 	return nil
@@ -109,10 +109,10 @@ func (tl *TargetLoads) SetHandLoad(s string) error {
 func (tl *TargetLoads) SetFingerLoad(s string) error {
 	fingerLoad, err := parseFingerLoad(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse finger load: %w", err)
 	}
 	if err := scaleFingerLoad(fingerLoad); err != nil {
-		return err
+		return fmt.Errorf("could not scale finger load: %w", err)
 	}
 	tl.TargetFingerLoad = fingerLoad
 	return nil
@@ -124,10 +124,10 @@ func (tl *TargetLoads) SetFingerLoad(s string) error {
 func (tl *TargetLoads) SetRowLoad(s string) error {
 	rowLoad, err := parseRowLoad(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse row load: %w", err)
 	}
 	if err := scaleRowLoad(rowLoad); err != nil {
-		return err
+		return fmt.Errorf("could not scale row load: %w", err)
 	}
 	tl.TargetRowLoad = rowLoad
 	return nil
@@ -140,7 +140,7 @@ func (tl *TargetLoads) SetRowLoad(s string) error {
 func (tl *TargetLoads) SetPinkyPenalties(s string) error {
 	pinkyPenalties, err := parsePinkyPenalties(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse pinky penalties: %w", err)
 	}
 	tl.PinkyPenalties = pinkyPenalties
 	return nil
@@ -164,7 +164,7 @@ func parseTargetHandLoad(s string) (*[2]float64, error) {
 		}
 		v, err := strconv.ParseFloat(p, 64)
 		if err != nil || v < 0.0 {
-			return nil, fmt.Errorf("invalid float in target-hand-load at position %d: %v", i, err)
+			return nil, fmt.Errorf("invalid float in target-hand-load at position %d: %w", i, err)
 		}
 		handVals[i] = v
 	}
@@ -227,7 +227,7 @@ func parseFingerLoad(s string) (*[10]float64, error) {
 		}
 		v, err := strconv.ParseFloat(p, 64)
 		if err != nil || v < 0.0 {
-			return nil, fmt.Errorf("invalid float in target-finger-load: %v", err)
+			return nil, fmt.Errorf("invalid float in target-finger-load: %w", err)
 		}
 		fingerVals[i] = v
 	}
@@ -275,7 +275,7 @@ func parseRowLoad(s string) (*[3]float64, error) {
 		}
 		v, err := strconv.ParseFloat(p, 64)
 		if err != nil || v < 0.0 {
-			return nil, fmt.Errorf("invalid float in target-row-load at position %d: %v", i, err)
+			return nil, fmt.Errorf("invalid float in target-row-load at position %d: %w", i, err)
 		}
 		rowVals[i] = v
 	}
@@ -330,7 +330,7 @@ func parsePinkyPenalties(s string) (*[12]float64, error) {
 		}
 		v, err := strconv.ParseFloat(p, 64)
 		if err != nil {
-			return nil, fmt.Errorf("invalid float in pinky-penalties at position %d: %v", i, err)
+			return nil, fmt.Errorf("invalid float in pinky-penalties at position %d: %w", i, err)
 		}
 		pinkyVals[i] = v
 	}

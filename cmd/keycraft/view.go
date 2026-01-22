@@ -44,12 +44,12 @@ func viewAction(ctx context.Context, c *cli.Command) error {
 
 	input, err := buildViewInput(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse user input: %w", err)
 	}
 
 	result, err := kc.ViewLayouts(input)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not view layouts: %w", err)
 	}
 
 	return tui.RenderView(result)
@@ -59,12 +59,12 @@ func viewAction(ctx context.Context, c *cli.Command) error {
 func buildViewInput(c *cli.Command) (kc.ViewInput, error) {
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
-		return kc.ViewInput{}, err
+		return kc.ViewInput{}, fmt.Errorf("could not load corpus: %w", err)
 	}
 
 	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
-		return kc.ViewInput{}, err
+		return kc.ViewInput{}, fmt.Errorf("could not load target loads: %w", err)
 	}
 
 	return kc.ViewInput{

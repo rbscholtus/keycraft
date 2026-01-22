@@ -70,13 +70,13 @@ func rankAction(ctx context.Context, c *cli.Command) error {
 	// 1. Build display options (includes loading weights)
 	displayOpts, err := buildDisplayOptions(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse display options: %w", err)
 	}
 
 	// 2. Parse all CLI flags and build input (using weights from displayOpts)
 	input, err := buildRankingInput(c, displayOpts.Weights)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse user input for rankings: %w", err)
 	}
 
 	// Set corpus name for display (used in table title when deltas are not shown)
@@ -85,7 +85,7 @@ func rankAction(ctx context.Context, c *cli.Command) error {
 	// 3. Compute rankings (business logic)
 	rankings, err := kc.ComputeRankings(input)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not compute rankings: %w", err)
 	}
 
 	// 4. Render results (presentation layer)
@@ -96,12 +96,12 @@ func rankAction(ctx context.Context, c *cli.Command) error {
 func buildRankingInput(c *cli.Command, weights *kc.Weights) (kc.RankingInput, error) {
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
-		return kc.RankingInput{}, err
+		return kc.RankingInput{}, fmt.Errorf("could not load corpus: %w", err)
 	}
 
 	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
-		return kc.RankingInput{}, err
+		return kc.RankingInput{}, fmt.Errorf("could not load target loads: %w", err)
 	}
 
 	// Check if deltas references a specific layout (not "none", "rows", or "median")
@@ -114,7 +114,7 @@ func buildRankingInput(c *cli.Command, weights *kc.Weights) (kc.RankingInput, er
 
 	layouts, err := getLayoutsFromArgs(c, baseLayout)
 	if err != nil {
-		return kc.RankingInput{}, err
+		return kc.RankingInput{}, fmt.Errorf("could not get layouts from args: %w", err)
 	}
 
 	return kc.RankingInput{
@@ -131,7 +131,7 @@ func buildDisplayOptions(c *cli.Command) (tui.RankingDisplayOptions, error) {
 	// Load weights for display and delta coloring
 	weights, err := loadWeightsFromFlags(c)
 	if err != nil {
-		return tui.RankingDisplayOptions{}, err
+		return tui.RankingDisplayOptions{}, fmt.Errorf("could not load weights: %w", err)
 	}
 
 	// Parse output format
@@ -171,7 +171,7 @@ func buildDisplayOptions(c *cli.Command) (tui.RankingDisplayOptions, error) {
 
 		// Validate that all custom metrics exist
 		if err := validateMetrics(customMetrics); err != nil {
-			return tui.RankingDisplayOptions{}, err
+			return tui.RankingDisplayOptions{}, fmt.Errorf("could not validate metrics: %w", err)
 		}
 	}
 
@@ -232,7 +232,7 @@ func getLayoutsFromArgs(c *cli.Command, baseLayout string) ([]string, error) {
 		var err error
 		layouts, err = allLayoutFiles()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not get all layout files: %w", err)
 		}
 	} else {
 		layouts = c.Args().Slice()
@@ -275,7 +275,7 @@ func allLayoutFiles() ([]string, error) {
 
 	entries, err := os.ReadDir(layoutDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read layout directory %s: %v", layoutDir, err)
+		return nil, fmt.Errorf("could not read layout directory %s: %w", layoutDir, err)
 	}
 	for _, entry := range entries {
 		entryName := entry.Name()

@@ -95,7 +95,7 @@ func OptimizeLayoutBLS(
 
 	scorer, err := NewScorer(layoutsDir, corpus, targets, weights)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create scorer: %w", err)
+		return nil, fmt.Errorf("could not create scorer: %w", err)
 	}
 
 	// Create BLS optimizer
@@ -141,7 +141,7 @@ func LoadPins(path string) (*PinnedKeys, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		// This handles both "does not exist" and other errors
-		return nil, fmt.Errorf("failed to open pins file %s: %w", path, err)
+		return nil, fmt.Errorf("could not open pins file %s: %w", path, err)
 	}
 	defer CloseFile(file)
 
@@ -249,7 +249,7 @@ func LoadPinsFromParams(path, pins, free string, sl *SplitLayout) (*PinnedKeys, 
 	if path != "" {
 		loadedPins, err := LoadPins(path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not load pins from file: %w", err)
 		}
 		pinned = loadedPins
 	} else {

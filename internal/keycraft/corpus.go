@@ -217,17 +217,21 @@ func NewCorpusFromFile(name, path string, forceReload bool, coveragePercent floa
 		jsonInfo, jsonErr := os.Stat(jsonPath)
 		srcInfo, srcErr := os.Stat(path)
 		if jsonErr == nil && (os.IsNotExist(srcErr) || (srcErr == nil && jsonInfo.ModTime().After(srcInfo.ModTime()))) {
-			return LoadJSON(jsonPath)
+			corpus, err := LoadJSON(jsonPath)
+			if err != nil {
+				return nil, fmt.Errorf("could not load corpus from cache: %w", err)
+			}
+			return corpus, nil
 		}
 	}
 
 	// Otherwise, load from the text file and save JSON cache
 	c := NewCorpus(name)
 	if err := c.loadFromFileWithWords(path, coveragePercent); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not load corpus from file: %w", err)
 	}
 	if err := c.SaveJSON(jsonPath); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not save corpus cache: %w", err)
 	}
 
 	return c, nil
@@ -370,7 +374,7 @@ func (c *Corpus) addTextWithWords(text string) {
 func (c *Corpus) loadFromFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not open file: %w", err)
 	}
 	defer CloseFile(file)
 
@@ -384,7 +388,7 @@ func (c *Corpus) loadFromFile(path string) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return err
+		return fmt.Errorf("could not read file: %w", err)
 	}
 
 	return nil
@@ -398,7 +402,7 @@ func (c *Corpus) loadFromFile(path string) error {
 func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not open file: %w", err)
 	}
 	defer CloseFile(file)
 
@@ -412,7 +416,7 @@ func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) err
 	}
 
 	if err := scanner.Err(); err != nil {
-		return err
+		return fmt.Errorf("could not read file: %w", err)
 	}
 
 	c.pruneWordsByCoverage(coveragePercent)
@@ -479,14 +483,14 @@ func (c *Corpus) pruneWordsByCoverage(coveragePercent float64) {
 func LoadJSON(jsonPath string) (*Corpus, error) {
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not open corpus cache: %w", err)
 	}
 	defer CloseFile(jsonFile)
 
 	var c Corpus
 	decoder := json.NewDecoder(jsonFile)
 	if err := decoder.Decode(&c); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not decode corpus cache: %w", err)
 	}
 
 	return &c, nil
@@ -496,14 +500,14 @@ func LoadJSON(jsonPath string) (*Corpus, error) {
 func (c *Corpus) SaveJSON(jsonPath string) error {
 	file, err := os.Create(jsonPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not create corpus cache file: %w", err)
 	}
 	defer CloseFile(file)
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(c); err != nil {
-		return err
+		return fmt.Errorf("could not encode corpus cache: %w", err)
 	}
 	return nil
 }

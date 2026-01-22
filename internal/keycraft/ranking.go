@@ -30,7 +30,7 @@ func ComputeRankings(input RankingInput) (*RankingResult, error) {
 	// Load and analyze all layouts (needed for normalization even if we filter later)
 	analysers, err := LoadAnalysers(input.LayoutsDir, input.Corpus, input.Targets)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not load analysers: %w", err)
 	}
 	medians, iqrs := computeMediansAndIQR(analysers)
 
@@ -50,7 +50,7 @@ func ComputeRankings(input RankingInput) (*RankingResult, error) {
 			// // Layout not in the reference set, load it explicitly
 			// layout, err := NewLayoutFromFile(layoutName, fname)
 			// if err != nil {
-			// 	return nil, fmt.Errorf("failed to load layout %s: %v", fname, err)
+			// 	return nil, fmt.Errorf("could not load layout %s: %v", fname, err)
 			// }
 			// analyser = NewAnalyser(layout, input.Corpus, input.Targets)
 			return nil, fmt.Errorf("layout file %s was not found", fname)

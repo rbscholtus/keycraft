@@ -46,7 +46,7 @@ func flipAction(ctx context.Context, c *cli.Command) error {
 	// Load the layout using helper function
 	layout, err := loadLayout(layoutArg)
 	if err != nil {
-		return fmt.Errorf("failed to load layout: %w", err)
+		return fmt.Errorf("could not load layout: %w", err)
 	}
 
 	// Flip the layout horizontally
@@ -59,7 +59,7 @@ func flipAction(ctx context.Context, c *cli.Command) error {
 	outputPath := filepath.Join(layoutDir, layout.Name+".klf")
 
 	if err := layout.SaveToFile(outputPath); err != nil {
-		return fmt.Errorf("failed to save flipped layout: %w", err)
+		return fmt.Errorf("could not save flipped layout: %w", err)
 	}
 
 	fmt.Printf("Flipped layout and saved to: %s.klf\n", layout.Name)

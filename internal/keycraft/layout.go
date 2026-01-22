@@ -271,7 +271,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not open file: %w", err)
 	}
 	defer CloseFile(file)
 
@@ -342,7 +342,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not read file: %w", err)
 	}
 
 	return NewSplitLayout(name, layoutType, runeArray, runeInfoMap), nil
@@ -360,7 +360,7 @@ func (sl *SplitLayout) SaveToFile(path string) error {
 
 	file, err := os.Create(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not create layout file: %w", err)
 	}
 	defer CloseFile(file)
 
@@ -423,9 +423,9 @@ func readLine(scanner *bufio.Scanner) (string, error) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return "", err
+		return "", fmt.Errorf("could not read buffer: %w", err)
 	}
-	return "", fmt.Errorf("unexpected end of file")
+	return "", fmt.Errorf("unexpected end of buffer")
 }
 
 // SFBInfo represents a same-finger bigram: two different keys typed by the same finger.

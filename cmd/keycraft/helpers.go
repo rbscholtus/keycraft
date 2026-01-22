@@ -97,7 +97,7 @@ func loadTargetLoadsFromFlags(c *cli.Command) (*kc.TargetLoads, error) {
 				targets = kc.NewTargetLoads()
 			} else {
 				// User explicitly requested this file - fail with error
-				return nil, err
+				return nil, fmt.Errorf("could not create new target loads from file: %w", err)
 			}
 		}
 	}
@@ -105,25 +105,25 @@ func loadTargetLoadsFromFlags(c *cli.Command) (*kc.TargetLoads, error) {
 	// Apply CLI flag overrides
 	if c.IsSet("target-hand-load") {
 		if err := targets.SetHandLoad(c.String("target-hand-load")); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not set hand load: %w", err)
 		}
 	}
 
 	if c.IsSet("target-finger-load") {
 		if err := targets.SetFingerLoad(c.String("target-finger-load")); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not set finger load: %w", err)
 		}
 	}
 
 	if c.IsSet("target-row-load") {
 		if err := targets.SetRowLoad(c.String("target-row-load")); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not set row load: %w", err)
 		}
 	}
 
 	if c.IsSet("pinky-penalties") {
 		if err := targets.SetPinkyPenalties(c.String("pinky-penalties")); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not set pinky penalties: %w", err)
 		}
 	}
 

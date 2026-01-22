@@ -32,7 +32,10 @@ func NewWeights() *Weights {
 func NewWeightsFromString(weightsStr string) (*Weights, error) {
 	w := NewWeights()
 	err := w.AddWeightsFromString(weightsStr)
-	return w, err
+	if err != nil {
+		return nil, fmt.Errorf("could not add weights from string: %w", err)
+	}
+	return w, nil
 }
 
 // NewWeightsFromParams constructs weights from an optional file and CLI string.
@@ -42,13 +45,13 @@ func NewWeightsFromParams(path, weightsStr string) (*Weights, error) {
 	// Load weights from a file if specified.
 	if path != "" {
 		if err := weights.AddWeightsFromFile(path); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not add weights from file: %w", err)
 		}
 	}
 
 	// Override or add weights from the --weights string flag.
 	if err := weights.AddWeightsFromString(weightsStr); err != nil {
-		return nil, fmt.Errorf("failed to parse weights: %v", err)
+		return nil, fmt.Errorf("could not parse weights from string: %w", err)
 	}
 
 	return weights, nil
@@ -58,14 +61,14 @@ func NewWeightsFromParams(path, weightsStr string) (*Weights, error) {
 func (w *Weights) AddWeightsFromFile(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("failed to read weights file %q: %v", path, err)
+		return fmt.Errorf("could not read weights file %q: %w", path, err)
 	}
 
 	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "#") && line != "" {
 			if err := w.AddWeightsFromString(line); err != nil {
-				return fmt.Errorf("failed to parse weights from file %q: %v", path, err)
+				return fmt.Errorf("could not parse weights from file %q: %w", path, err)
 			}
 		}
 	}

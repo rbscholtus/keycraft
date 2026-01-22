@@ -100,19 +100,19 @@ func generateAction(ctx context.Context, c *cli.Command) error {
 	// Build GeneratorInput from flags
 	input, err := buildGeneratorInput(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse user input: %w", err)
 	}
 
 	// Generate layout (name is set inside NewRandomLayout)
 	layout, err := kc.NewRandomLayout(input)
 	if err != nil {
-		return fmt.Errorf("failed to generate layout: %v", err)
+		return fmt.Errorf("could not generate random layout: %w", err)
 	}
 
 	// Save generated layout
 	layoutPath := filepath.Join(layoutDir, layout.Name+".klf")
 	if err := layout.SaveToFile(layoutPath); err != nil {
-		return fmt.Errorf("failed to save layout: %v", err)
+		return fmt.Errorf("could not save layout: %w", err)
 	}
 	fmt.Printf("Generated layout saved to: %s\n", layoutPath)
 
@@ -189,19 +189,19 @@ func runOptimizationAfterGeneration(c *cli.Command, generatedLayout *kc.SplitLay
 	// Load corpus
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not load corpus for optimization: %w", err)
 	}
 
 	// Load targets
 	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not load target loads for optimization: %w", err)
 	}
 
 	// Load weights
 	weights, err := loadWeightsFromFlags(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not load weights for optimization: %w", err)
 	}
 
 	// Build optimization input
@@ -229,7 +229,7 @@ func runOptimizationAfterGeneration(c *cli.Command, generatedLayout *kc.SplitLay
 	// Save optimized layout
 	bestPath := filepath.Join(layoutDir, optResult.BestLayout.Name+".klf")
 	if err := optResult.BestLayout.SaveToFile(bestPath); err != nil {
-		return fmt.Errorf("failed to save optimized layout: %w", err)
+		return fmt.Errorf("could not save optimized layout: %w", err)
 	}
 
 	// Show comparison
@@ -242,11 +242,11 @@ func runOptimizationAfterGeneration(c *cli.Command, generatedLayout *kc.SplitLay
 		Targets:     targets,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to analyse optimised layout: %w", err)
+		return fmt.Errorf("could not analyse optimised layout: %w", err)
 	}
 
 	if err := tui.RenderView(viewResult); err != nil {
-		return fmt.Errorf("failed to render optimised layout: %w", err)
+		return fmt.Errorf("could not render optimised layout: %w", err)
 	}
 
 	// Show ranking comparison
@@ -260,7 +260,7 @@ func runOptimizationAfterGeneration(c *cli.Command, generatedLayout *kc.SplitLay
 
 	rankingResult, err := kc.ComputeRankings(rankingInput)
 	if err != nil {
-		return fmt.Errorf("failed to compute layout rankings: %w", err)
+		return fmt.Errorf("could not compute layout rankings: %w", err)
 	}
 
 	displayOpts := tui.RankingDisplayOptions{
@@ -273,7 +273,7 @@ func runOptimizationAfterGeneration(c *cli.Command, generatedLayout *kc.SplitLay
 	}
 
 	if err := tui.RenderRankingTable(rankingResult, displayOpts); err != nil {
-		return fmt.Errorf("failed to render layout rankings: %v", err)
+		return fmt.Errorf("could not render layout rankings: %w", err)
 	}
 
 	return nil

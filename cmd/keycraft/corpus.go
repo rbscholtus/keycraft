@@ -96,13 +96,13 @@ func corpusAction(ctx context.Context, c *cli.Command) error {
 	// 1. Build input from CLI flags
 	input, err := buildCorpusInput(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse user input: %w", err)
 	}
 
 	// 2. Process (business logic in internal/keycraft/)
 	result, err := kc.DisplayCorpus(input)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not display corpus: %w", err)
 	}
 
 	// 3. Render (presentation layer in tui package)
@@ -113,7 +113,7 @@ func corpusAction(ctx context.Context, c *cli.Command) error {
 func buildCorpusInput(c *cli.Command) (kc.CorpusInput, error) {
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
-		return kc.CorpusInput{}, err
+		return kc.CorpusInput{}, fmt.Errorf("could not load corpus: %w", err)
 	}
 
 	nrows := c.Int("corpus-rows")

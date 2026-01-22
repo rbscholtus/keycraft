@@ -284,7 +284,7 @@ func renderCSV(w io.Writer, scores []kc.LayoutScore, metrics []string, opts Rank
 	header := []string{"Rank", "Name", "Th", "Score"}
 	header = append(header, metrics...)
 	if err := writer.Write(header); err != nil {
-		return err
+		return fmt.Errorf("could not write csv header: %w", err)
 	}
 
 	// Optionally write weight row
@@ -295,7 +295,7 @@ func renderCSV(w io.Writer, scores []kc.LayoutScore, metrics []string, opts Rank
 			weightRow = append(weightRow, fmt.Sprintf("%.2f", weight))
 		}
 		if err := writer.Write(weightRow); err != nil {
-			return err
+			return fmt.Errorf("could not write csv weights row: %w", err)
 		}
 	}
 
@@ -355,7 +355,7 @@ func renderCSV(w io.Writer, scores []kc.LayoutScore, metrics []string, opts Rank
 		}
 
 		if err := writer.Write(dataRow); err != nil {
-			return err
+			return fmt.Errorf("could not write csv data row: %w", err)
 		}
 
 		prevMetrics = currMetrics

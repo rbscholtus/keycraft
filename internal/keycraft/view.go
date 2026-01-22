@@ -1,6 +1,7 @@
 package keycraft
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -28,7 +29,7 @@ func ViewLayouts(input ViewInput) (*ViewResult, error) {
 		name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 		layout, err := NewLayoutFromFile(name, path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not create new layout from file: %w", err)
 		}
 		analyser := NewAnalyser(layout, input.Corpus, input.Targets)
 		analysers = append(analysers, analyser)

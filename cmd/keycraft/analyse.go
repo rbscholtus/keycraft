@@ -93,12 +93,12 @@ func analyseAction(ctx context.Context, c *cli.Command) error {
 
 	input, err := buildAnalyseInput(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse user input: %w", err)
 	}
 
 	result, err := kc.AnalyseLayouts(input)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not analyse layouts: %w", err)
 	}
 
 	displayOpts := kc.AnalyseDisplayOptions{
@@ -114,12 +114,12 @@ func analyseAction(ctx context.Context, c *cli.Command) error {
 func buildAnalyseInput(c *cli.Command) (kc.AnalyseInput, error) {
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
-		return kc.AnalyseInput{}, err
+		return kc.AnalyseInput{}, fmt.Errorf("could not load corpus: %w", err)
 	}
 
 	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
-		return kc.AnalyseInput{}, err
+		return kc.AnalyseInput{}, fmt.Errorf("could not load target loads: %w", err)
 	}
 
 	return kc.AnalyseInput{
