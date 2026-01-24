@@ -17,29 +17,7 @@ func createTestLayout() *SplitLayout {
 		' ', 0, 0, ' ', 0, 0,
 	}
 
-	runeInfo := make(map[rune]KeyInfo)
-	for i, r := range runes {
-		if r != 0 {
-			// Calculate row and column from index
-			var row, col uint8
-			if i < 12 {
-				row = 0
-				col = uint8(i)
-			} else if i < 24 {
-				row = 1
-				col = uint8(i - 12)
-			} else if i < 36 {
-				row = 2
-				col = uint8(i - 24)
-			} else {
-				row = 3
-				col = uint8(i - 36)
-			}
-			runeInfo[r] = NewKeyInfo(row, col, ROWSTAG)
-		}
-	}
-
-	return NewSplitLayout("test", ROWSTAG, runes, runeInfo)
+	return NewSplitLayout("test", ROWSTAG, runes)
 }
 
 // TestLoadPins_ValidFile tests loading a valid pins file.
