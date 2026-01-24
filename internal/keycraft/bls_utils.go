@@ -203,7 +203,7 @@ func LoadPins(path string) (*PinnedKeys, error) {
 // LoadPinsFromParams configures which keys are pinned during optimization.
 // Three modes:
 //  1. Load from pins file (path) - uses pin file format
-//  2. Pin specific characters (pins) - comma-separated characters to fix
+//  2. Pin specific characters (pins) - sequence of characters to fix
 //  3. Free specific characters (free) - all others are pinned
 //
 // Modes 1 and 2 can be combined, but mode 3 (free) is mutually exclusive.
