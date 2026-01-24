@@ -351,9 +351,21 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*
 
 // computeMediansAndIQR computes median and interquartile range (IQR) for each metric
 // across all analysers. These values are used for robust normalization of layout scores.
+// Only uses reference layouts for normalization, excluding layouts that start with "_" or
+// contain "-flipped", "-best", or "-opt" in their name.
 func computeMediansAndIQR(analysers []*Analyser) (map[string]float64, map[string]float64) {
 	metrics := make(map[string][]float64)
 	for _, analyser := range analysers {
+		layoutName := analyser.Layout.Name
+
+		// Skip non-reference layouts for normalization statistics
+		if strings.HasPrefix(layoutName, "_") ||
+			strings.Contains(layoutName, "-flipped") ||
+			strings.Contains(layoutName, "-best") ||
+			strings.Contains(layoutName, "-opt") {
+			continue
+		}
+
 		for metric, value := range analyser.Metrics {
 			metrics[metric] = append(metrics[metric], value)
 		}
