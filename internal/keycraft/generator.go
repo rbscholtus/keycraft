@@ -153,25 +153,8 @@ func NewRandomLayout(input GeneratorInput) (*SplitLayout, error) {
 		remainderIdx++
 	}
 
-	// Build RuneInfo map
-	runeInfo := make(map[rune]KeyInfo)
-	for idx := range 42 {
-		r := runes[idx]
-		if r == 0 {
-			continue // Skip empty positions
-		}
-
-		// Calculate row and column from index
-		row := uint8(idx / 12)
-		col := uint8(idx % 12)
-
-		// Get key info for this position
-		ki := NewKeyInfo(row, col, input.LayoutType)
-		runeInfo[r] = ki
-	}
-
 	// Create the layout using NewSplitLayout (which precalculates all data structures)
-	layout := NewSplitLayout("", input.LayoutType, runes, runeInfo)
+	layout := NewSplitLayout("", input.LayoutType, runes)
 
 	// Generate and set the layout name
 	layout.Name = layout.generateLayoutName()

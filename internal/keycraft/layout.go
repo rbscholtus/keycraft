@@ -89,7 +89,21 @@ type SplitLayout struct {
 
 // NewSplitLayout creates a new split layout and initializes precomputed ergonomic patterns
 // (lateral stretches and scissors) based on the layout geometry.
-func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune, runeInfo map[rune]KeyInfo) *SplitLayout {
+func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune) *SplitLayout {
+	// Construct runeInfo from runes and layoutType
+	runeInfo := make(map[rune]KeyInfo, 42)
+	for idx, r := range runes {
+		if r != 0 {
+			row := uint8(idx / 12)
+			col := uint8(idx % 12)
+			if idx >= 36 {
+				row = 3
+				col = uint8(idx - 36)
+			}
+			runeInfo[r] = NewKeyInfo(row, col, layoutType)
+		}
+	}
+
 	sl := &SplitLayout{
 		Name:             name,
 		LayoutType:       layoutType,
@@ -301,7 +315,6 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	}
 
 	var runeArray [42]rune
-	runeInfoMap := make(map[rune]KeyInfo, 42)
 	seenRunes := make(map[rune]struct{})
 	expectedKeys := []int{12, 12, 12, 6}
 
@@ -333,7 +346,6 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 						path, r, row+1, col+1)
 				}
 				seenRunes[r] = struct{}{}
-				runeInfoMap[r] = NewKeyInfo(uint8(row), uint8(col), layoutType)
 			}
 
 			runeArray[index] = r
@@ -345,7 +357,7 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 		return nil, fmt.Errorf("could not read file: %w", err)
 	}
 
-	return NewSplitLayout(name, layoutType, runeArray, runeInfoMap), nil
+	return NewSplitLayout(name, layoutType, runeArray), nil
 }
 
 // SaveToFile saves the layout to a .klf file in the standard format.
