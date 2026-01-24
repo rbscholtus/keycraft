@@ -623,7 +623,7 @@ func (an *Analyser) SFBiDetails() *MetricDetails {
 		if key1.Finger == key2.Finger && key1.Index != key2.Index {
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
-			kpDist := an.Layout.Distance(key1.Index, key2.Index)
+			kpDist := an.Layout.MustDistance(key1.Index, key2.Index)
 			ma.NGramDist[biStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(biCnt)
 
@@ -660,7 +660,7 @@ func (an *Analyser) LSBiDetails() *MetricDetails {
 
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
-			kpDist := an.Layout.Distance(lsb.KeyIdx1, lsb.KeyIdx2)
+			kpDist := an.Layout.MustDistance(lsb.KeyIdx1, lsb.KeyIdx2)
 			ma.NGramDist[biStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(biCnt)
 
@@ -704,7 +704,7 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 		bi := Bigram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
-			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
+			dist := an.Layout.MustDistance(sci.keyIdx1, sci.keyIdx2).Distance
 			ma.NGramCount[biStr] = biCnt
 			ma.TotalNGrams += biCnt
 			ma.NGramDist[biStr] = dist
@@ -726,7 +726,7 @@ func (an *Analyser) ScissBiDetails() (*MetricDetails, *MetricDetails) {
 		bi := Bigram{rune1, an.Layout.Runes[sci.keyIdx2]}
 		if biCnt, ok := an.Corpus.Bigrams[bi]; ok {
 			biStr := bi.String()
-			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
+			dist := an.Layout.MustDistance(sci.keyIdx1, sci.keyIdx2).Distance
 			ma2.NGramCount[biStr] = biCnt
 			ma2.TotalNGrams += biCnt
 			ma2.NGramDist[biStr] = dist
@@ -772,7 +772,7 @@ func (an *Analyser) SFSkpDetails() *MetricDetails {
 		if key1.Finger == key2.Finger && key1.Index != key2.Index {
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
-			kpDist := an.Layout.Distance(key1.Index, key2.Index)
+			kpDist := an.Layout.MustDistance(key1.Index, key2.Index)
 			ma.NGramDist[skpStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(skpCnt)
 
@@ -809,7 +809,7 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
-			kpDist := an.Layout.Distance(uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2))
+			kpDist := an.Layout.MustDistance(uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2))
 			ma.NGramDist[skpStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(skpCnt)
 
@@ -853,7 +853,7 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
-			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
+			dist := an.Layout.MustDistance(sci.keyIdx1, sci.keyIdx2).Distance
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
 			ma.NGramDist[skpStr] = dist
@@ -876,7 +876,7 @@ func (an *Analyser) ScissSkpDetails() (*MetricDetails, *MetricDetails) {
 		if skpCnt, ok := an.Corpus.Skipgrams[skp]; ok {
 			skpStr := skp.String()
 
-			dist := an.Layout.Distance(sci.keyIdx1, sci.keyIdx2).Distance
+			dist := an.Layout.MustDistance(sci.keyIdx1, sci.keyIdx2).Distance
 			ma2.NGramCount[skpStr] = skpCnt
 			ma2.TotalNGrams += skpCnt
 			ma2.NGramDist[skpStr] = dist

@@ -93,12 +93,12 @@ func NewKeyInfo(row, col uint8, layoutType LayoutType) KeyInfo {
 	}
 }
 
-// Distance returns the precomputed distance between two key indices.
-// If the key pair is not found, it returns nil.
-func (sl *SplitLayout) Distance(k1, k2 uint8) *KeyPairDistance {
+// MustDistance returns the precomputed distance between two key indices.
+// If the key pair is not found, it panics.
+func (sl *SplitLayout) MustDistance(k1, k2 uint8) *KeyPairDistance {
 	kpd, ok := (*sl.KeyPairDistances)[KeyPair{k1, k2}]
 	if !ok {
-		return nil
+		panic(fmt.Sprintf("KeyPair[%d,%d] does not exist in KeyPairDistance", k1, k2))
 	}
 	return &kpd
 }
