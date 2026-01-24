@@ -293,6 +293,7 @@ type LayoutScore struct {
 }
 
 // LoadAnalysers loads and analyses all .klf layout files from a directory in parallel.
+// Only loads reference layouts, excluding files that start with "_" or contain "-flipped", "-best", or "-opt".
 // Uses bounded concurrency based on GOMAXPROCS to avoid overloading the system.
 func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*Analyser, error) {
 	layoutFiles, err := os.ReadDir(layoutsDir)
@@ -309,7 +310,16 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*
 	)
 
 	for _, file := range layoutFiles {
-		if !strings.HasSuffix(strings.ToLower(file.Name()), ".klf") {
+		fileName := file.Name()
+		if !strings.HasSuffix(strings.ToLower(fileName), ".klf") {
+			continue
+		}
+
+		// Skip non-reference layouts: those starting with "_" or containing "-flipped", "-best", or "-opt"
+		if strings.HasPrefix(fileName, "_") ||
+			strings.Contains(fileName, "-flipped") ||
+			strings.Contains(fileName, "-best") ||
+			strings.Contains(fileName, "-opt") {
 			continue
 		}
 
