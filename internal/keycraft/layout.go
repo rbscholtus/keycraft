@@ -14,6 +14,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 )
 
 // Finger constants representing fingers 0-9.
@@ -110,6 +111,10 @@ func NewSplitLayout(name string, layoutType LayoutType, runes [42]rune) *SplitLa
 		Runes:            runes,
 		RuneInfo:         runeInfo,
 		KeyPairDistances: &keyDistances[layoutType],
+	}
+
+	if name == "" {
+		sl.Name = sl.generateLayoutName()
 	}
 
 	// Populate KeyInfos array for ASCII printable runes (32-126)
@@ -360,6 +365,34 @@ func NewLayoutFromFile(name, path string) (*SplitLayout, error) {
 	return NewSplitLayout(name, layoutType, runeArray), nil
 }
 
+// generateLayoutName creates an auto-generated name: _<chars>-<random>
+// Extracts lowercase a-z characters from positions 13-16, 19-22, 36-41.
+// Generates a random hexadecimal suffix based on UnixNano timestamp.
+func (sl *SplitLayout) generateLayoutName() string {
+	var b strings.Builder
+	b.Grow(20)
+
+	b.WriteByte('_') // Prefix with underscore
+
+	for _, i := range [14]int{13, 14, 15, 16, 19, 20, 21, 22, 36, 37, 38, 39, 40, 41} {
+		if r := sl.Runes[i]; 'a' <= r && r <= 'z' {
+			b.WriteRune(r)
+		}
+	}
+
+	b.WriteByte('-')
+
+	now := time.Now().UnixNano()
+	suffix := uint64(now & 0xFFFF)
+
+	const hex = "0123456789abcdef"
+	for i := 3; i >= 0; i-- {
+		b.WriteByte(hex[(suffix>>(i*4))&0xF])
+	}
+
+	return b.String()
+}
+
 // SaveToFile saves the layout to a .klf file in the standard format.
 func (sl *SplitLayout) SaveToFile(path string) error {
 	inverseKeyMap := map[rune]string{
@@ -536,7 +569,7 @@ func (sl *SplitLayout) initLSBs() {
 			}
 
 			// Check if distance exceeds threshold
-			dx := sl.Distance(uint8(key1), uint8(key2)).ColDist
+			dx := sl.MustDistance(uint8(key1), uint8(key2)).ColDist
 			if dx >= minHorDistance {
 				sl.LSBs = append(sl.LSBs, LSBInfo{uint8(key1), uint8(key2), dx})
 			}
@@ -607,7 +640,7 @@ func (sl *SplitLayout) initScissorPairs(configs []scissorConfig, out *[]ScissorI
 				}
 
 				if cfg.fingerPairs[[2]uint8{ki1.Finger, ki2.Finger}] {
-					kp := sl.Distance(i1, i2)
+					kp := sl.MustDistance(i1, i2)
 					angle := math.Atan2(kp.RowDist, kp.ColDist) * 180 / math.Pi
 
 					*out = append(*out,
