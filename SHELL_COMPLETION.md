@@ -80,7 +80,7 @@ After setting up completion, try these commands:
 
 ```bash
 keycraft <TAB>              # Shows all available commands
-keycraft opt<TAB>           # Completes to "optimise"
+keycraft opt<TAB>           # Completes to "optimize"
 keycraft view <TAB>         # Shows available .klf layout files
 keycraft corpus --corpus <TAB>  # Shows available corpus files
 keycraft rank --co<TAB>     # Completes to --corpus or --coverage
