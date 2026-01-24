@@ -5,8 +5,8 @@ import (
 	"io"
 )
 
-// OptimiseInput encapsulates parameters for BLS optimization.
-type OptimiseInput struct {
+// OptimizeInput encapsulates parameters for BLS optimization.
+type OptimizeInput struct {
 	Layout         *SplitLayout
 	LayoutsDir     string
 	Corpus         *Corpus
@@ -19,15 +19,15 @@ type OptimiseInput struct {
 	LogFile        io.Writer
 }
 
-// OptimiseResult contains optimization results.
-type OptimiseResult struct {
+// OptimizeResult contains optimization results.
+type OptimizeResult struct {
 	OriginalLayout *SplitLayout
 	BestLayout     *SplitLayout
 }
 
 // OptimizeLayout performs BLS optimization.
 // This is the pure computation function that doesn't handle I/O or rendering.
-func OptimizeLayout(input OptimiseInput, consoleWriter io.Writer) (*OptimiseResult, error) {
+func OptimizeLayout(input OptimizeInput, consoleWriter io.Writer) (*OptimizeResult, error) {
 	// Run optimization
 	best, err := OptimizeLayoutBLS(
 		input.Layout,
@@ -46,7 +46,7 @@ func OptimizeLayout(input OptimiseInput, consoleWriter io.Writer) (*OptimiseResu
 		return nil, fmt.Errorf("could not optimize layout: %w", err)
 	}
 
-	return &OptimiseResult{
+	return &OptimizeResult{
 		OriginalLayout: input.Layout,
 		BestLayout:     best,
 	}, nil

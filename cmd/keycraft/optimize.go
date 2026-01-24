@@ -11,8 +11,8 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// optimiseFlags are flags specific to the optimise command
-var optimiseFlags = []cli.Flag{
+// optimizeFlags are flags specific to the optimize command
+var optimizeFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:    "pins-file",
 		Aliases: []string{"pf"},
@@ -63,26 +63,26 @@ var optimiseFlags = []cli.Flag{
 	},
 }
 
-// optimiseFlagsSlice returns all flags for the optimise command
-func optimiseFlagsSlice() []cli.Flag {
+// optimizeFlagsSlice returns all flags for the optimize command
+func optimizeFlagsSlice() []cli.Flag {
 	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties", "weights-file", "weights")
-	return append(commonFlags, optimiseFlags...)
+	return append(commonFlags, optimizeFlags...)
 }
 
-// optimiseCommand defines the "optimise" CLI command for running Breakout Local Search (BLS)
+// optimizeCommand defines the "optimize" CLI command for running Breakout Local Search (BLS)
 // optimization on a keyboard layout.
-var optimiseCommand = &cli.Command{
-	Name:          "optimise",
+var optimizeCommand = &cli.Command{
+	Name:          "optimize",
 	Aliases:       []string{"o"},
-	Usage:         "Optimise a keyboard layout using Breakout Local Search (BLS)",
-	Flags:         optimiseFlagsSlice(),
+	Usage:         "Optimize a keyboard layout using Breakout Local Search (BLS)",
+	Flags:         optimizeFlagsSlice(),
 	ArgsUsage:     "<layout>",
 	Before:        validateOptFlags,
-	Action:        optimiseAction,
+	Action:        optimizeAction,
 	ShellComplete: layoutShellComplete,
 }
 
-// validateOptFlags validates CLI flags before running the optimise command.
+// validateOptFlags validates CLI flags before running the optimize command.
 func validateOptFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
 	// Skip validation during shell completion
 	// Check os.Args directly since -- prevents flag parsing
@@ -96,16 +96,16 @@ func validateOptFlags(ctx context.Context, c *cli.Command) (context.Context, err
 	return ctx, nil
 }
 
-// optimiseAction manages the full optimization workflow: it builds the
+// optimizeAction manages the full optimization workflow: it builds the
 // optimization input from CLI flags, executes the BLS algorithm, persists the
 // best discovered layout, and generates a comparative ranking against the
 // original layout.
-func optimiseAction(ctx context.Context, c *cli.Command) error {
+func optimizeAction(ctx context.Context, c *cli.Command) error {
 	if isShellCompletion() {
 		return nil
 	}
 
-	input, err := buildOptimiseInput(c)
+	input, err := buildOptimizeInput(c)
 	if err != nil {
 		return fmt.Errorf("could not parse user input: %w", err)
 	}
@@ -175,36 +175,36 @@ func optimiseAction(ctx context.Context, c *cli.Command) error {
 	return nil
 }
 
-// buildOptimiseInput gathers all input parameters for layout optimization.
-func buildOptimiseInput(c *cli.Command) (kc.OptimiseInput, error) {
+// buildOptimizeInput gathers all input parameters for layout optimization.
+func buildOptimizeInput(c *cli.Command) (kc.OptimizeInput, error) {
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
-		return kc.OptimiseInput{}, fmt.Errorf("could not load corpus: %w", err)
+		return kc.OptimizeInput{}, fmt.Errorf("could not load corpus: %w", err)
 	}
 
 	targets, err := loadTargetLoadsFromFlags(c)
 	if err != nil {
-		return kc.OptimiseInput{}, fmt.Errorf("could not load target loads: %w", err)
+		return kc.OptimizeInput{}, fmt.Errorf("could not load target loads: %w", err)
 	}
 
 	weights, err := loadWeightsFromFlags(c)
 	if err != nil {
-		return kc.OptimiseInput{}, fmt.Errorf("could not load weights: %w", err)
+		return kc.OptimizeInput{}, fmt.Errorf("could not load weights: %w", err)
 	}
 
 	numGenerations := c.Uint("generations")
 	if numGenerations <= 0 {
-		return kc.OptimiseInput{}, fmt.Errorf("number of generations must be above 0. Got: %d", numGenerations)
+		return kc.OptimizeInput{}, fmt.Errorf("number of generations must be above 0. Got: %d", numGenerations)
 	}
 
 	maxTime := c.Uint("maxtime")
 	if maxTime <= 0 {
-		return kc.OptimiseInput{}, fmt.Errorf("maximum time must be above 0. Got: %d", maxTime)
+		return kc.OptimizeInput{}, fmt.Errorf("maximum time must be above 0. Got: %d", maxTime)
 	}
 
 	layout, err := loadLayout(c.Args().First())
 	if err != nil {
-		return kc.OptimiseInput{}, fmt.Errorf("could not load layout: %w", err)
+		return kc.OptimizeInput{}, fmt.Errorf("could not load layout: %w", err)
 	}
 
 	pinsPath := c.String("pins-file")
@@ -213,10 +213,10 @@ func buildOptimiseInput(c *cli.Command) (kc.OptimiseInput, error) {
 	}
 	pinned, err := kc.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free"), layout)
 	if err != nil {
-		return kc.OptimiseInput{}, fmt.Errorf("could not load pins: %w", err)
+		return kc.OptimizeInput{}, fmt.Errorf("could not load pins: %w", err)
 	}
 
-	return kc.OptimiseInput{
+	return kc.OptimizeInput{
 		Layout:         layout,
 		LayoutsDir:     layoutDir,
 		Corpus:         corpus,

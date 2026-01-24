@@ -6,9 +6,9 @@ import (
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 )
 
-// RenderOptimise renders optimization results to stdout.
+// RenderOptimize renders optimization results to stdout.
 // Displays analysis comparison and ranking table for original vs optimized layouts.
-func RenderOptimise(result *kc.OptimiseResult, rankingResult *kc.RankingResult, weights *kc.Weights) error {
+func RenderOptimize(result *kc.OptimizeResult, rankingResult *kc.RankingResult, weights *kc.Weights) error {
 	// First, show analysis comparison using view rendering
 	viewResult := &kc.ViewResult{
 		Analysers: []*kc.Analyser{},
