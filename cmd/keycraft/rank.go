@@ -254,11 +254,11 @@ func getLayoutsFromArgs(c *cli.Command, baseLayout string) ([]string, error) {
 
 	if baseLayout != "" {
 		// // Handle baseLayout similarly
-		var baseLayoutPath string
+		// var baseLayoutPath string
 		// if _, err := os.Stat(baseLayout); err == nil {
 		// 	baseLayoutPath, _ = filepath.Abs(baseLayout)
 		// } else {
-		baseLayoutPath = filepath.Join(layoutDir, ensureKlf(baseLayout))
+		baseLayoutPath := filepath.Join(layoutDir, ensureKlf(baseLayout))
 		// }
 
 		if !slices.Contains(layouts, baseLayoutPath) {
