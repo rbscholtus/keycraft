@@ -6,7 +6,7 @@
 [![Build](https://github.com/rbscholtus/keycraft/actions/workflows/go.yml/badge.svg)](https://github.com/rbscholtus/keycraft/actions)
 [![Go Reference](https://pkg.go.dev/badge/github.com/rbscholtus/keycraft.svg)](https://pkg.go.dev/github.com/rbscholtus/keycraft)
 
-Keycraft is a Golang-based command-line utility for analysing, comparing, and optimising keyboard layouts. It helps layout designers quickly evaluate efficiency with detailed metrics, rankings, and visualizations.
+Keycraft is a Golang-based command-line utility for analysing, comparing, and optimizing keyboard layouts. It helps layout designers quickly evaluate efficiency with detailed metrics, rankings, and visualizations.
 
 ## Basic analysis example (QWERTY; Shai corpus)
 
@@ -117,7 +117,7 @@ keycraft a qwerty colemak dvorak
 # Note many metrics are considered negative; they are written with a -
 keycraft r --weights sfb=-1000
 
-# Optimise the qwerty layout but keeping its signature keys in place
+# Optimize the qwerty layout but keeping its signature keys in place
 keycraft o --pins qwerty qwerty
 ```
 
@@ -140,7 +140,7 @@ go install github.com/rbscholtus/keycraft/cmd/keycraft@latest
 - Compare layouts side by side
 - Analyse detailed layout metrics in tables
 - Rank layouts using customizable weights
-- Optimise layouts
+- Optimize layouts
 
 ### Advanced Features
 
@@ -157,7 +157,7 @@ go install github.com/rbscholtus/keycraft/cmd/keycraft@latest
 - Supports user-defined weights for all metrics, using a weights file and from the command-line
 - Supports a default weights file, eliminating the need to specify the weights for every command
 - Supports normalisation of metrics using stable scaling (using the median and inter-quartile range of each metric)
-- Supports optimising a layout using Breakout Local Search (BLS)
+- Supports optimizing a layout using Breakout Local Search (BLS)
 - Supports pinning specific keys using a .pin file and from the command-line
 - Supports "freeing" specific keys (pinning all others) from the command-line
 - Supports MacOS (tested), Linux, Windows (tested)
@@ -325,7 +325,7 @@ Use the `help` command to get help for the tool or a specific command. Most comm
 keycraft help
 
 # Get help on a specific commands
-keycraft help optimise
+keycraft help optimize
 
 # Short version of the above
 keycraft h o
@@ -345,7 +345,7 @@ COMMANDS:
    view, v      Analyse and display one or more keyboard layouts
    analyse, a   Analyse one or more keyboard layouts in detail
    rank, r      Rank keyboard layouts and optionally view deltas
-   optimise, o  Optimise a keyboard layout using Breakout Local Search (BLS)
+   optimize, o  Optimize a keyboard layout using Breakout Local Search (BLS)
    help, h      Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
@@ -472,23 +472,23 @@ keycraft r -w sfb=-1000
 - The median layout is determined by taking the median of all layouts for each metric, normalising all metrics, and calculating the median layout's score by applying weights.
 - Default weights are specified in the file `./data/config/weights.txt`. You can either specify a different weights file using the `--weights-file` flag, or override specific weights using the `--weights` flag.
 
-### Optimising a layout
+### Optimizing a layout
 
-Use the `optimise` command and specify the layout you want to optimise.
+Use the `optimize` command and specify the layout you want to optimize.
 
 ```bash
-# Optimise a layout with an adjusted number of generations, but default weights
+# Optimize a layout with an adjusted number of generations, but default weights
 keycraft o -g 500 qwerty
 
-# Optimise an already very good layout with some keys pinned
+# Optimize an already very good layout with some keys pinned
 # Pinning keys prevents those keys from being moved around, which could otherwise ruin the essence of a layout
 keycraft o -g 100 --pins srntaeiou focal
 
-# Optimise a layout, strongly aiming for good finger balance, but potentially ruining other metrics
+# Optimize a layout, strongly aiming for good finger balance, but potentially ruining other metrics
 keycraft o -w FBL=-100 -g 100 canary
 
-# Optimise a small number of keys using the --free flag
-# Optimising special characters should be used in combination with a more specific corpus
+# Optimize a small number of keys using the --free flag
+# Optimizing special characters should be used in combination with a more specific corpus
 keycraft o -g 50 --free "';,.-/" graphite
 ```
 
@@ -498,7 +498,7 @@ keycraft o -g 50 --free "';,.-/" graphite
 
 More information will be provided.
 
-### Specifying weights (for ranking and optimising)
+### Specifying weights (for ranking and optimizing)
 
 - Describe config locations, file format (YAML/JSON), and common options.
  layoutDir  = "data/layouts/"

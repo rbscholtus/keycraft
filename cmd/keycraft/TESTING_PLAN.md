@@ -30,7 +30,7 @@ Priority Level 3 (Highest): CLI Flags (--target-*, --weights, etc.)
 | `analyse` | `a` | Detailed layout analysis | `--corpus`, `--load-targets-file`, `--target-*`, `--rows`, `--compact-trigrams`, `--trigram-rows` |
 | `rank` | `r` | Compare and rank layouts | `--corpus`, `--load-targets-file`, `--target-*`, `--weights-file`, `--weights`, `--metrics`, `--deltas`, `--output` |
 | `flip` | `f` | Flip layout horizontally | (none) |
-| `optimise` | `o` | Optimize layout with BLS | `--corpus`, `--load-targets-file`, `--target-*`, `--weights-file`, `--weights`, `--pins-file`, `--pins`, `--free`, `--generations`, `--maxtime`, `--seed`, `--log-file` |
+| `optimize` | `o` | Optimize layout with BLS | `--corpus`, `--load-targets-file`, `--target-*`, `--weights-file`, `--weights`, `--pins-file`, `--pins`, `--free`, `--generations`, `--maxtime`, `--seed`, `--log-file` |
 | `generate` | `g` | Generate random layout | `--layout-type`, `--vowels-right`, `--alpha-thumb`, `--seed`, `--optimize`, `--generations`, plus all corpus/targets/weights flags when `--optimize` is used |
 
 ### Key Files to Test
@@ -43,7 +43,7 @@ Priority Level 3 (Highest): CLI Flags (--target-*, --weights, etc.)
 - [analyse.go](analyse.go:1) - Analyse command
 - [rank.go](rank.go:1) - Rank command
 - [flip.go](flip.go:1) - Flip command
-- [optimise.go](optimise.go:1) - Optimise command
+- [optimize.go](optimize.go:1) - Optimize command
 - [generate.go](generate.go:1) - Generate command
 
 ## Testing Strategy
@@ -61,7 +61,7 @@ cmd/keycraft/
 │                             # - 11 test functions for weights, targets, corpus
 ├── commands_test.go          # All command validation tests (NEW)
 │                             # - 15 test functions covering all 7 commands
-│                             # - Corpus, View, Analyse, Rank, Flip, Optimise, Generate
+│                             # - Corpus, View, Analyse, Rank, Flip, Optimize, Generate
 └── helpers_test.go           # Helper function tests (EXISTS)
                               # - 16 existing test functions
 ```
@@ -190,23 +190,23 @@ Test the precedence hierarchy: hardcoded defaults → config files → CLI flags
 - `TestFlipCommand_ValidLayout` - Flips layout and saves with "-flipped" suffix
 - `TestFlipCommand_OutputPath` - Verifies output path is correct
 
-##### C6. Optimise Command Tests (`optimise_test.go`)
+##### C6. Optimize Command Tests (`optimize_test.go`)
 
 **Test Cases:**
-- `TestOptimiseCommand_NoArgs_ReturnsError` - Requires exactly 1 layout
-- `TestOptimiseCommand_MultipleArgs_ReturnsError` - Rejects multiple arguments
-- `TestOptimiseCommand_ValidLayout` - Accepts single layout
-- `TestOptimiseCommand_WithPinsFile` - Loads pins from file
-- `TestOptimiseCommand_WithPinsFlag` - Applies --pins flag
-- `TestOptimiseCommand_WithFreeFlag` - Applies --free flag (overrides pins)
-- `TestOptimiseCommand_Generations` - Validates --generations flag
-- `TestOptimiseCommand_GenerationsZero` - Rejects --generations=0
-- `TestOptimiseCommand_MaxTime` - Validates --maxtime flag
-- `TestOptimiseCommand_MaxTimeZero` - Rejects --maxtime=0
-- `TestOptimiseCommand_Seed` - Validates --seed flag (allows 0)
-- `TestOptimiseCommand_LogFile` - Validates --log-file flag
-- `TestOptimiseCommand_WithWeights` - Loads weights correctly
-- `TestOptimiseCommand_WithTargets` - Loads targets correctly
+- `TestOptimizeCommand_NoArgs_ReturnsError` - Requires exactly 1 layout
+- `TestOptimizeCommand_MultipleArgs_ReturnsError` - Rejects multiple arguments
+- `TestOptimizeCommand_ValidLayout` - Accepts single layout
+- `TestOptimizeCommand_WithPinsFile` - Loads pins from file
+- `TestOptimizeCommand_WithPinsFlag` - Applies --pins flag
+- `TestOptimizeCommand_WithFreeFlag` - Applies --free flag (overrides pins)
+- `TestOptimizeCommand_Generations` - Validates --generations flag
+- `TestOptimizeCommand_GenerationsZero` - Rejects --generations=0
+- `TestOptimizeCommand_MaxTime` - Validates --maxtime flag
+- `TestOptimizeCommand_MaxTimeZero` - Rejects --maxtime=0
+- `TestOptimizeCommand_Seed` - Validates --seed flag (allows 0)
+- `TestOptimizeCommand_LogFile` - Validates --log-file flag
+- `TestOptimizeCommand_WithWeights` - Loads weights correctly
+- `TestOptimizeCommand_WithTargets` - Loads targets correctly
 
 ##### C7. Generate Command Tests (`generate_test.go`)
 
@@ -574,7 +574,7 @@ Tests are considered complete when:
 | `--deltas` | `-d` | string | `none` | "none", "rows", "median", or layout name |
 | `--output` | `-o` | string | `table` | "table", "html", or "csv" |
 
-#### Optimise Command
+#### Optimize Command
 | Flag | Aliases | Type | Default | Validation |
 |------|---------|------|---------|------------|
 | `--pins-file` | `-pf` | string | (none) | Valid file path |

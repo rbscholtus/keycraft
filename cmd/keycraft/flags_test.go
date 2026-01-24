@@ -178,7 +178,7 @@ func TestSharedFlagCategories(t *testing.T) {
 // TestCommandSpecificFlagsComplete verifies that each command-specific flag collection
 // contains exactly the expected flags - no more, no less. This bidirectional test ensures
 // no flags are missing and no unexpected flags exist, using a single source of truth.
-// Covers corpusFlags, analyseFlags, rankFlags, optimiseFlags, and generateFlags.
+// Covers corpusFlags, analyseFlags, rankFlags, optimizeFlags, and generateFlags.
 func TestCommandSpecificFlagsComplete(t *testing.T) {
 	// Note: view command has no command-specific flags, only uses shared flags
 	tests := []struct {
@@ -202,8 +202,8 @@ func TestCommandSpecificFlagsComplete(t *testing.T) {
 			expectedFlags: []string{"metrics", "deltas", "output"},
 		},
 		{
-			name:          "optimiseFlags",
-			flags:         &optimiseFlags,
+			name:          "optimizeFlags",
+			flags:         &optimizeFlags,
 			expectedFlags: []string{"pins-file", "pins", "free", "generations", "maxtime", "seed", "log-file"},
 		},
 		{
@@ -279,9 +279,9 @@ func TestFlagDefaults_CommandSpecific(t *testing.T) {
 		{"metrics", &rankFlags, "metrics", "weighted"},
 		{"deltas", &rankFlags, "deltas", "none"},
 		{"output", &rankFlags, "output", "table"},
-		{"generations_optimise", &optimiseFlags, "generations", uint64(1000)},
-		{"maxtime", &optimiseFlags, "maxtime", uint64(5)},
-		{"seed_optimise", &optimiseFlags, "seed", int64(0)},
+		{"generations_optimize", &optimizeFlags, "generations", uint64(1000)},
+		{"maxtime", &optimizeFlags, "maxtime", uint64(5)},
+		{"seed_optimize", &optimizeFlags, "seed", int64(0)},
 		{"layout-type", &generateFlags, "layout-type", "colstag"},
 		{"vowels-right", &generateFlags, "vowels-right", false},
 		{"alpha-thumb", &generateFlags, "alpha-thumb", false},
@@ -507,23 +507,23 @@ func TestFlipFlagValidation(t *testing.T) {
 	}
 }
 
-// TestOptimiseFlagValidation verifies that the optimise command requires exactly one layout argument.
+// TestOptimizeFlagValidation verifies that the optimize command requires exactly one layout argument.
 // Tests that it rejects no arguments and rejects multiple arguments. Tests validateOptFlags().
-func TestOptimiseFlagValidation(t *testing.T) {
+func TestOptimizeFlagValidation(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    []string
 		wantErr bool
 	}{
-		{"no args rejected", []string{"optimise"}, true},
-		{"single layout accepted", []string{"optimise", "layout1"}, false},
-		{"multiple layouts rejected", []string{"optimise", "layout1", "layout2"}, true},
+		{"no args rejected", []string{"optimize"}, true},
+		{"single layout accepted", []string{"optimize", "layout1"}, false},
+		{"multiple layouts rejected", []string{"optimize", "layout1", "layout2"}, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
-				Name:   "optimise",
+				Name:   "optimize",
 				Before: validateOptFlags,
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					return nil

@@ -26,7 +26,7 @@ go test ./cmd/keycraft/ -run "TestTargetLoads|TestWeights|TestCorpus_|TestLoadLa
 
 **Command Tests:**
 ```bash
-go test ./cmd/keycraft/ -run "TestCorpusCommand|TestViewCommand|TestAnalyseCommand|TestRankCommand|TestFlipCommand|TestOptimiseCommand|TestGenerateCommand"
+go test ./cmd/keycraft/ -run "TestCorpusCommand|TestViewCommand|TestAnalyseCommand|TestRankCommand|TestFlipCommand|TestOptimizeCommand|TestGenerateCommand"
 ```
 
 **Individual Command:**

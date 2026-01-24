@@ -48,7 +48,7 @@ func main() {
 			analyseCommand,
 			rankCommand,
 			flipCommand,
-			optimiseCommand,
+			optimizeCommand,
 			generateCommand,
 		},
 	}
