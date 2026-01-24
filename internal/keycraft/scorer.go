@@ -310,16 +310,7 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*
 	)
 
 	for _, file := range layoutFiles {
-		fileName := file.Name()
-		if !strings.HasSuffix(strings.ToLower(fileName), ".klf") {
-			continue
-		}
-
-		// Skip non-reference layouts: those starting with "_" or containing "-flipped", "-best", or "-opt"
-		if strings.HasPrefix(fileName, "_") ||
-			strings.Contains(fileName, "-flipped") ||
-			strings.Contains(fileName, "-best") ||
-			strings.Contains(fileName, "-opt") {
+		if !strings.HasSuffix(strings.ToLower(file.Name()), ".klf") {
 			continue
 		}
 
