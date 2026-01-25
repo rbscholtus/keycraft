@@ -14,31 +14,19 @@ var flipCommand = &cli.Command{
 	Aliases:       []string{"f"},
 	Usage:         "Flip a keyboard layout horizontally and save as new layout",
 	ArgsUsage:     "<layout>",
-	Before:        validateFlipFlags,
 	Action:        flipAction,
 	ShellComplete: layoutShellComplete,
-}
-
-// validateFlipFlags validates CLI flags before running the flip command.
-func validateFlipFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
-	// Skip validation during shell completion
-	// Check os.Args directly since -- prevents flag parsing
-	if isShellCompletion() {
-		return ctx, nil
-	}
-
-	if c.NArg() != 1 {
-		return ctx, fmt.Errorf("expected exactly 1 layout, got %d", c.Args().Len())
-	}
-	return ctx, nil
 }
 
 // flipAction loads a keyboard layout, performs a horizontal mirror transformation,
 // and saves the resulting layout to a new file with a "-flipped" suffix.
 func flipAction(ctx context.Context, c *cli.Command) error {
-	// During shell completion, action should not run
 	if isShellCompletion() {
 		return nil
+	}
+
+	if c.NArg() != 1 {
+		return fmt.Errorf("expected exactly 1 layout, got %d", c.Args().Len())
 	}
 
 	layoutArg := c.Args().First()

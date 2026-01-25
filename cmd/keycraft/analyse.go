@@ -65,23 +65,8 @@ var analyseCommand = &cli.Command{
 	Usage:         "Analyse one or more keyboard layouts in detail",
 	Flags:         analyseFlagsSlice(),
 	ArgsUsage:     "<layout1> <layout2> ...",
-	Before:        validateAnalyseFlags,
 	Action:        analyseAction,
 	ShellComplete: layoutShellComplete,
-}
-
-// validateAnalyseFlags validates CLI flags before running the analyse command.
-func validateAnalyseFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
-	// Skip validation during shell completion
-	// Check os.Args directly since -- prevents flag parsing
-	if isShellCompletion() {
-		return ctx, nil
-	}
-
-	if c.NArg() < 1 {
-		return ctx, fmt.Errorf("need at least 1 layout")
-	}
-	return ctx, nil
 }
 
 // analyseAction coordinates the loading of corpus and target data, executes a
@@ -112,6 +97,10 @@ func analyseAction(ctx context.Context, c *cli.Command) error {
 
 // buildAnalyseInput gathers all input parameters for layout analysis.
 func buildAnalyseInput(c *cli.Command) (kc.AnalyseInput, error) {
+	if c.NArg() < 1 {
+		return kc.AnalyseInput{}, fmt.Errorf("need at least 1 layout")
+	}
+
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return kc.AnalyseInput{}, fmt.Errorf("could not load corpus: %w", err)

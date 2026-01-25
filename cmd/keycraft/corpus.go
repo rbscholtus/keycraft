@@ -57,38 +57,14 @@ var corpusCommand = &cli.Command{
 	Aliases:       []string{"c"},
 	Usage:         "Display statistics for a text corpus",
 	Flags:         corpusFlagsSlice(),
-	Before:        validateCorpusFlags,
 	Action:        corpusAction,
 	ShellComplete: layoutShellComplete,
-}
-
-// validateCorpusFlags validates CLI flags before running the corpus command.
-func validateCorpusFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
-	// Skip validation during shell completion
-	// Check os.Args directly since -- prevents flag parsing
-	if isShellCompletion() {
-		return ctx, nil
-	}
-
-	// Skip validation if help is requested
-	// The framework handles help display, but we need to allow it through validation
-	if c.NArg() == 1 && c.Args().First() == "help" {
-		return ctx, nil
-	}
-
-	// Corpus command takes no arguments, only flags
-	if c.NArg() != 0 {
-		return ctx, fmt.Errorf("corpus command takes no arguments, got %d. Did you mean: '--corpus %s'?", c.NArg(), c.Args().First())
-	}
-
-	return ctx, nil
 }
 
 // corpusAction processes a text corpus to extract and display n-gram frequency
 // statistics, optionally applying word coverage filtering to prune low-frequency
 // vocabulary.
 func corpusAction(ctx context.Context, c *cli.Command) error {
-	// During shell completion, action should not run
 	if isShellCompletion() {
 		return nil
 	}
@@ -111,6 +87,11 @@ func corpusAction(ctx context.Context, c *cli.Command) error {
 
 // buildCorpusInput gathers all input parameters for corpus display.
 func buildCorpusInput(c *cli.Command) (kc.CorpusInput, error) {
+	// Corpus command takes no arguments, only flags
+	if c.NArg() != 0 {
+		return kc.CorpusInput{}, fmt.Errorf("corpus command takes no arguments, got %d. Did you mean: '--corpus %s'?", c.NArg(), c.Args().First())
+	}
+
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return kc.CorpusInput{}, fmt.Errorf("could not load corpus: %w", err)
