@@ -33,23 +33,23 @@ var appFlagsMap = map[string]cli.Flag{
 	"target-hand-load": &cli.StringFlag{
 		Name:    "target-hand-load",
 		Aliases: []string{"thl"},
-		Usage: "Target hand load percentages: 2 comma-separated values for left, " +
-			"right hands (auto-scaled to 100%). Overrides load_targets file.",
+		Usage: "Two comma-separated values for left, " +
+			"right hands. Auto-scaled to 100%. Overrides load_targets file.",
 		Category: "Targets and Weights",
 	},
 	"target-finger-load": &cli.StringFlag{
 		Name:    "target-finger-load",
 		Aliases: []string{"tfl"},
-		Usage: "Target finger load percentages: 4 values (left 4 fingers, " +
-			"mirrored to right) or 8 values. Thumbs always 0. Auto-scaled to 100%." +
+		Usage: "Four values (left 4 fingers, " +
+			"mirrored to right) or eight values. Thumbs always 0. Auto-scaled to 100%." +
 			" Overrides load_targets file.",
 		Category: "Targets and Weights",
 	},
 	"target-row-load": &cli.StringFlag{
 		Name:    "target-row-load",
 		Aliases: []string{"trl"},
-		Usage: "Target row load percentages: 3 comma-separated values for top, " +
-			"home, bottom rows (auto-scaled to 100%). Overrides load_targets file.",
+		Usage: "Three comma-separated values for top, " +
+			"home, bottom rows. Auto-scaled to 100%. Overrides load_targets file.",
 		Category: "Targets and Weights",
 	},
 	"pinky-penalties": &cli.StringFlag{
