@@ -1,0 +1,11 @@
+# Example config: vowels on right hand
+colstag
+~ ? ? ? ? ?  ? ? ? ? ? ~
+~ 2 2 2 2 ?  ? e a h i ~
+~ ? ? ? ? ?  ? ? ? ? ? ~
+      ~ ~ 1  _ ~ ~
+
+# Character definitions
+charset=etaoinshrdlcumwfgypbvkjxqz ,./;'
+set1=s
+set2=tnrd

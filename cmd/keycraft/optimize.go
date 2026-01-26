@@ -11,51 +11,51 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// optimizeFlags are flags specific to the optimize command
-var optimizeFlags = []cli.Flag{
-	&cli.StringFlag{
+// optimizeFlagsMap are flags specific to the optimize command
+var optimizeFlagsMap = map[string]cli.Flag{
+	"pins-file": &cli.StringFlag{
 		Name:    "pins-file",
 		Aliases: []string{"pf"},
 		Usage: "File specifying keys to pin during optimization. " +
 			"Defaults to pinning '~' and '_'.",
 		Category: "Optimization",
 	},
-	&cli.StringFlag{
+	"pins": &cli.StringFlag{
 		Name:    "pins",
 		Aliases: []string{"p"},
 		Usage: "Additional characters to pin (e.g., 'aeiouy'). " +
 			"Combined with pins-file.",
 		Category: "Optimization",
 	},
-	&cli.StringFlag{
+	"free": &cli.StringFlag{
 		Name:    "free",
 		Aliases: []string{"f"},
 		Usage: "Characters free to move during optimization. " +
 			"All others are pinned.",
 		Category: "Optimization",
 	},
-	&cli.UintFlag{
+	"generations": &cli.UintFlag{
 		Name:     "generations",
-		Aliases:  []string{"gens", "g"},
+		Aliases:  []string{"g"},
 		Usage:    "Number of optimization iterations to run.",
 		Value:    1000,
 		Category: "Optimization",
 	},
-	&cli.UintFlag{
+	"maxtime": &cli.UintFlag{
 		Name:     "maxtime",
 		Aliases:  []string{"mt"},
 		Usage:    "Maximum optimization time in minutes.",
 		Value:    5,
 		Category: "Optimization",
 	},
-	&cli.Int64Flag{
+	"seed": &cli.Int64Flag{
 		Name:     "seed",
 		Aliases:  []string{"s"},
 		Usage:    "Random seed for reproducible results. Uses current timestamp if 0.",
 		Value:    0,
 		Category: "Optimization",
 	},
-	&cli.StringFlag{
+	"log-file": &cli.StringFlag{
 		Name:     "log-file",
 		Aliases:  []string{"lf"},
 		Usage:    "JSONL log file path for detailed optimization metrics.",
@@ -63,10 +63,15 @@ var optimizeFlags = []cli.Flag{
 	},
 }
 
-// optimizeFlagsSlice returns all flags for the optimize command
-func optimizeFlagsSlice() []cli.Flag {
-	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties", "weights-file", "weights")
-	return append(commonFlags, optimizeFlags...)
+// optFlags returns a slice of cli.Flag pointers for the specified keys from optimizeFlagsMap,
+// or all Flags if no keys are specified
+func optFlags(keys ...string) []cli.Flag {
+	return flags(optimizeFlagsMap, keys...)
+}
+
+// optimizeCmdFlags returns all flags for the optimise command
+func optimizeCmdFlags() []cli.Flag {
+	return append(commonFlags(), optFlags()...)
 }
 
 // optimizeCommand defines the "optimize" CLI command for running Breakout Local Search (BLS)
@@ -75,25 +80,10 @@ var optimizeCommand = &cli.Command{
 	Name:          "optimize",
 	Aliases:       []string{"o"},
 	Usage:         "Optimize a keyboard layout using Breakout Local Search (BLS)",
-	Flags:         optimizeFlagsSlice(),
+	Flags:         optimizeCmdFlags(),
 	ArgsUsage:     "<layout>",
-	Before:        validateOptFlags,
 	Action:        optimizeAction,
 	ShellComplete: layoutShellComplete,
-}
-
-// validateOptFlags validates CLI flags before running the optimize command.
-func validateOptFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
-	// Skip validation during shell completion
-	// Check os.Args directly since -- prevents flag parsing
-	if isShellCompletion() {
-		return ctx, nil
-	}
-
-	if c.Args().Len() != 1 {
-		return ctx, fmt.Errorf("expected exactly 1 layout, got %d", c.Args().Len())
-	}
-	return ctx, nil
 }
 
 // optimizeAction manages the full optimization workflow: it builds the
@@ -105,7 +95,7 @@ func optimizeAction(ctx context.Context, c *cli.Command) error {
 		return nil
 	}
 
-	input, err := buildOptimizeInput(c)
+	input, err := buildOptimizeInput(c, nil, false)
 	if err != nil {
 		return fmt.Errorf("could not parse user input: %w", err)
 	}
@@ -176,7 +166,10 @@ func optimizeAction(ctx context.Context, c *cli.Command) error {
 }
 
 // buildOptimizeInput gathers all input parameters for layout optimization.
-func buildOptimizeInput(c *cli.Command) (kc.OptimizeInput, error) {
+// Parameters:
+//   - layout: if provided, uses this layout; if nil and skipLayoutLoad is false, loads from args
+//   - skipLayoutLoad: if true, skips layout loading and pin computation (for generate command)
+func buildOptimizeInput(c *cli.Command, layout *kc.SplitLayout, skipLayoutLoad bool) (kc.OptimizeInput, error) {
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return kc.OptimizeInput{}, fmt.Errorf("could not load corpus: %w", err)
@@ -202,18 +195,28 @@ func buildOptimizeInput(c *cli.Command) (kc.OptimizeInput, error) {
 		return kc.OptimizeInput{}, fmt.Errorf("maximum time must be above 0. Got: %d", maxTime)
 	}
 
-	layout, err := loadLayout(c.Args().First())
-	if err != nil {
-		return kc.OptimizeInput{}, fmt.Errorf("could not load layout: %w", err)
+	// If layout not provided and not skipping, load from args (optimize command behavior)
+	if layout == nil && !skipLayoutLoad {
+		if c.Args().Len() != 1 {
+			return kc.OptimizeInput{}, fmt.Errorf("expected exactly 1 layout, got %d", c.Args().Len())
+		}
+		layout, err = loadLayout(c.Args().First())
+		if err != nil {
+			return kc.OptimizeInput{}, fmt.Errorf("could not load layout: %w", err)
+		}
 	}
 
-	pinsPath := c.String("pins-file")
-	if pinsPath != "" {
-		pinsPath = filepath.Join(configDir, pinsPath)
-	}
-	pinned, err := kc.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free"), layout)
-	if err != nil {
-		return kc.OptimizeInput{}, fmt.Errorf("could not load pins: %w", err)
+	// Load pins (only when we have a layout)
+	var pinned *kc.PinnedKeys
+	if !skipLayoutLoad {
+		pinsPath := c.String("pins-file")
+		if pinsPath != "" {
+			pinsPath = filepath.Join(configDir, pinsPath)
+		}
+		pinned, err = kc.LoadPinsFromParams(pinsPath, c.String("pins"), c.String("free"), layout)
+		if err != nil {
+			return kc.OptimizeInput{}, fmt.Errorf("could not load pins: %w", err)
+		}
 	}
 
 	return kc.OptimizeInput{

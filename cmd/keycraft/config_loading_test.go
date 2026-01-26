@@ -19,7 +19,7 @@ func TestTargetLoads_HardcodedDefaults(t *testing.T) {
 	// Don't create any config file - test with empty load-targets-file
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
+		Flags: commonFlags("load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
@@ -78,7 +78,7 @@ pinky-penalties = 3.0, 2.0, 1.5, 0.5, 2.5, 2.0, 3.0, 2.0, 1.5, 0.5, 2.5, 2.0
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("load-targets-file"),
+		Flags: commonFlags("load-targets-file"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
@@ -121,7 +121,7 @@ func TestTargetLoads_FromFile_PartialConfig(t *testing.T) {
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("load-targets-file"),
+		Flags: commonFlags("load-targets-file"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
@@ -164,9 +164,15 @@ target-finger-load = 5, 10, 20, 15, 15, 20, 10, 5
 `
 	writeTestConfigFile(t, configDir, "load_targets.txt", configContent)
 
+	// Create fresh flag instances to avoid polluting shared flag state
+	testFlags := []cli.Flag{
+		&cli.StringFlag{Name: "load-targets-file", Value: "load_targets.txt"},
+		&cli.StringFlag{Name: "target-hand-load"},
+		&cli.StringFlag{Name: "target-finger-load"},
+	}
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("load-targets-file", "target-hand-load", "target-finger-load"),
+		Flags: testFlags,
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
@@ -211,9 +217,17 @@ pinky-penalties = 3.0, 2.0, 1.5, 0.5, 2.5, 2.0
 `
 	writeTestConfigFile(t, configDir, "load_targets.txt", configContent)
 
+	// Create fresh flag instances to avoid polluting shared flag state
+	testFlags := []cli.Flag{
+		&cli.StringFlag{Name: "load-targets-file", Value: "load_targets.txt"},
+		&cli.StringFlag{Name: "target-hand-load"},
+		&cli.StringFlag{Name: "target-finger-load"},
+		&cli.StringFlag{Name: "target-row-load"},
+		&cli.StringFlag{Name: "pinky-penalties"},
+	}
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
+		Flags: testFlags,
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
@@ -280,7 +294,7 @@ func TestTargetLoads_InvalidFileReturnsError(t *testing.T) {
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("load-targets-file"),
+		Flags: commonFlags("load-targets-file"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			_, err := loadTargetLoadsFromFlags(cmd)
 			if err == nil {
@@ -304,7 +318,7 @@ func TestWeights_HardcodedDefaults(t *testing.T) {
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("weights-file", "weights"),
+		Flags: commonFlags("weights-file", "weights"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			weights, err := loadWeightsFromFlags(cmd)
 			if err != nil {
@@ -347,7 +361,7 @@ FSB=-2.0
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("weights-file"),
+		Flags: commonFlags("weights-file"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			weights, err := loadWeightsFromFlags(cmd)
 			if err != nil {
@@ -389,7 +403,7 @@ LSB=-5.0
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("weights-file", "weights"),
+		Flags: commonFlags("weights-file", "weights"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			weights, err := loadWeightsFromFlags(cmd)
 			if err != nil {
@@ -430,7 +444,7 @@ func TestWeights_InvalidFileUsesDefaults(t *testing.T) {
 	// Don't create weights file
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("weights-file"),
+		Flags: commonFlags("weights-file"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			_, err := loadWeightsFromFlags(cmd)
 			// Should return error for nonexistent file
@@ -458,7 +472,7 @@ func TestCorpus_DefaultFile(t *testing.T) {
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("corpus"),
+		Flags: commonFlags("corpus"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			corpus, err := loadCorpusFromFlags(cmd)
 			if err != nil {
@@ -490,7 +504,7 @@ func TestCorpus_CustomFile(t *testing.T) {
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("corpus"),
+		Flags: commonFlags("corpus"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			corpus, err := loadCorpusFromFlags(cmd)
 			if err != nil {
@@ -618,7 +632,7 @@ func TestTargetLoads_MissingExplicitFile_ReturnsError(t *testing.T) {
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("load-targets-file"),
+		Flags: commonFlags("load-targets-file"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			_, err := loadTargetLoadsFromFlags(cmd)
 			if err == nil {
@@ -656,7 +670,7 @@ func TestTargetLoads_EmptyStringFlag_UsesDefaultsSilently(t *testing.T) {
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("load-targets-file"),
+		Flags: commonFlags("load-targets-file"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
@@ -692,6 +706,8 @@ func TestTargetLoads_EmptyStringFlag_UsesDefaultsSilently(t *testing.T) {
 }
 
 // Helper to check if file exists
+//
+//nolint:unused // For testing purposes.
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
@@ -711,7 +727,7 @@ func TestError_MissingCorpusFile(t *testing.T) {
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("corpus"),
+		Flags: commonFlags("corpus"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			_, err := loadCorpusFromFlags(cmd)
 			if err == nil {
@@ -745,7 +761,7 @@ completely invalid line
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("load-targets-file"),
+		Flags: commonFlags("load-targets-file"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			_, err := loadTargetLoadsFromFlags(cmd)
 			if err == nil {
@@ -780,7 +796,7 @@ METRIC_WITHOUT_VALUE
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: flagsSlice("weights-file"),
+		Flags: commonFlags("weights-file"),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			_, err := loadWeightsFromFlags(cmd)
 			if err == nil {
@@ -823,9 +839,16 @@ func TestError_MalformedFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Create fresh flag instances to avoid polluting shared flag state
+			testFlags := []cli.Flag{
+				&cli.StringFlag{Name: "target-hand-load"},
+				&cli.StringFlag{Name: "target-finger-load"},
+				&cli.StringFlag{Name: "target-row-load"},
+				&cli.StringFlag{Name: "weights"},
+			}
 			app := &cli.Command{
 				Name:  "test",
-				Flags: flagsSlice("target-hand-load", "target-finger-load", "target-row-load", "weights"),
+				Flags: testFlags,
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					var err error
 					switch tt.flagName {

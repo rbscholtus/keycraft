@@ -5,276 +5,193 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
-	"github.com/rbscholtus/keycraft/internal/tui"
 	"github.com/urfave/cli/v3"
 )
 
-// generateFlags are flags specific to the generate command
-var generateFlags = []cli.Flag{
-	&cli.StringFlag{
-		Name:     "layout-type",
-		Aliases:  []string{"lt"},
-		Usage:    "Layout geometry: rowstag, anglemod, ortho, colstag",
-		Value:    "colstag",
+// generateFlagsMap contains flags specific to the generate command,
+// keyed by their primary name.
+var generateFlagsMap = map[string]cli.Flag{
+	"max-layouts": &cli.IntFlag{
+		Name:     "max-layouts",
+		Aliases:  []string{"m"},
+		Usage:    "Maximum number of permutations to generate (0 = all)",
+		Value:    1500,
 		Category: "Generation",
 	},
-	&cli.BoolFlag{
-		Name:     "vowels-right",
-		Aliases:  []string{"vr"},
-		Usage:    "Ensure vowels are placed on right hand",
-		Value:    false,
-		Category: "Generation",
-	},
-	&cli.BoolFlag{
-		Name:     "alpha-thumb",
-		Aliases:  []string{"at"},
-		Usage:    "Place alpha character on thumb keys (9 chars instead of 8)",
-		Value:    false,
-		Category: "Generation",
-	},
-	&cli.Uint64Flag{
+	"seed": &cli.Uint64Flag{
 		Name:     "seed",
 		Aliases:  []string{"s"},
-		Usage:    "Random seed for reproducible results (0 = timestamp)",
+		Usage:    "Random seed for random position allocation (0 = timestamp)",
 		Value:    0,
 		Category: "Generation",
 	},
-	&cli.BoolFlag{
+	"optimize": &cli.BoolFlag{
 		Name:     "optimize",
-		Aliases:  []string{"opt"},
+		Aliases:  []string{"o"},
 		Usage:    "Run optimization after generation",
 		Value:    false,
 		Category: "Optimization",
 	},
-	&cli.UintFlag{
-		Name:     "generations",
-		Aliases:  []string{"gens", "g"},
-		Usage:    "Number of optimization iterations to run.",
-		Value:    1000,
+	// "pins": &cli.StringFlag{
+	// 	Name:     "pins",
+	// 	Aliases:  []string{"p"},
+	// 	Usage:    "Characters to pin during optimization (e.g., 'aeiouy'). Overrides default pins.",
+	// 	Category: "Optimization",
+	// },
+	// "generations": &cli.UintFlag{
+	// 	Name:     "generations",
+	// 	Aliases:  []string{"g"},
+	// 	Usage:    "Number of optimization iterations to run",
+	// 	Value:    1000,
+	// 	Category: "Optimization",
+	// },
+	// "maxtime": &cli.UintFlag{
+	// 	Name:     "maxtime",
+	// 	Aliases:  []string{"mt"},
+	// 	Usage:    "Maximum optimization time in minutes.",
+	// 	Value:    5,
+	// 	Category: "Optimization",
+	// },
+	"keep-unoptimized": &cli.BoolFlag{
+		Name:     "keep-unoptimized",
+		Aliases:  []string{"k"},
+		Usage:    "Keep unoptimized layouts when --optimize is used",
+		Value:    false,
 		Category: "Optimization",
 	},
 }
 
-// generateFlagsSlice returns all flags for the generate command
-func generateFlagsSlice() []cli.Flag {
-	// When --optimize is used, we need corpus, targets, weights flags
-	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load",
-		"target-finger-load", "target-row-load", "pinky-penalties",
-		"weights-file", "weights")
-	return append(generateFlags, commonFlags...)
+// generationFlags returns a slice of cli.Flag pointers for the specified keys from generateFlagsMap,
+// or all Flags if no keys are specified
+func generationFlags(keys ...string) []cli.Flag {
+	return flags(generateFlagsMap, keys...)
 }
 
-// generateCommand defines the "generate" CLI command for creating random keyboard layouts.
+// generateCmdFlags returns all flags for the generate command
+func generateCmdFlags() []cli.Flag {
+	optF := optFlags("pins", "generations", "maxtime")
+	return append(append(commonFlags(), optF...), generationFlags()...)
+}
+
+// generateCommand defines the "generate" CLI command for creating layouts from config files
 var generateCommand = &cli.Command{
-	Name:    "generate",
-	Aliases: []string{"g"},
-	Usage:   "Generate a new random keyboard layout",
-	Flags:   generateFlagsSlice(),
-	Before:  validateGenerateFlags,
-	Action:  generateAction,
+	Name:      "generate",
+	Aliases:   []string{"g"},
+	Usage:     "Generate layouts from config file",
+	ArgsUsage: "<layout>",
+	Flags:     generateCmdFlags(),
+	Action:    generateAction,
 }
 
-// validateGenerateFlags validates CLI flags before running the generate command.
-func validateGenerateFlags(ctx context.Context, c *cli.Command) (context.Context, error) {
-	// Skip validation during shell completion
-	if isShellCompletion() {
-		return ctx, nil
-	}
-
-	// No positional arguments required (name is auto-generated)
-	if c.Args().Len() > 0 {
-		return ctx, fmt.Errorf("generate command does not accept arguments (name is auto-generated)")
-	}
-
-	return ctx, nil
-}
-
-// generateAction manages the full generation workflow.
+// generateAction manages the full generation workflow
 func generateAction(ctx context.Context, c *cli.Command) error {
 	if isShellCompletion() {
 		return nil
 	}
 
-	// Build GeneratorInput from flags
-	input, err := buildGeneratorInput(c)
+	// Step 1: Build GenerateInput (validates args, resolves path, captures flags)
+	genInput, err := buildGenerateInput(c)
 	if err != nil {
-		return fmt.Errorf("could not parse user input: %w", err)
+		return err
 	}
 
-	// Generate layout (name is set inside NewRandomLayout)
-	layout, err := kc.NewRandomLayout(input)
+	// Print GenerateInput for verification
+	fmt.Printf("GenerateInput{\n")
+	fmt.Printf("  ConfigPath: %q\n", genInput.ConfigPath)
+	fmt.Printf("  MaxLayouts: %d\n", genInput.MaxLayouts)
+	fmt.Printf("  Seed: %d\n", genInput.Seed)
+	fmt.Printf("  Optimize: %v\n", genInput.Optimize)
+	fmt.Printf("  KeepUnoptimized: %v\n", genInput.KeepUnoptimized)
+	fmt.Printf("}\n")
+
+	// Step 2: If --optimize, build OptimizeInput (without layout/pins for now)
+	var optInput kc.OptimizeInput
+	if genInput.Optimize {
+		// skipLayoutLoad=true: don't load layout from args, it will be set per generated layout
+		optInput, err = buildOptimizeInput(c, nil, true)
+		if err != nil {
+			return fmt.Errorf("could not build optimize input: %w", err)
+		}
+
+		fmt.Printf("OptimizeInput{\n")
+		fmt.Printf("  Layout: (set per generated layout): %q\n", optInput.Layout)
+		fmt.Printf("  LayoutsDir: (set per generated layout): %q\n", optInput.LayoutsDir)
+		fmt.Printf("  Corpus: %q\n", optInput.Corpus.Name)
+		fmt.Printf("  Targets: (loaded): %v\n", optInput.Targets)
+		fmt.Printf("  Weights: (loaded): %v\n", optInput.Weights)
+		fmt.Printf("  Pinned: (computed per generated layout): %v\n", optInput.Pinned)
+		fmt.Printf("  NumGenerations: %d\n", optInput.NumGenerations)
+		fmt.Printf("  MaxTime: %d\n", optInput.MaxTime)
+		fmt.Printf("  Seed: %d\n", optInput.Seed)
+		fmt.Printf("  Logfile: %v\n", optInput.LogFile)
+		fmt.Printf("}\n")
+	}
+
+	// Step 3: Build RankingInput (for displaying results)
+	// skipLayoutsFromArgs=true: layouts come from generation, not CLI args
+	rankingInput, err := buildRankingInput(c, optInput.Weights, true)
 	if err != nil {
-		return fmt.Errorf("could not generate random layout: %w", err)
+		return fmt.Errorf("could not build ranking input: %w", err)
 	}
 
-	// Save generated layout
-	layoutPath := filepath.Join(layoutDir, layout.Name+".klf")
-	if err := layout.SaveToFile(layoutPath); err != nil {
-		return fmt.Errorf("could not save layout: %w", err)
-	}
-	fmt.Printf("Generated layout saved to: %s\n", layoutPath)
+	fmt.Printf("RankingInput{\n")
+	fmt.Printf("  LayoutsDir: %q\n", rankingInput.LayoutsDir)
+	fmt.Printf("  LayoutFiles: (set after generation): %v\n", rankingInput.LayoutFiles)
+	fmt.Printf("  Corpus: %q\n", rankingInput.Corpus.Name)
+	fmt.Printf("  Targets: (loaded): %v\n", rankingInput.Targets)
+	fmt.Printf("  Weights: (loaded): %v\n", rankingInput.Weights)
+	fmt.Printf("}\n")
 
-	// If --optimize flag is set, run optimization
-	if c.Bool("optimize") {
-		return runOptimizationAfterGeneration(c, layout)
-	}
+	// Step 4: Stub - no actual generation yet
+	fmt.Printf("\n[STUB] Generation not implemented yet\n")
 
-	// Otherwise just display the generated layout
-	return displayGeneratedLayout(c, layout)
+	return nil
 }
 
-// buildGeneratorInput gathers all input parameters for layout generation.
-func buildGeneratorInput(c *cli.Command) (kc.GeneratorInput, error) {
-	// Parse layout type
-	layoutTypeStr := c.String("layout-type")
-	var layoutType kc.LayoutType
-	switch layoutTypeStr {
-	case "rowstag":
-		layoutType = kc.ROWSTAG
-	case "anglemod":
-		layoutType = kc.ANGLEMOD
-	case "ortho":
-		layoutType = kc.ORTHO
-	case "colstag":
-		layoutType = kc.COLSTAG
-	default:
-		return kc.GeneratorInput{}, fmt.Errorf("invalid layout type: %s (must be rowstag, anglemod, ortho, or colstag)", layoutTypeStr)
+// buildGenerateInput validates arguments, resolves config path, and captures generation flags.
+func buildGenerateInput(c *cli.Command) (kc.GenerateInput, error) {
+	// Validate exactly one argument (config file)
+	if c.Args().Len() != 1 {
+		return kc.GenerateInput{}, fmt.Errorf("expected exactly 1 config file argument, got %d", c.Args().Len())
 	}
 
-	return kc.GeneratorInput{
-		LayoutType:  layoutType,
-		AlphaThumb:  c.Bool("alpha-thumb"),
-		VowelsRight: c.Bool("vowels-right"),
-		Seed:        c.Uint64("seed"),
+	// Check .gen extension (case-insensitive)
+	configPath := c.Args().Get(0)
+	if !strings.HasSuffix(strings.ToLower(configPath), ".gen") {
+		return kc.GenerateInput{}, fmt.Errorf("config file must have .gen extension, got: %s", configPath)
+	}
+
+	// Resolve config file path
+	resolvedPath, err := resolveConfigPath(configPath)
+	if err != nil {
+		return kc.GenerateInput{}, err
+	}
+
+	return kc.GenerateInput{
+		ConfigPath:      resolvedPath,
+		MaxLayouts:      c.Int("max-layouts"),
+		Seed:            c.Uint64("seed"),
+		Optimize:        c.Bool("optimize"),
+		KeepUnoptimized: c.Bool("keep-unoptimized"),
 	}, nil
 }
 
-// displayGeneratedLayout shows the generated layout to the user.
-func displayGeneratedLayout(c *cli.Command, layout *kc.SplitLayout) error {
-	// Load corpus for analysis (if available)
-	corpus, err := loadCorpusFromFlags(c)
-	if err != nil {
-		return fmt.Errorf("can't load corpus to display generated layout: %w", err)
+// resolveConfigPath resolves a config file path, searching in data/config if needed
+func resolveConfigPath(configPath string) (string, error) {
+	// If the path exists as-is, use it
+	if _, err := os.Stat(configPath); err == nil {
+		return configPath, nil
 	}
 
-	// Load targets for analysis
-	targets, err := loadTargetLoadsFromFlags(c)
-	if err != nil {
-		return fmt.Errorf("can't load targets to display generated layout: %w", err)
+	// Try in data/config directory
+	fullPath := filepath.Join(configDir, configPath)
+	if _, err := os.Stat(fullPath); err == nil {
+		return fullPath, nil
 	}
 
-	// View the generated layout
-	viewResult, err := kc.ViewLayouts(kc.ViewInput{
-		LayoutFiles: []string{filepath.Join(layoutDir, layout.Name+".klf")},
-		Corpus:      corpus,
-		Targets:     targets,
-	})
-	if err != nil {
-		return fmt.Errorf("can't analyse generated layout: %w", err)
-	}
-
-	if err := tui.RenderView(viewResult); err != nil {
-		return fmt.Errorf("can't render generated layout: %w", err)
-	}
-
-	return nil
-}
-
-// runOptimizationAfterGeneration chains optimization after generation.
-func runOptimizationAfterGeneration(c *cli.Command, generatedLayout *kc.SplitLayout) error {
-	fmt.Printf("\nRunning optimization on generated layout %s...\n", generatedLayout.Name)
-
-	// Load corpus
-	corpus, err := loadCorpusFromFlags(c)
-	if err != nil {
-		return fmt.Errorf("could not load corpus for optimization: %w", err)
-	}
-
-	// Load targets
-	targets, err := loadTargetLoadsFromFlags(c)
-	if err != nil {
-		return fmt.Errorf("could not load target loads for optimization: %w", err)
-	}
-
-	// Load weights
-	weights, err := loadWeightsFromFlags(c)
-	if err != nil {
-		return fmt.Errorf("could not load weights for optimization: %w", err)
-	}
-
-	// Build optimization input
-	homeThumb := generatedLayout.HomeThumbChars()
-	pinned, _ := kc.LoadPinsFromParams("", homeThumb, "", generatedLayout)
-
-	optInput := kc.OptimiseInput{
-		Layout:         generatedLayout,
-		LayoutsDir:     layoutDir,
-		Corpus:         corpus,
-		Targets:        targets,
-		Weights:        weights,
-		Pinned:         pinned,
-		NumGenerations: int(c.Uint("generations")),
-		MaxTime:        int(c.Uint("maxtime")),
-		Seed:           c.Int64("seed"),
-	}
-
-	// Run optimization
-	optResult, err := kc.OptimizeLayout(optInput, os.Stdout)
-	if err != nil {
-		return fmt.Errorf("optimization failed: %w", err)
-	}
-
-	// Save optimized layout
-	bestPath := filepath.Join(layoutDir, optResult.BestLayout.Name+".klf")
-	if err := optResult.BestLayout.SaveToFile(bestPath); err != nil {
-		return fmt.Errorf("could not save optimized layout: %w", err)
-	}
-
-	// Show comparison
-	origPath := filepath.Join(layoutDir, generatedLayout.Name+".klf")
-	layoutsToCompare := []string{origPath, bestPath}
-
-	viewResult, err := kc.ViewLayouts(kc.ViewInput{
-		LayoutFiles: layoutsToCompare,
-		Corpus:      corpus,
-		Targets:     targets,
-	})
-	if err != nil {
-		return fmt.Errorf("could not analyse optimised layout: %w", err)
-	}
-
-	if err := tui.RenderView(viewResult); err != nil {
-		return fmt.Errorf("could not render optimised layout: %w", err)
-	}
-
-	// Show ranking comparison
-	rankingInput := kc.RankingInput{
-		LayoutsDir:  layoutDir,
-		LayoutFiles: layoutsToCompare,
-		Corpus:      corpus,
-		Targets:     targets,
-		Weights:     weights,
-	}
-
-	rankingResult, err := kc.ComputeRankings(rankingInput)
-	if err != nil {
-		return fmt.Errorf("could not compute layout rankings: %w", err)
-	}
-
-	displayOpts := tui.RankingDisplayOptions{
-		OutputFormat:   tui.OutputTable,
-		MetricsOption:  tui.MetricsWeighted,
-		ShowWeights:    true,
-		Weights:        weights,
-		DeltasOption:   tui.DeltasCustom,
-		BaseLayoutName: generatedLayout.Name,
-	}
-
-	if err := tui.RenderRankingTable(rankingResult, displayOpts); err != nil {
-		return fmt.Errorf("could not render layout rankings: %w", err)
-	}
-
-	return nil
+	// Not found in either location
+	return "", fmt.Errorf("config file not found: %s (tried current directory and %s)", configPath, configDir)
 }

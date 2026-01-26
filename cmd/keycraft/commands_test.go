@@ -25,7 +25,7 @@ func TestCorpusCommand_NoArgs(t *testing.T) {
 	// We test this implicitly through buildCorpusInput
 	app := &cli.Command{
 		Name:  "test",
-		Flags: append(flagsSlice("corpus"), corpusFlags...),
+		Flags: append(commonFlags("corpus"), corpusFlags...),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			// If we got here, validation passed
 			return nil
@@ -39,15 +39,17 @@ func TestCorpusCommand_NoArgs(t *testing.T) {
 }
 
 // TestCorpusCommand_WithArgs_ReturnsError verifies that the corpus command correctly rejects
-// positional arguments via validateCorpusFlags().
+// positional arguments via buildCorpusInput().
 func TestCorpusCommand_WithArgs_ReturnsError(t *testing.T) {
-	// Create a test command with args
 	cmd := &cli.Command{
-		Name:   "corpus",
-		Before: validateCorpusFlags,
+		Name:  "corpus",
+		Flags: corpusCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			_, err := buildCorpusInput(cmd)
+			return err
+		},
 	}
 
-	// Simulate having arguments
 	app := &cli.Command{
 		Commands: []*cli.Command{cmd},
 	}
@@ -68,7 +70,7 @@ func TestCorpusCommand_BuildInput(t *testing.T) {
 
 	app := &cli.Command{
 		Name:  "test",
-		Flags: append(flagsSlice("corpus"), corpusFlags...),
+		Flags: append(commonFlags("corpus"), corpusFlags...),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			input, err := buildCorpusInput(cmd)
 			if err != nil {
@@ -116,7 +118,7 @@ func TestCorpusCommand_CorpusRowsFlag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
 				Name:  "test",
-				Flags: append(flagsSlice("corpus"), corpusFlags...),
+				Flags: append(commonFlags("corpus"), corpusFlags...),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					input, err := buildCorpusInput(cmd)
 					if (err != nil) != tt.wantErr {
@@ -166,7 +168,7 @@ func TestCorpusCommand_CoverageFlag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
 				Name:  "test",
-				Flags: append(flagsSlice("corpus"), corpusFlags...),
+				Flags: append(commonFlags("corpus"), corpusFlags...),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					// Coverage flag is validated but not stored in CorpusInput
 					// It's used during corpus loading. Just verify it parses correctly.
@@ -211,7 +213,7 @@ func TestCorpusCommand_CorpusRowsInvalid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
 				Name:  "test",
-				Flags: append(flagsSlice("corpus"), corpusFlags...),
+				Flags: append(commonFlags("corpus"), corpusFlags...),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					_, err := buildCorpusInput(cmd)
 					if err == nil {
@@ -249,7 +251,7 @@ func TestCorpusCommand_CoverageInvalid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
 				Name:  "test",
-				Flags: append(flagsSlice("corpus"), corpusFlags...),
+				Flags: append(commonFlags("corpus"), corpusFlags...),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					coverage := cmd.Float64("coverage")
 					if coverage < 0.1 || coverage > 100.0 {
@@ -270,7 +272,7 @@ func TestCorpusCommand_CoverageInvalid(t *testing.T) {
 // ============================================================================
 
 // TestViewCommand_NoArgs_ReturnsError verifies that the view command requires at least one layout
-// argument and rejects execution with no arguments via validateViewFlags().
+// argument and rejects execution with no arguments via buildViewInput().
 func TestViewCommand_NoArgs_ReturnsError(t *testing.T) {
 	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
 	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
@@ -280,9 +282,12 @@ func TestViewCommand_NoArgs_ReturnsError(t *testing.T) {
 	writeTestCorpus(t, corpusDir, "default.txt")
 
 	cmd := &cli.Command{
-		Name:   "view",
-		Flags:  flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
-		Before: validateViewFlags,
+		Name:  "view",
+		Flags: viewCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			_, err := buildViewInput(cmd)
+			return err
+		},
 	}
 
 	app := &cli.Command{
@@ -306,9 +311,8 @@ func TestViewCommand_SingleLayout(t *testing.T) {
 	writeTestCorpus(t, corpusDir, "default.txt")
 
 	cmd := &cli.Command{
-		Name:   "view",
-		Flags:  flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
-		Before: validateViewFlags,
+		Name:  "view",
+		Flags: viewCmdFlags(),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			input, err := buildViewInput(cmd)
 			if err != nil {
@@ -367,9 +371,8 @@ func TestViewCommand_SingleLayout_NoExtension(t *testing.T) {
 	writeTestCorpus(t, corpusDir, "default.txt")
 
 	cmd := &cli.Command{
-		Name:   "view",
-		Flags:  flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
-		Before: validateViewFlags,
+		Name:  "view",
+		Flags: viewCmdFlags(),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			input, err := buildViewInput(cmd)
 			if err != nil {
@@ -422,9 +425,8 @@ func TestViewCommand_MultipleLayouts(t *testing.T) {
 	writeTestCorpus(t, corpusDir, "default.txt")
 
 	cmd := &cli.Command{
-		Name:   "view",
-		Flags:  flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
-		Before: validateViewFlags,
+		Name:  "view",
+		Flags: viewCmdFlags(),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			input, err := buildViewInput(cmd)
 			if err != nil {
@@ -469,11 +471,15 @@ func TestViewCommand_MultipleLayouts(t *testing.T) {
 // ============================================================================
 
 // TestAnalyseCommand_NoArgs_ReturnsError verifies that the analyse command requires at least one
-// layout argument and rejects execution with no arguments via validateAnalyseFlags().
+// layout argument and rejects execution with no arguments via buildAnalyseInput().
 func TestAnalyseCommand_NoArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
-		Name:   "analyse",
-		Before: validateAnalyseFlags,
+		Name:  "analyse",
+		Flags: analyseFlagsSlice(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			_, err := buildAnalyseInput(cmd)
+			return err
+		},
 	}
 
 	app := &cli.Command{
@@ -497,9 +503,8 @@ func TestAnalyseCommand_BuildInput(t *testing.T) {
 	writeTestCorpus(t, corpusDir, "default.txt")
 
 	cmd := &cli.Command{
-		Name:   "analyse",
-		Flags:  analyseFlagsSlice(),
-		Before: validateAnalyseFlags,
+		Name:  "analyse",
+		Flags: analyseFlagsSlice(),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			input, err := buildAnalyseInput(cmd)
 			if err != nil {
@@ -561,9 +566,8 @@ func TestAnalyseCommand_RowsInvalid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &cli.Command{
-				Name:   "analyse",
-				Flags:  analyseFlagsSlice(),
-				Before: validateAnalyseFlags,
+				Name:  "analyse",
+				Flags: analyseFlagsSlice(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					rows := cmd.Int("rows")
 					if rows < 1 {
@@ -605,9 +609,8 @@ func TestAnalyseCommand_TrigramRows(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &cli.Command{
-				Name:   "analyse",
-				Flags:  analyseFlagsSlice(),
-				Before: validateAnalyseFlags,
+				Name:  "analyse",
+				Flags: analyseFlagsSlice(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					trigramRows := cmd.Int("trigram-rows")
 					if trigramRows != tt.want {
@@ -654,9 +657,8 @@ func TestAnalyseCommand_TrigramRowsInvalid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &cli.Command{
-				Name:   "analyse",
-				Flags:  analyseFlagsSlice(),
-				Before: validateAnalyseFlags,
+				Name:  "analyse",
+				Flags: analyseFlagsSlice(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					trigramRows := cmd.Int("trigram-rows")
 					if trigramRows < 1 {
@@ -704,7 +706,8 @@ func TestRankCommand_BuildInput(t *testing.T) {
 				t.Fatalf("loadWeightsFromFlags failed: %v", err)
 			}
 
-			input, err := buildRankingInput(cmd, weights)
+			// skipLayoutsFromArgs=false: load layouts from args (rank command behavior)
+			input, err := buildRankingInput(cmd, weights, false)
 			if err != nil {
 				t.Fatalf("buildRankingInput failed: %v", err)
 			}
@@ -980,11 +983,11 @@ func TestRankCommand_OutputFlag(t *testing.T) {
 // ============================================================================
 
 // TestFlipCommand_NoArgs_ReturnsError verifies that the flip command requires exactly one layout
-// argument and rejects execution with no arguments via validateFlipFlags().
+// argument and rejects execution with no arguments via flipAction().
 func TestFlipCommand_NoArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:   "flip",
-		Before: validateFlipFlags,
+		Action: flipAction,
 	}
 
 	app := &cli.Command{
@@ -998,11 +1001,11 @@ func TestFlipCommand_NoArgs_ReturnsError(t *testing.T) {
 }
 
 // TestFlipCommand_MultipleArgs_ReturnsError verifies that the flip command rejects multiple
-// layout arguments via validateFlipFlags(), as it only processes one layout at a time.
+// layout arguments via flipAction(), as it only processes one layout at a time.
 func TestFlipCommand_MultipleArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:   "flip",
-		Before: validateFlipFlags,
+		Action: flipAction,
 	}
 
 	app := &cli.Command{
@@ -1016,48 +1019,66 @@ func TestFlipCommand_MultipleArgs_ReturnsError(t *testing.T) {
 }
 
 // ============================================================================
-// OPTIMISE COMMAND TESTS
+// OPTIMIZE COMMAND TESTS
 // ============================================================================
 
-// TestOptimiseCommand_NoArgs_ReturnsError verifies that the optimise command requires exactly one
-// layout argument and rejects execution with no arguments via validateOptFlags().
-func TestOptimiseCommand_NoArgs_ReturnsError(t *testing.T) {
+// TestOptimizeCommand_NoArgs_ReturnsError verifies that the optimize command requires exactly one
+// layout argument and rejects execution with no arguments via buildOptimizeInput().
+func TestOptimizeCommand_NoArgs_ReturnsError(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	writeTestCorpus(t, corpusDir, "default.txt")
+
 	cmd := &cli.Command{
-		Name:   "optimise",
-		Before: validateOptFlags,
+		Name:  "optimize",
+		Flags: optimizeCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			_, err := buildOptimizeInput(cmd, nil, false)
+			return err
+		},
 	}
 
 	app := &cli.Command{
 		Commands: []*cli.Command{cmd},
 	}
 
-	err := app.Run(context.Background(), []string{"test", "optimise"})
+	err := app.Run(context.Background(), []string{"test", "optimize"})
 	if err == nil {
-		t.Error("expected error for optimise with no args, got nil")
+		t.Error("expected error for optimize with no args, got nil")
 	}
 }
 
-// TestOptimiseCommand_MultipleArgs_ReturnsError verifies that the optimise command rejects multiple
-// layout arguments via validateOptFlags(), as it only optimizes one layout at a time.
-func TestOptimiseCommand_MultipleArgs_ReturnsError(t *testing.T) {
+// TestOptimizeCommand_MultipleArgs_ReturnsError verifies that the optimize command rejects multiple
+// layout arguments via buildOptimizeInput(), as it only optimizes one layout at a time.
+func TestOptimizeCommand_MultipleArgs_ReturnsError(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	writeTestCorpus(t, corpusDir, "default.txt")
+
 	cmd := &cli.Command{
-		Name:   "optimise",
-		Before: validateOptFlags,
+		Name:  "optimize",
+		Flags: optimizeCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			_, err := buildOptimizeInput(cmd, nil, false)
+			return err
+		},
 	}
 
 	app := &cli.Command{
 		Commands: []*cli.Command{cmd},
 	}
 
-	err := app.Run(context.Background(), []string{"test", "optimise", "layout1", "layout2"})
+	err := app.Run(context.Background(), []string{"test", "optimize", "layout1", "layout2"})
 	if err == nil {
-		t.Error("expected error for optimise with multiple args, got nil")
+		t.Error("expected error for optimize with multiple args, got nil")
 	}
 }
 
-// TestOptimiseCommand_BuildInput verifies that buildOptimiseInput() correctly builds input structure
+// TestOptimizeCommand_BuildInput verifies that buildOptimizeInput() correctly builds input structure
 // with layout, corpus, targets, weights, and optimizer parameters (generations, maxtime).
-func TestOptimiseCommand_BuildInput(t *testing.T) {
+func TestOptimizeCommand_BuildInput(t *testing.T) {
 	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
 	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
 
@@ -1070,13 +1091,13 @@ func TestOptimiseCommand_BuildInput(t *testing.T) {
 	writeTestConfigFile(t, configDir, "weights.txt", weightsContent)
 
 	cmd := &cli.Command{
-		Name:   "optimise",
-		Flags:  optimiseFlagsSlice(),
-		Before: validateOptFlags,
+		Name:  "optimize",
+		Flags: optimizeCmdFlags(),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			input, err := buildOptimiseInput(cmd)
+			// skipLayoutLoad=false: load layout from args (optimize command behavior)
+			input, err := buildOptimizeInput(cmd, nil, false)
 			if err != nil {
-				t.Fatalf("buildOptimiseInput failed: %v", err)
+				t.Fatalf("buildOptimizeInput failed: %v", err)
 			}
 
 			if input.Layout == nil {
@@ -1111,7 +1132,7 @@ func TestOptimiseCommand_BuildInput(t *testing.T) {
 		Commands: []*cli.Command{cmd},
 	}
 
-	err := app.Run(context.Background(), []string{"test", "optimise", "test.klf", "--generations", "500", "--maxtime", "3"})
+	err := app.Run(context.Background(), []string{"test", "optimize", "test.klf", "--generations", "500", "--maxtime", "3"})
 	if err != nil {
 		t.Fatalf("app.Run failed: %v", err)
 	}
@@ -1121,138 +1142,119 @@ func TestOptimiseCommand_BuildInput(t *testing.T) {
 // GENERATE COMMAND TESTS
 // ============================================================================
 
-// TestGenerateCommand_NoArgs verifies that the generate command accepts no positional arguments
-// and successfully executes with only flags (layout name is auto-generated).
-func TestGenerateCommand_NoArgs(t *testing.T) {
-	// Generate command should accept no args - test through buildGeneratorInput
-	cmd := &cli.Command{
-		Name:  "test",
-		Flags: generateFlagsSlice(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			// If we got here, command executed successfully
-			return nil
-		},
-	}
-
-	app := &cli.Command{
-		Commands: []*cli.Command{cmd},
-	}
-
-	err := app.Run(context.Background(), []string{"test"})
-	if err != nil {
-		t.Errorf("expected no error for generate with no args, got %v", err)
-	}
-}
-
-// TestGenerateCommand_WithArgs_ReturnsError verifies that the generate command correctly rejects
-// positional arguments via validateGenerateFlags().
-func TestGenerateCommand_WithArgs_ReturnsError(t *testing.T) {
-	cmd := &cli.Command{
-		Name:   "generate",
-		Before: validateGenerateFlags,
-	}
-
-	app := &cli.Command{
-		Commands: []*cli.Command{cmd},
-	}
-
-	err := app.Run(context.Background(), []string{"test", "generate", "unexpected-arg"})
-	if err == nil {
-		t.Error("expected error for generate with args, got nil")
-	}
-}
-
-// TestGenerateCommand_BuildInput verifies that buildGeneratorInput() correctly builds generator input
-// with layout type validation. Tests all valid types (rowstag, anglemod, ortho, colstag) and rejects invalid.
-func TestGenerateCommand_BuildInput(t *testing.T) {
-	tests := []struct {
-		name         string
-		layoutType   string
-		wantErr      bool
-		expectedType string
-	}{
-		{"rowstag", "rowstag", false, "rowstag"},
-		{"anglemod", "anglemod", false, "anglemod"},
-		{"ortho", "ortho", false, "ortho"},
-		{"colstag", "colstag", false, "colstag"},
-		{"invalid", "invalid", true, ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &cli.Command{
-				Name:  "generate",
-				Flags: generateFlagsSlice(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					input, err := buildGeneratorInput(cmd)
-					if (err != nil) != tt.wantErr {
-						t.Fatalf("buildGeneratorInput error = %v, wantErr %v", err, tt.wantErr)
-					}
-
-					if !tt.wantErr {
-						// Compare LayoutType by converting to string using map
-						actualType := ""
-						switch input.LayoutType {
-						case 0: // ROWSTAG
-							actualType = "rowstag"
-						case 1: // ANGLEMOD
-							actualType = "anglemod"
-						case 2: // ORTHO
-							actualType = "ortho"
-						case 3: // COLSTAG
-							actualType = "colstag"
-						}
-						if actualType != tt.expectedType {
-							t.Errorf("LayoutType = %v, want %v", actualType, tt.expectedType)
-						}
-
-						// Test other flags
-						if cmd.Bool("vowels-right") != false {
-							t.Error("expected vowels-right to be false")
-						}
-
-						if cmd.Bool("alpha-thumb") != false {
-							t.Error("expected alpha-thumb to be false")
-						}
-					}
-
-					return nil
-				},
-			}
-
-			app := &cli.Command{
-				Commands: []*cli.Command{cmd},
-			}
-
-			err := app.Run(context.Background(), []string{"test", "generate", "--layout-type", tt.layoutType})
-			if err != nil && !tt.wantErr {
-				t.Fatalf("app.Run failed: %v", err)
-			}
-		})
-	}
-}
-
-// TestGenerateCommand_FlagsWork verifies that generate command flags (vowels-right, alpha-thumb,
-// optimize, generations) are correctly parsed and accessible in the command context.
-func TestGenerateCommand_FlagsWork(t *testing.T) {
+// TestGenerateCommand_NoArgs_ReturnsError verifies that the generate command requires exactly one
+// config file argument and rejects execution with no arguments.
+func TestGenerateCommand_NoArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "generate",
-		Flags: generateFlagsSlice(),
+		Flags: generateCmdFlags(),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			if !cmd.Bool("vowels-right") {
-				t.Error("expected vowels-right to be true")
+			_, err := buildGenerateInput(cmd)
+			return err
+		},
+	}
+
+	app := &cli.Command{
+		Commands: []*cli.Command{cmd},
+	}
+
+	err := app.Run(context.Background(), []string{"test", "generate"})
+	if err == nil {
+		t.Error("expected error for generate with no args, got nil")
+	}
+	if !strings.Contains(err.Error(), "expected exactly 1 config file argument") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+// TestGenerateCommand_MultipleArgs_ReturnsError verifies that the generate command rejects
+// multiple config file arguments.
+func TestGenerateCommand_MultipleArgs_ReturnsError(t *testing.T) {
+	cmd := &cli.Command{
+		Name:  "generate",
+		Flags: generateCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			_, err := buildGenerateInput(cmd)
+			return err
+		},
+	}
+
+	app := &cli.Command{
+		Commands: []*cli.Command{cmd},
+	}
+
+	err := app.Run(context.Background(), []string{"test", "generate", "file1.gen", "file2.gen"})
+	if err == nil {
+		t.Error("expected error for generate with multiple args, got nil")
+	}
+	if !strings.Contains(err.Error(), "expected exactly 1 config file argument") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+// TestGenerateCommand_WrongExtension_ReturnsError verifies that the generate command rejects
+// config files without .gen extension.
+func TestGenerateCommand_WrongExtension_ReturnsError(t *testing.T) {
+	cmd := &cli.Command{
+		Name:  "generate",
+		Flags: generateCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			_, err := buildGenerateInput(cmd)
+			return err
+		},
+	}
+
+	app := &cli.Command{
+		Commands: []*cli.Command{cmd},
+	}
+
+	err := app.Run(context.Background(), []string{"test", "generate", "config.klg"})
+	if err == nil {
+		t.Error("expected error for wrong extension, got nil")
+	}
+	if !strings.Contains(err.Error(), "must have .gen extension") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+// TestGenerateCommand_BuildInput verifies that buildGenerateInput() correctly builds input structure
+// with config path, max-layouts, and seed from CLI flags.
+func TestGenerateCommand_BuildInput(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	// Create test config file
+	genContent := `rowstag
+~ 0 0 0 0 0   0 0 0 0 0 ~
+~ 0 0 0 0 0   0 e a i o ~
+~ 0 0 0 0 0   0 0 0 0 0 ~
+      ~ ~ 0   _ ~ ~
+
+charset=etaoinshrdlcumwfgypbvkjxqz,./;'_
+`
+	writeTestConfigFile(t, configDir, "test.gen", genContent)
+
+	cmd := &cli.Command{
+		Name:  "generate",
+		Flags: generateCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			input, err := buildGenerateInput(cmd)
+			if err != nil {
+				t.Fatalf("buildGenerateInput failed: %v", err)
 			}
 
-			if !cmd.Bool("alpha-thumb") {
-				t.Error("expected alpha-thumb to be true")
+			// Verify config path is resolved
+			if !strings.HasSuffix(input.ConfigPath, "test.gen") {
+				t.Errorf("ConfigPath = %q, want to end with test.gen", input.ConfigPath)
 			}
 
-			if !cmd.Bool("optimize") {
-				t.Error("expected optimize to be true")
+			// Verify flag defaults
+			if input.MaxLayouts != 100 {
+				t.Errorf("MaxLayouts = %d, want 100", input.MaxLayouts)
 			}
 
-			if cmd.Uint("generations") != 2000 {
-				t.Errorf("generations = %d, want 2000", cmd.Uint("generations"))
+			if input.Seed != 42 {
+				t.Errorf("Seed = %d, want 42", input.Seed)
 			}
 
 			return nil
@@ -1263,8 +1265,148 @@ func TestGenerateCommand_FlagsWork(t *testing.T) {
 		Commands: []*cli.Command{cmd},
 	}
 
-	err := app.Run(context.Background(), []string{"test", "generate", "--vowels-right", "--alpha-thumb", "--optimize", "--generations", "2000"})
+	err := app.Run(context.Background(), []string{"test", "generate", "test.gen", "--max-layouts", "100", "--seed", "42"})
 	if err != nil {
 		t.Fatalf("app.Run failed: %v", err)
+	}
+}
+
+// TestGenerateCommand_FlagDefaults verifies that generate command flags have correct default values.
+func TestGenerateCommand_FlagDefaults(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	// Create test config file
+	genContent := `rowstag
+~ 0 0 0 0 0   0 0 0 0 0 ~
+~ 0 0 0 0 0   0 e a i o ~
+~ 0 0 0 0 0   0 0 0 0 0 ~
+      ~ ~ 0   _ ~ ~
+
+charset=etaoinshrdlcumwfgypbvkjxqz,./;'_
+`
+	writeTestConfigFile(t, configDir, "test.gen", genContent)
+
+	cmd := &cli.Command{
+		Name:  "generate",
+		Flags: generateCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			input, err := buildGenerateInput(cmd)
+			if err != nil {
+				t.Fatalf("buildGenerateInput failed: %v", err)
+			}
+
+			// Verify defaults
+			if input.MaxLayouts != 1500 {
+				t.Errorf("MaxLayouts default = %d, want 1500", input.MaxLayouts)
+			}
+
+			if input.Seed != 0 {
+				t.Errorf("Seed default = %d, want 0", input.Seed)
+			}
+
+			// Verify optimize-related flags
+			if cmd.Bool("optimize") != false {
+				t.Error("optimize default should be false")
+			}
+
+			if cmd.Uint("generations") != 1000 {
+				t.Errorf("generations default = %d, want 1000", cmd.Uint("generations"))
+			}
+
+			if cmd.String("pins") != "" {
+				t.Errorf("pins default = %q, want empty", cmd.String("pins"))
+			}
+
+			if cmd.Bool("keep-unoptimized") != false {
+				t.Error("keep-unoptimized default should be false")
+			}
+
+			return nil
+		},
+	}
+
+	app := &cli.Command{
+		Commands: []*cli.Command{cmd},
+	}
+
+	err := app.Run(context.Background(), []string{"test", "generate", "test.gen"})
+	if err != nil {
+		t.Fatalf("app.Run failed: %v", err)
+	}
+}
+
+// TestGenerateCommand_ConfigFileResolution verifies that config files are resolved correctly
+// from both direct paths and data/config/ directory.
+func TestGenerateCommand_ConfigFileResolution(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	// Create test config file in configDir
+	genContent := `rowstag
+~ 0 0 0 0 0   0 0 0 0 0 ~
+~ 0 0 0 0 0   0 e a i o ~
+~ 0 0 0 0 0   0 0 0 0 0 ~
+      ~ ~ 0   _ ~ ~
+
+charset=etaoinshrdlcumwfgypbvkjxqz,./;'_
+`
+	writeTestConfigFile(t, configDir, "example.gen", genContent)
+
+	cmd := &cli.Command{
+		Name:  "generate",
+		Flags: generateCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			input, err := buildGenerateInput(cmd)
+			if err != nil {
+				t.Fatalf("buildGenerateInput failed: %v", err)
+			}
+
+			// Verify path was resolved to configDir
+			expectedPath := filepath.Join(configDir, "example.gen")
+			if input.ConfigPath != expectedPath {
+				t.Errorf("ConfigPath = %q, want %q", input.ConfigPath, expectedPath)
+			}
+
+			return nil
+		},
+	}
+
+	app := &cli.Command{
+		Commands: []*cli.Command{cmd},
+	}
+
+	// Pass just the filename, should be resolved to configDir
+	err := app.Run(context.Background(), []string{"test", "generate", "example.gen"})
+	if err != nil {
+		t.Fatalf("app.Run failed: %v", err)
+	}
+}
+
+// TestGenerateCommand_ConfigFileNotFound verifies that appropriate error is returned
+// when config file is not found.
+func TestGenerateCommand_ConfigFileNotFound(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	cmd := &cli.Command{
+		Name:  "generate",
+		Flags: generateCmdFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			_, err := buildGenerateInput(cmd)
+			return err
+		},
+	}
+
+	app := &cli.Command{
+		Commands: []*cli.Command{cmd},
+	}
+
+	err := app.Run(context.Background(), []string{"test", "generate", "nonexistent.gen"})
+	if err == nil {
+		t.Error("expected error for nonexistent file, got nil")
+	}
+	if !strings.Contains(err.Error(), "config file not found") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }

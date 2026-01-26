@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/urfave/cli/v3"
@@ -23,7 +24,7 @@ func TestAllSharedFlagsExist(t *testing.T) {
 	}
 
 	for _, flagName := range expectedFlags {
-		if _, ok := appFlagsMap[flagName]; !ok {
+		if _, ok := commonFlagsMap[flagName]; !ok {
 			t.Errorf("expected flag %q not found in appFlagsMap", flagName)
 		}
 	}
@@ -43,15 +44,15 @@ func TestNoExtraSharedFlags(t *testing.T) {
 		"weights":            true,
 	}
 
-	for flagName := range appFlagsMap {
+	for flagName := range commonFlagsMap {
 		if !expectedFlags[flagName] {
 			t.Errorf("unexpected flag %q found in appFlagsMap", flagName)
 		}
 	}
 
 	// Verify count matches
-	if len(appFlagsMap) != len(expectedFlags) {
-		t.Errorf("appFlagsMap has %d flags, expected %d", len(appFlagsMap), len(expectedFlags))
+	if len(commonFlagsMap) != len(expectedFlags) {
+		t.Errorf("appFlagsMap has %d flags, expected %d", len(commonFlagsMap), len(expectedFlags))
 	}
 }
 
@@ -76,7 +77,7 @@ func TestSharedFlagDefaults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flag, ok := appFlagsMap[tt.name]
+			flag, ok := commonFlagsMap[tt.name]
 			if !ok {
 				t.Fatalf("flag %q not found", tt.name)
 			}
@@ -115,7 +116,7 @@ func TestSharedFlagAliases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flag, ok := appFlagsMap[tt.name]
+			flag, ok := commonFlagsMap[tt.name]
 			if !ok {
 				t.Fatalf("flag %q not found", tt.name)
 			}
@@ -158,7 +159,7 @@ func TestSharedFlagCategories(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flag, ok := appFlagsMap[tt.name]
+			flag, ok := commonFlagsMap[tt.name]
 			if !ok {
 				t.Fatalf("flag %q not found", tt.name)
 			}
@@ -181,6 +182,8 @@ func TestSharedFlagCategories(t *testing.T) {
 // Covers corpusFlags, analyseFlags, rankFlags, optimizeFlags, and generateFlags.
 func TestCommandSpecificFlagsComplete(t *testing.T) {
 	// Note: view command has no command-specific flags, only uses shared flags
+	optimizeFlags := optFlags()
+	genFlags := generationFlags()
 	tests := []struct {
 		name          string
 		flags         *[]cli.Flag
@@ -208,8 +211,8 @@ func TestCommandSpecificFlagsComplete(t *testing.T) {
 		},
 		{
 			name:          "generateFlags",
-			flags:         &generateFlags,
-			expectedFlags: []string{"layout-type", "vowels-right", "alpha-thumb", "seed", "optimize", "generations"},
+			flags:         &genFlags,
+			expectedFlags: []string{"max-layouts", "seed", "optimize", "keep-unoptimized"},
 		},
 	}
 
@@ -265,6 +268,8 @@ func TestCommandSpecificFlagsComplete(t *testing.T) {
 // default value. Tests corpus-rows=100, coverage=98.0, rows=10, generations=1000, etc.
 // Ensures commands have sensible defaults when flags are not explicitly set.
 func TestFlagDefaults_CommandSpecific(t *testing.T) {
+	optimizeFlags := optFlags()
+	genFlags := generationFlags()
 	tests := []struct {
 		name        string
 		flags       *[]cli.Flag
@@ -282,12 +287,10 @@ func TestFlagDefaults_CommandSpecific(t *testing.T) {
 		{"generations_optimize", &optimizeFlags, "generations", uint64(1000)},
 		{"maxtime", &optimizeFlags, "maxtime", uint64(5)},
 		{"seed_optimize", &optimizeFlags, "seed", int64(0)},
-		{"layout-type", &generateFlags, "layout-type", "colstag"},
-		{"vowels-right", &generateFlags, "vowels-right", false},
-		{"alpha-thumb", &generateFlags, "alpha-thumb", false},
-		{"optimize", &generateFlags, "optimize", false},
-		{"seed_generate", &generateFlags, "seed", uint64(0)},
-		{"generations_generate", &generateFlags, "generations", uint64(1000)},
+		{"max-layouts", &genFlags, "max-layouts", int64(1500)},
+		{"optimize", &genFlags, "optimize", false},
+		{"seed_generate", &genFlags, "seed", uint64(0)},
+		{"keep-unoptimized", &genFlags, "keep-unoptimized", false},
 	}
 
 	for _, tt := range tests {
@@ -385,8 +388,13 @@ func TestFlagDefaults_CommandSpecific(t *testing.T) {
 // These tests verify that validation functions correctly accept/reject inputs
 
 // TestCorpusFlagValidation verifies that the corpus command accepts no positional arguments
-// and correctly rejects arguments when provided. Tests validateCorpusFlags() function.
+// and correctly rejects arguments when provided. Tests buildCorpusInput() argument validation.
 func TestCorpusFlagValidation(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	writeTestCorpus(t, corpusDir, "default.txt")
+
 	tests := []struct {
 		name    string
 		args    []string
@@ -399,24 +407,34 @@ func TestCorpusFlagValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
-				Name:   "corpus",
-				Before: validateCorpusFlags,
+				Name:  "corpus",
+				Flags: corpusCmdFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return nil
+					_, err := buildCorpusInput(cmd)
+					return err
 				},
 			}
 
 			err := app.Run(context.Background(), tt.args)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateCorpusFlags() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("buildCorpusInput() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
 // TestViewFlagValidation verifies that the view command requires at least one layout argument
-// and accepts multiple layouts. Tests validateViewFlags() function.
+// and accepts multiple layouts. Tests buildViewInput() argument validation.
 func TestViewFlagValidation(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	writeTestCorpus(t, corpusDir, "default.txt")
+	writeTestConfigFile(t, configDir, "load_targets.txt", `target-hand-load = 50, 50
+target-row-load = 17.5, 75.0, 7.5
+target-finger-load = 7, 10, 16, 17
+pinky-penalties = 2, 1.5, 1, 0, 2, 1.5`)
+
 	tests := []struct {
 		name    string
 		args    []string
@@ -430,24 +448,34 @@ func TestViewFlagValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
-				Name:   "view",
-				Before: validateViewFlags,
+				Name:  "view",
+				Flags: viewCmdFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return nil
+					_, err := buildViewInput(cmd)
+					return err
 				},
 			}
 
 			err := app.Run(context.Background(), tt.args)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateViewFlags() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("buildViewInput() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
 // TestAnalyseFlagValidation verifies that the analyse command requires at least one layout argument
-// and accepts multiple layouts. Tests validateAnalyseFlags() function.
+// and accepts multiple layouts. Tests buildAnalyseInput() argument validation.
 func TestAnalyseFlagValidation(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	writeTestCorpus(t, corpusDir, "default.txt")
+	writeTestConfigFile(t, configDir, "load_targets.txt", `target-hand-load = 50, 50
+target-row-load = 17.5, 75.0, 7.5
+target-finger-load = 7, 10, 16, 17
+pinky-penalties = 2, 1.5, 1, 0, 2, 1.5`)
+
 	tests := []struct {
 		name    string
 		args    []string
@@ -461,24 +489,30 @@ func TestAnalyseFlagValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
-				Name:   "analyse",
-				Before: validateAnalyseFlags,
+				Name:  "analyse",
+				Flags: analyseFlagsSlice(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return nil
+					_, err := buildAnalyseInput(cmd)
+					return err
 				},
 			}
 
 			err := app.Run(context.Background(), tt.args)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateAnalyseFlags() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("buildAnalyseInput() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
 // TestFlipFlagValidation verifies that the flip command requires exactly one layout argument.
-// Tests that it rejects no arguments and rejects multiple arguments. Tests validateFlipFlags().
+// Tests that it rejects no arguments and rejects multiple arguments. Tests flipAction() argument validation.
 func TestFlipFlagValidation(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	writeTestLayout(t, layoutDir, "layout1.klf", minimalLayoutContent)
+
 	tests := []struct {
 		name    string
 		args    []string
@@ -493,23 +527,31 @@ func TestFlipFlagValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
 				Name:   "flip",
-				Before: validateFlipFlags,
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return nil
-				},
+				Action: flipAction,
 			}
 
 			err := app.Run(context.Background(), tt.args)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateFlipFlags() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("flipAction() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
 // TestOptimizeFlagValidation verifies that the optimize command requires exactly one layout argument.
-// Tests that it rejects no arguments and rejects multiple arguments. Tests validateOptFlags().
+// Tests that it rejects no arguments and rejects multiple arguments. Tests buildOptimizeInput() argument validation.
 func TestOptimizeFlagValidation(t *testing.T) {
+	origLayoutDir, origCorpusDir, origConfigDir := setupTestDirs(t)
+	defer restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir)
+
+	writeTestCorpus(t, corpusDir, "default.txt")
+	writeTestConfigFile(t, configDir, "load_targets.txt", `target-hand-load = 50, 50
+target-row-load = 17.5, 75.0, 7.5
+target-finger-load = 7, 10, 16, 17
+pinky-penalties = 2, 1.5, 1, 0, 2, 1.5`)
+	writeTestConfigFile(t, configDir, "weights.txt", "SFB=-10.0")
+	writeTestLayout(t, layoutDir, "layout1.klf", minimalLayoutContent)
+
 	tests := []struct {
 		name    string
 		args    []string
@@ -523,46 +565,56 @@ func TestOptimizeFlagValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
-				Name:   "optimize",
-				Before: validateOptFlags,
+				Name:  "optimize",
+				Flags: optimizeCmdFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return nil
+					_, err := buildOptimizeInput(cmd, nil, false)
+					return err
 				},
 			}
 
 			err := app.Run(context.Background(), tt.args)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateOptFlags() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("buildOptimizeInput() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-// TestGenerateFlagValidation verifies that the generate command accepts no positional arguments
-// and correctly rejects arguments when provided. Tests validateGenerateFlags() function.
+// TestGenerateFlagValidation verifies that the generate command requires exactly one .gen file argument
+// and correctly validates extensions. Tests buildGenerateInput() validation.
 func TestGenerateFlagValidation(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    []string
 		wantErr bool
+		errMsg  string
 	}{
-		{"no args accepted", []string{"generate"}, false},
-		{"rejects positional args", []string{"generate", "arg1"}, true},
+		{"no args rejected", []string{"generate"}, true, "expected exactly 1 config file argument"},
+		{"valid .gen file", []string{"generate", "test.gen"}, true, "config file not found"}, // file doesn't exist but passes validation
+		{"wrong extension rejected", []string{"generate", "test.klg"}, true, "must have .gen extension"},
+		{"multiple args rejected", []string{"generate", "a.gen", "b.gen"}, true, "expected exactly 1 config file argument"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := &cli.Command{
-				Name:   "generate",
-				Before: validateGenerateFlags,
+				Name:  "generate",
+				Flags: generateCmdFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return nil
+					_, err := buildGenerateInput(cmd)
+					return err
 				},
 			}
 
 			err := app.Run(context.Background(), tt.args)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateGenerateFlags() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("buildGenerateInput() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr && err != nil && tt.errMsg != "" {
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("error = %q, want to contain %q", err.Error(), tt.errMsg)
+				}
 			}
 		})
 	}

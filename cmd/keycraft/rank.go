@@ -44,7 +44,7 @@ var rankFlags = []cli.Flag{
 
 // rankFlagsSlice returns all flags for the rank command.
 func rankFlagsSlice() []cli.Flag {
-	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties", "weights-file", "weights")
+	commonFlags := commonFlags("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties", "weights-file", "weights")
 	return append(commonFlags, rankFlags...)
 }
 
@@ -74,7 +74,7 @@ func rankAction(ctx context.Context, c *cli.Command) error {
 	}
 
 	// 2. Parse all CLI flags and build input (using weights from displayOpts)
-	input, err := buildRankingInput(c, displayOpts.Weights)
+	input, err := buildRankingInput(c, displayOpts.Weights, false)
 	if err != nil {
 		return fmt.Errorf("could not parse user input for rankings: %w", err)
 	}
@@ -93,7 +93,10 @@ func rankAction(ctx context.Context, c *cli.Command) error {
 }
 
 // buildRankingInput gathers all input parameters.
-func buildRankingInput(c *cli.Command, weights *kc.Weights) (kc.RankingInput, error) {
+// Parameters:
+//   - weights: if provided, uses these weights; if nil, should be loaded by caller
+//   - skipLayoutsFromArgs: if true, skips loading layouts from args (for generate command)
+func buildRankingInput(c *cli.Command, weights *kc.Weights, skipLayoutsFromArgs bool) (kc.RankingInput, error) {
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return kc.RankingInput{}, fmt.Errorf("could not load corpus: %w", err)
@@ -104,17 +107,28 @@ func buildRankingInput(c *cli.Command, weights *kc.Weights) (kc.RankingInput, er
 		return kc.RankingInput{}, fmt.Errorf("could not load target loads: %w", err)
 	}
 
-	// Check if deltas references a specific layout (not "none", "rows", or "median")
-	deltasValue := c.String("deltas")
-	deltasValueLower := strings.ToLower(deltasValue)
-	var baseLayout string
-	if deltasValueLower != "none" && deltasValueLower != "rows" && deltasValueLower != "median" {
-		baseLayout = deltasValue
+	// Load weights if not provided
+	if weights == nil {
+		weights, err = loadWeightsFromFlags(c)
+		if err != nil {
+			return kc.RankingInput{}, fmt.Errorf("could not load weights: %w", err)
+		}
 	}
 
-	layouts, err := getLayoutsFromArgs(c, baseLayout)
-	if err != nil {
-		return kc.RankingInput{}, fmt.Errorf("could not get layouts from args: %w", err)
+	var layouts []string
+	if !skipLayoutsFromArgs {
+		// Check if deltas references a specific layout (not "none", "rows", or "median")
+		deltasValue := c.String("deltas")
+		deltasValueLower := strings.ToLower(deltasValue)
+		var baseLayout string
+		if deltasValueLower != "none" && deltasValueLower != "rows" && deltasValueLower != "median" {
+			baseLayout = deltasValue
+		}
+
+		layouts, err = getLayoutsFromArgs(c, baseLayout)
+		if err != nil {
+			return kc.RankingInput{}, fmt.Errorf("could not get layouts from args: %w", err)
+		}
 	}
 
 	return kc.RankingInput{
