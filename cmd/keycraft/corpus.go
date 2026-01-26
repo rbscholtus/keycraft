@@ -45,9 +45,9 @@ var corpusFlags = []cli.Flag{
 	},
 }
 
-// corpusFlagsSlice returns all flags for the corpus command.
-func corpusFlagsSlice() []cli.Flag {
-	commonFlags := flagsSlice("corpus")
+// corpusCmdFlags returns all flags for the corpus command.
+func corpusCmdFlags() []cli.Flag {
+	commonFlags := commonFlags("corpus")
 	return append(commonFlags, corpusFlags...)
 }
 
@@ -56,7 +56,7 @@ var corpusCommand = &cli.Command{
 	Name:          "corpus",
 	Aliases:       []string{"c"},
 	Usage:         "Display statistics for a text corpus",
-	Flags:         corpusFlagsSlice(),
+	Flags:         corpusCmdFlags(),
 	Action:        corpusAction,
 	ShellComplete: layoutShellComplete,
 }

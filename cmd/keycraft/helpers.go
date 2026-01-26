@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
@@ -138,4 +140,23 @@ func loadWeightsFromFlags(c *cli.Command) (*kc.Weights, error) {
 		weightsPath = filepath.Join(configDir, weightsPath)
 	}
 	return kc.NewWeightsFromParams(weightsPath, c.String("weights"))
+}
+
+// getValues returns a slice containing the values associated with the provided keys.
+// If no keys are specified, it returns all values present in the map in non-deterministic order.
+// It panics if a specified key is not found in the map.
+func flags[K comparable, V any](m map[K]V, keys ...K) []V {
+	if len(keys) == 0 {
+		return slices.Collect(maps.Values(m))
+	}
+
+	values := make([]V, 0, len(keys))
+	for _, k := range keys {
+		v, ok := m[k]
+		if !ok {
+			panic(fmt.Errorf("key %v not found in map", k))
+		}
+		values = append(values, v)
+	}
+	return values
 }

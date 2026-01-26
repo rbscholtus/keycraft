@@ -52,8 +52,7 @@ var analyseFlags = []cli.Flag{
 
 // analyseFlagsSlice returns all flags for the analyse command.
 func analyseFlagsSlice() []cli.Flag {
-	commonFlags := flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties")
-	return append(commonFlags, analyseFlags...)
+	return append(viewCmdFlags(), analyseFlags...)
 }
 
 // analyseCommand defines the "analyse" CLI command.

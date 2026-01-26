@@ -11,10 +11,10 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// appFlagsMap is a centralized map of CLI flags shared across multiple commands.
+// commonFlagsMap is a centralized map of CLI flags shared across multiple commands.
 // Command-specific flags are defined in their respective command files.
 // Flags are categorized for better help output organization.
-var appFlagsMap = map[string]cli.Flag{
+var commonFlagsMap = map[string]cli.Flag{
 	"corpus": &cli.StringFlag{
 		Name:     "corpus",
 		Aliases:  []string{"c"},
@@ -77,17 +77,10 @@ var appFlagsMap = map[string]cli.Flag{
 	},
 }
 
-// flagsSlice returns a slice of cli.Flag pointers for the given keys from appFlagsMap.
-func flagsSlice(keys ...string) []cli.Flag {
-	flags := make([]cli.Flag, 0, len(keys))
-	for _, k := range keys {
-		if f, ok := appFlagsMap[k]; !ok {
-			panic(fmt.Sprintf("flag %q not found in appFlagsMap", k))
-		} else {
-			flags = append(flags, f)
-		}
-	}
-	return flags
+// commonFlags returns a slice of cli.Flag pointers for the specified keys from commonFlagsMap,
+// or all Flags if no keys are specified
+func commonFlags(keys ...string) []cli.Flag {
+	return flags(commonFlagsMap, keys...)
 }
 
 // isShellCompletion returns true if the current invocation is for shell completion.

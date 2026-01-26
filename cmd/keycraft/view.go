@@ -9,12 +9,17 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// optimizeCmdFlags returns all flags for the optimise command
+func viewCmdFlags() []cli.Flag {
+	return commonFlags("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties")
+}
+
 // viewCommand defines the CLI command for viewing keyboard layout analysis.
 var viewCommand = &cli.Command{
 	Name:          "view",
 	Aliases:       []string{"v"},
 	Usage:         "Analyse and display one or more keyboard layouts",
-	Flags:         flagsSlice("corpus", "load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
+	Flags:         viewCmdFlags(),
 	ArgsUsage:     "<layout1> <layout2> ...",
 	Action:        viewAction,
 	ShellComplete: layoutShellComplete,
