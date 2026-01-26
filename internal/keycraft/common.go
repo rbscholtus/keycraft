@@ -95,7 +95,7 @@ func MustFprint(w io.Writer, args ...interface{}) {
 	}
 }
 
-// mustFprintln writes a newline-terminated string of arguments to the given writer,
+// MustFprintln writes a newline-terminated string of arguments to the given writer,
 // logging and exiting on error. It simplifies error handling for fmt.Fprintln calls
 // where failures are critical and should halt execution.
 func MustFprintln(w io.Writer, args ...interface{}) {
