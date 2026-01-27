@@ -93,7 +93,7 @@ func NewScorer(layoutsDir string, corpus *Corpus, targets *TargetLoads, weights 
 }
 
 // prepareTrigramCache pre-filters corpus trigrams using a template layout and applies
-// 99% coverage filtering to keep only high-frequency trigrams.
+// 98% coverage filtering to keep only high-frequency trigrams.
 // This eliminates redundant filtering across all future Score() calls and reduces cache size
 // by discarding low-frequency trigrams that contribute minimally to the analysis.
 // The cache contains only trigrams where all 3 runes exist on the template layout.
@@ -122,7 +122,7 @@ func (sc *Scorer) prepareTrigramCache(templateLayout *SplitLayout) {
 		return layoutFiltered[i].Count > layoutFiltered[j].Count
 	})
 
-	// Step 3: Apply 99% coverage threshold - keep only trigrams accounting for 99% of occurrences
+	// Step 3: Apply 98% coverage threshold - keep only trigrams accounting for 98% of occurrences
 	targetCount := uint64(float64(totalCount) * 0.98)
 	var cumulative uint64
 	cutoffIndex := 0
@@ -135,7 +135,7 @@ func (sc *Scorer) prepareTrigramCache(templateLayout *SplitLayout) {
 		}
 	}
 
-	// Step 4: Keep only trigrams that meet 99% coverage threshold
+	// Step 4: Keep only trigrams that meet 98% coverage threshold
 	sc.trigramCache = layoutFiltered[:cutoffIndex]
 }
 

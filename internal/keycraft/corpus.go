@@ -425,8 +425,8 @@ func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) err
 }
 
 // pruneWordsByCoverage reduces the word list to the most frequent words covering a target percentage.
-// For example, with coveragePercent=99, keeps only the most common words that together account
-// for 99% of all word occurrences. This reduces memory usage while retaining high-frequency vocabulary.
+// For example, with coveragePercent=98, keeps only the most common words that together account
+// for 98% of all word occurrences. This reduces memory usage while retaining high-frequency vocabulary.
 //
 //nolint:unused
 func (c *Corpus) pruneWordsByCoverage(coveragePercent float64) {
