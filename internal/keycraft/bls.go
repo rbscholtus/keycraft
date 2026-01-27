@@ -302,7 +302,7 @@ func (bls *BLS) Optimize(layout *SplitLayout, logger *BLSLogger) *SplitLayout {
 		logger.LogEnd(bls.state.bestCost, bls.state.iteration, elapsed, bls.state.bestLayout)
 	}
 
-	bls.state.bestLayout.Name += "-best"
+	bls.state.bestLayout.Name += "-opt"
 	return bls.state.bestLayout
 }
 
