@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
+	"github.com/rbscholtus/keycraft/internal/tui"
 	"github.com/urfave/cli/v3"
 )
 
@@ -81,7 +82,7 @@ var generateCommand = &cli.Command{
 	Name:      "generate",
 	Aliases:   []string{"g"},
 	Usage:     "Generate layouts from config file",
-	ArgsUsage: "<layout>",
+	ArgsUsage: "<config.gen>",
 	Flags:     generateCmdFlags(),
 	Action:    generateAction,
 }
@@ -98,16 +99,18 @@ func generateAction(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
-	// Print GenerateInput for verification
-	fmt.Printf("GenerateInput{\n")
-	fmt.Printf("  ConfigPath: %q\n", genInput.ConfigPath)
-	fmt.Printf("  MaxLayouts: %d\n", genInput.MaxLayouts)
-	fmt.Printf("  Seed: %d\n", genInput.Seed)
-	fmt.Printf("  Optimize: %v\n", genInput.Optimize)
-	fmt.Printf("  KeepUnoptimized: %v\n", genInput.KeepUnoptimized)
-	fmt.Printf("}\n")
+	// Step 2: Parse and validate config file
+	config, err := kc.ParseConfigFile(genInput.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("could not parse config file: %w", err)
+	}
 
-	// Step 2: If --optimize, build OptimizeInput (without layout/pins for now)
+	if err := kc.ValidateConfig(config); err != nil {
+		return err
+	}
+
+	// Step 3: If --optimize, build OptimizeInput (without layout/pins for now)
+	// TODO: check if this can go inside if genInput.Optimize. If so, move code and update GENERATION.md
 	var optInput kc.OptimizeInput
 	if genInput.Optimize {
 		// skipLayoutLoad=true: don't load layout from args, it will be set per generated layout
@@ -115,40 +118,133 @@ func generateAction(ctx context.Context, c *cli.Command) error {
 		if err != nil {
 			return fmt.Errorf("could not build optimize input: %w", err)
 		}
-
-		fmt.Printf("OptimizeInput{\n")
-		fmt.Printf("  Layout: (set per generated layout): %q\n", optInput.Layout)
-		fmt.Printf("  LayoutsDir: (set per generated layout): %q\n", optInput.LayoutsDir)
-		fmt.Printf("  Corpus: %q\n", optInput.Corpus.Name)
-		fmt.Printf("  Targets: (loaded): %v\n", optInput.Targets)
-		fmt.Printf("  Weights: (loaded): %v\n", optInput.Weights)
-		fmt.Printf("  Pinned: (computed per generated layout): %v\n", optInput.Pinned)
-		fmt.Printf("  NumGenerations: %d\n", optInput.NumGenerations)
-		fmt.Printf("  MaxTime: %d\n", optInput.MaxTime)
-		fmt.Printf("  Seed: %d\n", optInput.Seed)
-		fmt.Printf("  Logfile: %v\n", optInput.LogFile)
-		fmt.Printf("}\n")
 	}
 
-	// Step 3: Build RankingInput (for displaying results)
-	// skipLayoutsFromArgs=true: layouts come from generation, not CLI args
+	// Step 4: Generate layouts
+	result, err := kc.GenerateFromConfig(config, genInput, layoutDir)
+	if err != nil {
+		return fmt.Errorf("could not generate layouts: %w", err)
+	}
+
+	// Print warnings
+	for _, warning := range result.Warnings {
+		fmt.Printf("Warning: %s\n", warning)
+	}
+
+	fmt.Printf("Generated %d layouts (total permutations: %d)\n", result.Generated, result.TotalPerms)
+
+	// Step 5: Optimize if requested
+	if genInput.Optimize {
+		err := optimiseLayout(result, config, c, optInput, genInput)
+		if err != nil {
+			return fmt.Errorf("could not optimise generated layout: %w", err)
+		}
+	}
+
+	// Step 6: Build RankingInput and display rankings
 	rankingInput, err := buildRankingInput(c, optInput.Weights, true)
 	if err != nil {
 		return fmt.Errorf("could not build ranking input: %w", err)
 	}
 
-	fmt.Printf("RankingInput{\n")
-	fmt.Printf("  LayoutsDir: %q\n", rankingInput.LayoutsDir)
-	fmt.Printf("  LayoutFiles: (set after generation): %v\n", rankingInput.LayoutFiles)
-	fmt.Printf("  Corpus: %q\n", rankingInput.Corpus.Name)
-	fmt.Printf("  Targets: (loaded): %v\n", rankingInput.Targets)
-	fmt.Printf("  Weights: (loaded): %v\n", rankingInput.Weights)
-	fmt.Printf("}\n")
+	// Set layout files from generation result
+	rankingInput.LayoutFiles = result.LayoutPaths
 
-	// Step 4: Stub - no actual generation yet
-	fmt.Printf("\n[STUB] Generation not implemented yet\n")
+	// Compute and display rankings
+	rankings, err := kc.ComputeRankings(rankingInput)
+	if err != nil {
+		return fmt.Errorf("could not compute rankings: %w", err)
+	}
+
+	// Build display options for rendering
+	displayOpts := tui.RankingDisplayOptions{
+		OutputFormat:  tui.OutputTable,
+		MetricsOption: tui.MetricsWeighted,
+		Weights:       rankingInput.Weights,
+		DeltasOption:  tui.DeltasNone,
+	}
+
+	if err := tui.RenderRankingTable(rankings, displayOpts); err != nil {
+		return fmt.Errorf("could not render rankings: %w", err)
+	}
 
 	return nil
+}
+
+func optimiseLayout(result *kc.GenerationResult, config *kc.GenerationConfig, c *cli.Command, optInput kc.OptimizeInput, genInput kc.GenerateInput) error {
+	fmt.Printf("Optimizing %d layouts...\n", len(result.Layouts))
+
+	for i, layout := range result.Layouts {
+		// Compute default pins for this layout
+		pinned := kc.ComputeDefaultPins(config, layout)
+
+		// Check if custom pins were specified via --pins flag
+		pinsStr := c.String("pins")
+		if pinsStr != "" {
+			// Override with custom pins
+			pinned = computeCustomPins(layout, pinsStr, config)
+		}
+
+		// Set up optimization input for this layout
+		optInput.Layout = layout
+		optInput.Pinned = &pinned
+		optInput.LayoutsDir = layoutDir
+
+		// Run optimization (nil writer = no console output during optimization)
+		optimizeResult, err := kc.OptimizeLayout(optInput, nil)
+		if err != nil {
+			return fmt.Errorf("optimization failed for %s: %w", layout.Name, err)
+		}
+
+		// Save optimized layout with -opt suffix
+		bestLayout := optimizeResult.BestLayout
+		optimizedPath := filepath.Join(layoutDir, bestLayout.Name+".klf")
+		if err := bestLayout.SaveToFile(optimizedPath); err != nil {
+			return fmt.Errorf("failed to save optimized layout %s: %w", bestLayout.Name, err)
+		}
+
+		// Update the result with optimized layout path
+		result.LayoutPaths[i] = optimizedPath
+		result.Layouts[i] = bestLayout
+
+		// Delete original if not keeping unoptimized
+		if !genInput.KeepUnoptimized {
+			originalPath := filepath.Join(layoutDir, layout.Name+".klf")
+			if err := os.Remove(originalPath); err != nil {
+				// Just warn, don't fail
+				fmt.Printf("Warning: could not delete original layout %s: %v\n", originalPath, err)
+			}
+		}
+	}
+
+	fmt.Printf("Optimization complete\n")
+	return nil
+}
+
+// computeCustomPins computes pinned keys from a custom pins string.
+// Only the specified characters are pinned (plus unused positions and space).
+func computeCustomPins(layout *kc.SplitLayout, pinsStr string, config *kc.GenerationConfig) kc.PinnedKeys {
+	var pinned kc.PinnedKeys
+
+	// Create set of characters to pin
+	pinChars := make(map[rune]bool)
+	for _, r := range pinsStr {
+		pinChars[r] = true
+	}
+	pinChars[' '] = true // Always pin space
+
+	// Pin positions based on config template (unused always pinned)
+	// and whether the character at that position is in pinChars
+	for i, spec := range config.Template {
+		if spec.Type == kc.PositionUnused {
+			pinned[i] = true // Always pin unused
+		} else {
+			// Pin if character is in pinChars set
+			pinned[i] = pinChars[layout.Runes[i]]
+		}
+	}
+
+	return pinned
 }
 
 // buildGenerateInput validates arguments, resolves config path, and captures generation flags.

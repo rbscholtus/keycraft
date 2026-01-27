@@ -1,6 +1,43 @@
 Keyboard Layout Generation
 ==========================
 
+Table of Contents
+-----------------
+
+- [Keyboard Layout Generation](#keyboard-layout-generation)
+  - [Purpose](#purpose)
+  - [Generation Config File Format](#generation-config-file-format)
+  - [CLI Design](#cli-design)
+    - [Command Structure](#command-structure)
+    - [Flags](#flags)
+    - [Flag Behavior](#flag-behavior)
+    - [Example Usage](#example-usage)
+  - [generateAction Flow](#generateaction-flow)
+    - [Step 1: buildGenerateInput()](#step-1-buildgenerateinput)
+    - [Step 2: If --optimize, buildOptimizeInput()](#step-2-if---optimize-buildoptimizeinput)
+    - [Step 3: buildRankingInput()](#step-3-buildrankinginput)
+    - [Step 4: Execute generation (stub for now)](#step-4-execute-generation-stub-for-now)
+    - [Step 5: Print rankings](#step-5-print-rankings)
+  - [CLI Testing](#cli-testing)
+    - [Test Cases (commands\_test.go)](#test-cases-commands_testgo)
+  - [Algorithm Design](#algorithm-design)
+    - [Data Structures](#data-structures)
+    - [Generation Algorithm](#generation-algorithm)
+    - [Validation Checks](#validation-checks)
+  - [Test Plan](#test-plan)
+    - [Unit Tests (generator\_test.go)](#unit-tests-generator_testgo)
+    - [Integration Tests (commands\_test.go)](#integration-tests-commands_testgo)
+    - [Test Data Files](#test-data-files)
+  - [File Organization](#file-organization)
+    - [New Files](#new-files)
+    - [Modified Files](#modified-files)
+    - [Files to Archive](#files-to-archive)
+  - [Implementation Files Involved](#implementation-files-involved)
+    - [Critical Files for Reference](#critical-files-for-reference)
+  - [User Manual](#user-manual)
+    - [Creating a Generation Config File](#creating-a-generation-config-file)
+    - [Generating Layouts](#generating-layouts)
+
 Purpose
 -------
 This document defines the scope and design of the generation feature built into Keycraft.
@@ -44,8 +81,10 @@ set2=tnshrd
 - `1` through `9` = Group number (allocate from corresponding `set1`, `set2`, etc.)
 
 **Character set definitions:**
-- `charset=<characters>` = All characters available for allocation across the entire layout. This includes 26 letters, punctuation, and space (use `_` to represent space). A standard charset has 32 characters. Users may include more characters if there are enough positions available.
-- `set1=<characters>`, `set2=<characters>`, etc. = Character pools for groups 1-9. Sets are processed in ascending order (set1 first, then set2, etc.). After all sets are allocated, remaining charset characters are assigned to `0` positions.
+- `charset=<characters>` = All characters available for allocation across the entire layout. This includes 26 letters, punctuation, and space. Use `_` to represent space (it is converted to a space character during parsing). A standard charset has 32 characters. Users may include more characters if there are enough positions available.
+- `set1=<characters>`, `set2=<characters>`, etc. = Character pools for groups 1-9. Use `_` to include space in a group (converted to space during parsing). Sets are processed in ascending order (set1 first, then set2, etc.). After all sets are allocated, remaining charset characters are assigned to `0` positions.
+
+**Note on space character:** The underscore `_` is used to represent the space character in `charset` and `setN` definitions because a literal space would be ambiguous in the config file. During parsing, all `_` characters in these values are converted to actual space characters.
 
 **Comments and blank lines:**
 - Lines starting with `#` are treated as comments and ignored
@@ -105,7 +144,7 @@ The command is `generate` (alias: `g`). Config file is a required positional arg
 - Group positions are always deterministic (permutation-based, no randomness)
 
 **Optimization Cleanup:**
-- Without `--keep-unoptimized`: Deletes original layouts after optimization, keeps only `-best` versions
+- Without `--keep-unoptimized`: Deletes original layouts after optimization, keeps only `-opt` versions
 - With `--keep-unoptimized`: Keeps both original and optimized versions
 - Reduces clutter when generating many permutations
 
@@ -275,7 +314,7 @@ Algorithm Design
 The implementation will use these primary structures:
 
 ```go
-// GenerationConfig represents a parsed .klg file
+// GenerationConfig represents a parsed .gen file
 type GenerationConfig struct {
     LayoutType   LayoutType        // ROWSTAG, ANGLEMOD, ORTHO, or COLSTAG
     Template     [42]PositionSpec  // Specification for each position
@@ -285,17 +324,17 @@ type GenerationConfig struct {
 
 // PositionSpec defines what should go in a position
 type PositionSpec struct {
-    Type      TemplateType
-    FixedChar rune  // used when Type == TemplateFixed
-    GroupNum  int   // used when Type == TemplateGroup
+    Type      PositionType
+    FixedChar rune  // used when Type == PositionFixed
+    GroupNum  int   // used when Type == PositionGroup
 }
 
-type TemplateType uint8
+type PositionType uint8
 const (
-    TemplateExcluded   TemplateType = iota // ~ (not allocated)
-    TemplateFixed                           // specific char or _
-    TemplateRandom                          // ? (random from charset)
-    TemplateGroup                           // 1-9 (from group set)
+    PositionUnused   PositionType = iota // ~ (not allocated)
+    PositionFixed                         // specific char or _
+    PositionRandom                        // 0 (random from charset)
+    PositionGroup                         // 1-9 (from group set)
 )
 ```
 
@@ -309,16 +348,61 @@ The generation process follows these steps:
    - Parse charset= and setN= definitions
    - Validate all inputs immediately
 
-2. **Build permutations** (NEW)
-   - For each group (set1, set2, etc.), compute all possible permutations of its characters
-   - Calculate total permutation count (product of factorials)
-   - Validate permutation count doesn't exceed 10,000 (hard limit)
-   - If multiple groups: compute cartesian product of all group permutations
+2. **Build permutations** (Constrained Permutation Generation)
+   - For each group (set1, set2, etc.), compute all possible permutations of selecting k characters from n available (where k = number of positions for that group, n = size of setN)
+   - This generates P(n,k) = n!/(n-k)! permutations per group
+   - Calculate total permutation count (product of all group permutations)
+   - If `--max-layouts` is set (default 1500) and total exceeds it, generate only first N permutations
+   - If `--max-layouts 0`, generate all permutations (no limit)
+   - Print warning if total permutation count exceeds 1,000
+   - If multiple groups: use constrained cartesian product (see algorithm below)
+
+   **Constrained Permutation Algorithm:**
+
+   When multiple groups share characters (e.g., `set1=tn` and `set2=nr` both contain `n`), a simple cartesian product would produce invalid combinations with duplicate characters. The algorithm uses constrained generation to ensure no character appears in multiple groups:
+
+   ```
+   function generateConstrainedPerms(groups, idx, usedChars):
+       if idx == len(groups):
+           return [{}]  // Base case: one empty permutation
+
+       group = groups[idx]
+       availableChars = group.chars - usedChars  // Remove already-used chars
+       k = group.positionCount
+
+       if len(availableChars) < k:
+           return []  // Not enough chars available, prune this branch
+
+       result = []
+       for each permutation in P(availableChars, k):
+           newUsed = usedChars + permutation
+           subPerms = generateConstrainedPerms(groups, idx+1, newUsed)
+           for each subPerm in subPerms:
+               result.append(combine(permutation, subPerm))
+
+       return result
+   ```
+
+   **Key properties:**
+   - Groups are processed in ascending order (set1 before set2, etc.)
+   - Characters used by earlier groups are excluded from later groups' available pools
+   - Entire branches are pruned when a group doesn't have enough available characters
+   - This avoids generating and filtering invalid combinations
+
+   **Example with overlapping groups:**
+   - `set1=tn` (1 position), `set2=nr` (2 positions)
+   - Naive cartesian: 2 × 2 = 4 combinations
+   - Valid combinations after constraint:
+     - set1=[t] → set2 has [n,r] available → [nr], [rn] = 2 valid
+     - set1=[n] → set2 has only [r] available → need 2 positions, only 1 char → **pruned**
+   - Result: Only 2 valid permutations instead of 4
+
+   **Warning:** When groups share characters, a warning is displayed to alert the user that some permutations will be skipped to avoid duplicates.
 
 3. **For each permutation combination:**
 
    a. **Allocate fixed characters**
-      - For each position with TemplateFixed, place the character
+      - For each position with PositionFixed, place the character
       - Remove character from working sets to prevent duplication
 
    b. **Allocate group permutation**
@@ -330,34 +414,83 @@ The generation process follows these steps:
    c. **Allocate random positions**
       - Initialize RNG using `NewLockedRNG(seed+i, 0)` where i is permutation index
       - Shuffle remaining characters using `ShuffleSlice()`
-      - Assign to all `?` positions
+      - Assign to all `0` positions
 
    d. **Create layout**
       - Call `NewSplitLayout(name, layoutType, runes)`
       - Generate layout name with permutation index
-      - Name format: `_` + homekeys + thumbkeys + `-` + 4-digit index
+      - Name format: `_<homekeys><thumbkeys>-<4hex>` where `<4hex>` is 0-padded permutation index
+      - Save layout to `data/layouts/<name>.klf`
 
-**Example**: Config with `set2=tnrd` (4 characters for 4 positions) generates 4! = 24 layouts systematically.
+   e. **Optimization (when --optimize flag is used)**
+      - Build pinned keys configuration:
+        - **Default pinning**: Pin all non-`0` positions (unused `~`, fixed characters, group characters, and space)
+        - **Custom pinning (--pins flag)**: Override default - only pin specified characters plus unused positions and space
+      - Create `OptimizeInput` with layout, pinned keys, corpus, targets, weights from CLI flags
+      - Call `kc.OptimizeLayout()` which runs BLS (Breakout Local Search) algorithm
+      - Optimized layout saved with `-opt` suffix: `_<homekeys><thumbkeys>-<4hex>-opt.klf`
+      - **Cleanup behavior**:
+        - Without `--keep-unoptimized`: Delete original layout, keep only `-opt` version
+        - With `--keep-unoptimized`: Keep both original and optimized versions
+
+**Examples**:
+- Config with `set2=tnrd` (4 chars) for 4 positions: P(4,4) = 4! = 24 permutations
+- Config with `set2=tnshrd` (6 chars) for 4 positions: P(6,4) = 6!/2! = 360 permutations
+- Multiple groups: If set1 has 3 chars for 2 positions (P(3,2)=6) and set2 has 6 chars for 4 positions (P(6,4)=360), total = 6×360 = 2160 permutations
 
 **Permutation vs Random**:
-- Group positions: All permutations generated deterministically
-- Random positions (`?`): Allocated randomly per permutation (using seed+i)
+- Group positions: All permutations generated deterministically (ordered selections)
+- Random positions (`0`): Allocated randomly per permutation (using seed+i)
 - Result: Complete exploration of group character arrangements
+
+**Why 4-digit hexadecimal index (0000-FFFF)?**
+- Provides 65,536 unique indices - ample headroom for typical use
+- Default `--max-layouts 1500` fits easily (1500 = 0x05DC)
+- Permutation counts can grow quickly with larger sets: P(6,4) = 360
+- Multiple groups multiply: 6 × 360 = 2160 permutations
+- Keeps filenames compact and readable: `_srnteaio-002f.klf`
+- For generation, the index is the permutation number (0000, 0001, 0002...), not timestamp-based
+
+**File naming and saving:**
+- Generated layout: `_<homekeys><thumbkeys>-<4hex>.klf`
+  - `<homekeys>` = lowercase a-z from positions 13-16, 19-22 (home row)
+  - `<thumbkeys>` = lowercase a-z from positions 36-41 (thumb row)
+  - `<4hex>` = 4-digit zero-padded permutation index (0000-ffff)
+- Optimized layout: `_<homekeys><thumbkeys>-<4hex>-opt.klf`
+
+**Saving behavior:**
+- Without `--optimize`: Save generated layout only
+- With `--optimize` (default): Save only `-opt` version, delete original
+- With `--optimize --keep-unoptimized`: Save both versions
 
 ### Validation Checks
 
 All validation happens before generation:
 
+**Layout validation:**
 - Layout type must be one of: `rowstag`, `anglemod`, `ortho`, or `colstag`
 - Exactly 42 positions in template (3 rows × 12 keys + 1 row × 6 thumb keys)
-- Position markers must be one of: `~`, `_`, `?`, `1`-`9`, or any valid character (letters, punctuation, special characters)
+- Position markers must be one of: `~`, `_`, `0`, `1`-`9`, or any valid character (letters, punctuation, special characters)
+
+**Character set validation:**
 - `charset=` must be defined and non-empty
 - No duplicate characters in `charset`
+- All fixed characters in template must be present in `charset`
+- No fixed character appears multiple times in the template
+
+**Group validation:**
 - Each group number used in the template (1-9) must have a corresponding `setN=` definition
 - No duplicate characters within any `setN`
-- Each `setN` must have enough unique characters to fill all positions assigned to that group
-- Total `charset` size must equal the number of non-excluded positions (all positions except those marked with `~`)
-- No fixed character appears multiple times in the template
+- Each `setN` must be a subset of `charset`
+- Each `setN` must have **at least** as many characters as positions assigned to that group (can have more - algorithm permutes over all choices)
+- Warning if a `setN` is defined but not used in template
+
+**Character count validation:**
+- Total `charset` size must equal the number of allocatable positions (all positions except those marked with `~`)
+
+**Optimization validation (when --optimize used):**
+- `--pins` characters must all exist in the generated layout
+- At least two positions must be free (not pinned) for optimization to proceed (swapping requires two characters)
 
 Validation errors report line numbers and specific issues for easy debugging.
 
@@ -367,7 +500,7 @@ Test Plan
 ### Unit Tests (generator_test.go)
 
 **Parser Tests:**
-1. Valid config with all features (groups, fixed, random, excluded)
+1. Valid config with all features (groups, fixed, random, unused)
 2. Valid minimal config (only fixed + random)
 3. Invalid layout type → error with line number
 4. Wrong position count (not 42) → error
@@ -398,6 +531,14 @@ Test Plan
 7. All positions random → maximum randomness
 8. Group characters removed from other groups after allocation
 9. Charset completely consumed (no leftover characters)
+10. All generated layouts have no duplicate characters
+11. All permutations from all test configs produce layouts without duplicates
+
+**Overlapping Groups Tests:**
+1. Overlapping groups produce no duplicate characters in layouts
+2. Correct permutation count with overlapping groups (invalid combinations excluded)
+3. All expected valid combinations are generated (verify actual permutation content)
+4. Warning is shown when groups share characters
 
 **Edge Cases:**
 1. Single group with exact character count
@@ -420,11 +561,11 @@ Test Plan
 **CLI Argument Tests:**
 1. No arguments → error
 2. Multiple arguments → error
-3. File without .klg extension → error (or warning/acceptance?)
-4. Valid .klg file → success
+3. File without .gen extension → error
+4. Valid .gen file → success
 
 **CLI Flag Tests:**
-1. --count flag creates N layouts
+1. --max-layouts flag creates N layouts
 2. --seed produces reproducible results
 3. --seed 0 produces different results each run
 4. --optimize runs optimization
@@ -436,32 +577,32 @@ Test Plan
 1. Generated layout saves to data/layouts/<name>.klf
 2. Layout name has correct format
 3. Optimized layout saves with different name
-4. Multiple layouts (--count N) all save successfully
+4. Multiple layouts (--max-layouts N) all save successfully
 5. Saved layout can be reloaded with existing parser
 
 **Error Handling Tests:**
-1. Invalid .klg file shows clear error with line number
-2. Missing .klg file shows file-not-found error
+1. Invalid .gen file shows clear error with line number
+2. Missing .gen file shows file-not-found error
 3. Validation error shows all issues at once
 4. Generation error shows specific problem
 
 ### Test Data Files
 
-Create testdata/ directory with sample .klg files:
+Create testdata/ directory with sample .gen files:
 
 **Valid configs:**
-- `testdata/simple.klg` - basic fixed + random
-- `testdata/example.klg` - the IHEA example from spec
-- `testdata/all-groups.klg` - using groups 1-9
-- `testdata/minimal.klg` - smallest valid config
-- `testdata/maximal.klg` - all features used
+- `testdata/simple.gen` - basic fixed + random
+- `testdata/with-groups.gen` - config with groups for permutation testing
+- `testdata/multi-groups.gen` - config with multiple groups
+- `testdata/overlapping-groups.gen` - groups sharing characters (tests constrained permutation)
+- `testdata/minimal.gen` - smallest valid config
 
 **Invalid configs:**
-- `testdata/invalid-type.klg` - bad layout type
-- `testdata/invalid-positions.klg` - wrong position count
-- `testdata/invalid-charset.klg` - duplicate chars
-- `testdata/invalid-groups.klg` - missing setN
-- `testdata/invalid-counts.klg` - char count mismatch
+- `testdata/invalid-type.gen` - bad layout type
+- `testdata/invalid-positions.gen` - wrong position count
+- `testdata/invalid-charset.gen` - duplicate chars
+- `testdata/invalid-groups.gen` - missing setN
+- `testdata/invalid-counts.gen` - char count mismatch
 
 File Organization
 -----------------
@@ -469,8 +610,8 @@ File Organization
 ### New Files
 
 **internal/keycraft/generator.go** (~350 lines)
-- `GenerationConfig`, `PositionSpec`, `TemplateType` types
-- `ParseConfigFile(path)` - parses `.klg` files with comment support
+- `GenerationConfig`, `PositionSpec`, `PositionType` types
+- `ParseConfigFile(path)` - parses `.gen` files with comment support
 - `ValidateConfig(config)` - validates all constraints
 - `GenerateFromConfig(config, seed)` - generates layout
 - Helper functions for parsing and allocation
@@ -543,7 +684,7 @@ User Manual
 
 ### Creating a Generation Config File
 
-Generation config files use the `.klg` extension (Keyboard Layout Generation).
+Generation config files use the `.gen` extension.
 
 #### File Format
 
@@ -562,10 +703,10 @@ set2=<characters for group 2>
 
 #### Position Markers
 
-- `~` = Excluded (don't allocate any character)
+- `~` = Unused (don't allocate any character)
 - `_` = Space character (fixed)
 - Any character (letters, punctuation, special chars) = Fixed character at this position
-- `?` = Random allocation from remaining charset
+- `0` = Random allocation from remaining charset
 - `1`-`9` = Allocate from corresponding set (set1, set2, etc.)
 
 **Examples of fixed characters:**
@@ -573,13 +714,26 @@ set2=<characters for group 2>
 - Punctuation: `'`, `,`, `.`, `;`, etc.
 - Special: Any valid character from the charset
 
+#### Space Character Handling
+
+The underscore `_` has special meaning depending on context:
+
+- **In the template**: `_` represents a fixed space character at that position (e.g., spacebar on thumb cluster)
+- **In `charset=` and `setN=`**: `_` is converted to a space character during parsing
+
+This allows you to include space in character sets where a literal space would be ambiguous:
+```
+charset=etaoinshrdlcumwfgypbvkjxqz,./;'_    # includes space (written as _)
+set1=rn_                                     # group 1 can use r, n, or space
+```
+
 #### Example: Vowels on Right
 
 ```
 colstag
-~ ? ? ? ? ?   ? ? ? ? ? ~
-~ 2 2 2 2 ?   ? e a i o ~
-~ ? ? ? ? ?   ? ? ? ? ? ~
+~ 0 0 0 0 0   0 0 0 0 0 ~
+~ 2 2 2 2 0   0 e a i o ~
+~ 0 0 0 0 0   0 0 0 0 0 ~
       ~ ~ 1   _ ~ ~
 
 charset=etaoinshrdlcumwfgypbvkjxqz,./;'
@@ -592,8 +746,8 @@ This config:
 - Fixes vowels e, a, i, o on right home row
 - Allocates r or l to one thumb position (group 1)
 - Allocates 4 characters from set2 to left home row (group 2)
-- Randomly distributes remaining characters to ? positions
-- Excludes some positions (~) from allocation
+- Randomly distributes remaining characters to `0` positions
+- Marks some positions as unused (~)
 
 #### Rules
 
@@ -602,7 +756,7 @@ This config:
 3. Each group (1-9) must have a corresponding setN definition
 4. No character can appear multiple times (duplicates error)
 5. Total positions to fill must equal charset length
-6. Each setN must have enough characters for its group
+6. Each setN must have at least as many characters as its group positions (can have more)
 
 ### Generating Layouts
 
@@ -610,16 +764,16 @@ This config:
 
 ```bash
 # Generate all permutations of group characters
-keycraft generate my-config.klg
+keycraft generate my-config.gen
 
 # Using alias
-keycraft g my-config.klg
+keycraft g my-config.gen
 
 # Generate only first 10 permutations
-keycraft generate my-config.klg --max-layouts 10
+keycraft generate my-config.gen --max-layouts 10
 
 # Reproducible generation (same seed for random positions)
-keycraft generate my-config.klg --seed 42
+keycraft generate my-config.gen --seed 42
 ```
 
 Generated layouts are saved to `data/layouts/` with auto-generated names (using permutation index).
@@ -627,24 +781,24 @@ Generated layouts are saved to `data/layouts/` with auto-generated names (using 
 #### With Optimization
 
 ```bash
-# Generate all permutations and optimize (default: pins all non-? positions, deletes unoptimized)
-keycraft generate my-config.klg --optimize
+# Generate all permutations and optimize (default: pins all non-0 positions, deletes unoptimized)
+keycraft generate my-config.gen --optimize
 
 # Keep both original and optimized layouts
-keycraft generate my-config.klg --optimize --keep-unoptimized
+keycraft generate my-config.gen --optimize --keep-unoptimized
 
 # Customize optimization iterations
-keycraft generate my-config.klg --optimize --generations 2000
+keycraft generate my-config.gen --optimize --generations 2000
 
 # Override pinning (advanced)
-keycraft generate my-config.klg --optimize --pins "eaio"
+keycraft generate my-config.gen --optimize --pins "eaio"
 
 # Generate subset with optimization
-keycraft generate my-config.klg --max-layouts 5 --optimize
+keycraft generate my-config.gen --max-layouts 5 --optimize
 ```
 
 **Default pinning behavior:**
-When `--optimize` is used, all fixed characters and group characters are pinned. Only positions marked with `?` are free to move during optimization. This preserves your config structure while optimizing the random positions.
+When `--optimize` is used, all fixed characters and group characters are pinned. Only positions marked with `0` are free to move during optimization. This preserves your config structure while optimizing the random positions.
 
 Use `--pins` to completely override this behavior if needed.
 
