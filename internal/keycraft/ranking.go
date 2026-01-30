@@ -28,11 +28,11 @@ type RankingResult struct {
 // It loads layouts, computes statistics, filters, scores, and returns results.
 func ComputeRankings(input RankingInput) (*RankingResult, error) {
 	// Load and analyze all layouts (needed for normalization even if we filter later)
-	analysers, err := LoadAnalysers(input.LayoutsDir, input.Corpus, input.Targets)
+	analysers, err := LoadAnalysers(input.LayoutsDir, input.Corpus, input.Targets, false)
 	if err != nil {
 		return nil, fmt.Errorf("could not load analysers: %w", err)
 	}
-	medians, iqrs := computeMediansAndIQR(analysers)
+	medians, iqrs := computeMediansAndIQR(analysers, true)
 
 	// Build lookup map for filtering
 	analyserMap := make(map[string]*Analyser, len(analysers))

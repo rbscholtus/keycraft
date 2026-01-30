@@ -229,5 +229,6 @@ func buildOptimizeInput(c *cli.Command, layout *kc.SplitLayout, skipLayoutLoad b
 		NumGenerations: int(numGenerations),
 		MaxTime:        int(maxTime),
 		Seed:           c.Int64("seed"),
+		UseParallel:    true,
 	}, nil
 }

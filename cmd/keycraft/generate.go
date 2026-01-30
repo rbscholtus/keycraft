@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+	"time"
 
+	progress "github.com/jedib0t/go-pretty/v6/progress"
 	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/rbscholtus/keycraft/internal/tui"
 	"github.com/urfave/cli/v3"
@@ -171,53 +175,135 @@ func generateAction(ctx context.Context, c *cli.Command) error {
 	return nil
 }
 
+// optResult holds the result of a single layout optimisation.
+type optResult struct {
+	bestLayout    *kc.SplitLayout
+	optimizedPath string
+	originalPath  string
+	err           error
+}
+
 func optimiseLayout(result *kc.GenerationResult, config *kc.GenerationConfig, c *cli.Command, optInput kc.OptimizeInput, genInput kc.GenerateInput) error {
-	fmt.Printf("Optimizing %d layouts...\n", len(result.Layouts))
+	numLayouts := len(result.Layouts)
+	fmt.Printf("Optimizing %d layouts...\n", numLayouts)
 
+	// Compute shared reference stats once (avoids loading ~1256 layouts per goroutine)
+	medians, iqrs, filteredWeights, err := kc.ComputeReferenceStats(layoutDir, optInput.Corpus, optInput.Targets, optInput.Weights)
+	if err != nil {
+		return fmt.Errorf("could not compute reference stats: %w", err)
+	}
+
+	optInput.LayoutsDir = layoutDir
+	optInput.Medians = medians
+	optInput.IQRs = iqrs
+	optInput.FilteredWeights = filteredWeights
+	optInput.UseParallel = false // Disable BLS internal parallelism
+
+	// Set up progress writer
+	s := progress.StyleDefault
+	s.Colors = progress.StyleColorsExample
+	s.Options.TimeInProgressPrecision = time.Second
+
+	pw := progress.NewWriter()
+	pw.SetStyle(s)
+	pw.SetTrackerLength(40)
+	pw.SetNumTrackersExpected(1)
+	pw.SetAutoStop(true)
+	pw.SetTrackerPosition(progress.PositionRight)
+	go pw.Render()
+
+	tracker := &progress.Tracker{
+		Message:    "optimising",
+		Total:      int64(numLayouts),
+		DeferStart: true,
+	}
+	pw.AppendTracker(tracker)
+
+	// Create all trackers and work items upfront so go-pretty knows the full
+	// set of trackers from the start, ensuring stable cursor positioning.
+	type workItem struct {
+		index  int
+		layout *kc.SplitLayout
+		pinned kc.PinnedKeys
+	}
+
+	work := make(chan workItem, numLayouts)
+	results := make([]optResult, numLayouts)
+
+	pinsStr := c.String("pins")
 	for i, layout := range result.Layouts {
-		// Compute default pins for this layout
-		pinned := kc.ComputeDefaultPins(config, layout)
-
-		// Check if custom pins were specified via --pins flag
-		pinsStr := c.String("pins")
-		if pinsStr != "" {
-			// Override with custom pins
+		var pinned kc.PinnedKeys
+		if pinsStr == "" {
+			pinned = kc.ComputeDefaultPins(config, layout)
+		} else {
 			pinned = computeCustomPins(layout, pinsStr, config)
 		}
 
-		// Set up optimization input for this layout
-		optInput.Layout = layout
-		optInput.Pinned = &pinned
-		optInput.LayoutsDir = layoutDir
+		work <- workItem{index: i, layout: layout, pinned: pinned}
+	}
+	close(work)
 
-		// Run optimization (nil writer = no console output during optimization)
-		optimizeResult, err := kc.OptimizeLayout(optInput, nil)
-		if err != nil {
-			return fmt.Errorf("optimization failed for %s: %w", layout.Name, err)
+	// Launch fixed worker goroutines that consume work items.
+	numWorkers := min(runtime.NumCPU(), numLayouts)
+	var wg sync.WaitGroup
+
+	for range numWorkers {
+		wg.Go(func() {
+			for item := range work {
+				// Clone optInput with per-layout fields
+				localInput := optInput
+				localInput.Layout = item.layout
+				localInput.Pinned = &item.pinned
+
+				// Run optimization (nil writer = no console output)
+				optimizeResult, err := kc.OptimizeLayout(localInput, nil)
+				tracker.Increment(1)
+				if err != nil {
+					results[item.index] = optResult{err: fmt.Errorf("optimization failed for %s: %w", item.layout.Name, err)}
+					continue
+				}
+
+				bestLayout := optimizeResult.BestLayout
+				optimizedPath := filepath.Join(layoutDir, bestLayout.Name+".klf")
+				if err := bestLayout.SaveToFile(optimizedPath); err != nil {
+					results[item.index] = optResult{err: fmt.Errorf("failed to save optimized layout %s: %w", bestLayout.Name, err)}
+					continue
+				}
+
+				results[item.index] = optResult{
+					bestLayout:    bestLayout,
+					optimizedPath: optimizedPath,
+					originalPath:  filepath.Join(layoutDir, item.layout.Name+".klf"),
+				}
+			}
+		})
+	}
+
+	wg.Wait()
+	tracker.MarkAsDone()
+
+	// Wait for renderer to flush
+	for pw.IsRenderInProgress() {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Apply results and check for errors
+	for i, res := range results {
+		if res.err != nil {
+			return res.err
 		}
-
-		// Save optimized layout with -opt suffix
-		bestLayout := optimizeResult.BestLayout
-		optimizedPath := filepath.Join(layoutDir, bestLayout.Name+".klf")
-		if err := bestLayout.SaveToFile(optimizedPath); err != nil {
-			return fmt.Errorf("failed to save optimized layout %s: %w", bestLayout.Name, err)
-		}
-
-		// Update the result with optimized layout path
-		result.LayoutPaths[i] = optimizedPath
-		result.Layouts[i] = bestLayout
+		result.LayoutPaths[i] = res.optimizedPath
+		result.Layouts[i] = res.bestLayout
 
 		// Delete original if not keeping unoptimized
 		if !genInput.KeepUnoptimized {
-			originalPath := filepath.Join(layoutDir, layout.Name+".klf")
-			if err := os.Remove(originalPath); err != nil {
-				// Just warn, don't fail
-				fmt.Printf("Warning: could not delete original layout %s: %v\n", originalPath, err)
+			if err := os.Remove(res.originalPath); err != nil {
+				fmt.Printf("Warning: could not delete original layout %s: %v\n", res.originalPath, err)
 			}
 		}
 	}
 
-	fmt.Printf("Optimization complete\n")
+	// fmt.Printf("Optimization complete\n")
 	return nil
 }
 

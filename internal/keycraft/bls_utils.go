@@ -18,36 +18,17 @@ type PinnedKeys [42]bool
 // It handles all setup and runs the optimization algorithm.
 //
 // Parameters:
-//   - layout: Initial layout to optimize (can be random or a seed layout)
-//   - layoutsDir: Directory containing reference layouts for scorer initialization
-//   - corpus: Text corpus for evaluation
-//   - weights: Metric weights for scoring
-//   - rowBal: Target row load distribution (use nil for defaults)
-//   - fingerBal: Target finger load distribution (use nil for defaults)
-//   - pinned: Which keys are pinned (fixed) during optimization
-//   - maxIterations: Maximum number of iterations (0 = use default)
-//   - maxTimeMinutes: Maximum time in minutes (0 = use default)
-//   - seed: Random seed for reproducibility (0 = use current time)
+//   - input: OptimizeInput with all optimization parameters
 //   - consoleWriter: Where to write human-readable progress (use os.Stdout or nil)
-//   - logFileWriter: Where to write JSONL structured logs (use nil to disable)
+//
+// When input.Medians and input.IQRs are both non-nil, a lightweight Scorer is created
+// using pre-computed stats (skipping LoadAnalysers). Otherwise, a full Scorer is created.
 //
 // Returns the optimized layout.
-func OptimizeLayoutBLS(
-	layout *SplitLayout,
-	layoutsDir string,
-	corpus *Corpus,
-	weights *Weights,
-	targets *TargetLoads,
-	pinned *PinnedKeys,
-	maxIterations int,
-	maxTimeMinutes int,
-	seed int64,
-	consoleWriter io.Writer,
-	logFileWriter io.Writer,
-) (*SplitLayout, error) {
+func OptimizeLayoutBLS(input OptimizeInput, consoleWriter io.Writer) (*SplitLayout, error) {
 	// Count free keys
 	numFree := 0
-	for _, isPinned := range pinned {
+	for _, isPinned := range input.Pinned {
 		if !isPinned {
 			numFree++
 		}
@@ -59,19 +40,21 @@ func OptimizeLayoutBLS(
 
 	// Create parameters with defaults, then override from arguments
 	params := DefaultBLSParams(numFree)
-	if maxIterations > 0 {
-		params.MaxIterations = maxIterations
+	if input.NumGenerations > 0 {
+		params.MaxIterations = input.NumGenerations
 	}
-	if maxTimeMinutes > 0 {
-		params.MaxTime = time.Duration(maxTimeMinutes) * time.Minute
+	if input.MaxTime > 0 {
+		params.MaxTime = time.Duration(input.MaxTime) * time.Minute
 	}
-	if seed != 0 {
-		params.Seed = seed
+	if input.Seed != 0 {
+		params.Seed = input.Seed
 	} else {
 		params.Seed = time.Now().UnixNano()
 	}
+	params.UseParallel = input.UseParallel
 
 	// Create scorer - use provided targets or defaults
+	targets := input.Targets
 	if targets == nil {
 		targets = &TargetLoads{
 			TargetHandLoad:   DefaultTargetHandLoad(),
@@ -93,19 +76,26 @@ func OptimizeLayoutBLS(
 		targets.PinkyPenalties = DefaultPinkyPenalties()
 	}
 
-	scorer, err := NewScorer(layoutsDir, corpus, targets, weights)
-	if err != nil {
-		return nil, fmt.Errorf("could not create scorer: %w", err)
+	// Create scorer: use pre-computed stats if available, otherwise load from disk
+	var scorer *Scorer
+	if input.Medians != nil && input.IQRs != nil {
+		scorer = NewScorerWithStats(input.Corpus, targets, input.Medians, input.IQRs, input.FilteredWeights)
+	} else {
+		var err error
+		scorer, err = NewScorer(input.LayoutsDir, input.Corpus, targets, input.Weights)
+		if err != nil {
+			return nil, fmt.Errorf("could not create scorer: %w", err)
+		}
 	}
 
 	// Create BLS optimizer
-	bls := NewBLS(params, scorer, corpus, pinned)
+	bls := NewBLS(params, scorer, input.Corpus, input.Pinned)
 
 	// Create logger with dual output
-	logger := NewBLSLogger(consoleWriter, logFileWriter)
+	logger := NewBLSLogger(consoleWriter, input.LogFile)
 
 	// Run optimization
-	bestLayout := bls.Optimize(layout, logger)
+	bestLayout := bls.Optimize(input.Layout, logger)
 
 	// Log scorer statistics if console writer provided
 	if consoleWriter != nil {
@@ -113,7 +103,7 @@ func OptimizeLayoutBLS(
 	}
 
 	// Log cache stats to JSONL if file writer provided
-	if logFileWriter != nil {
+	if input.LogFile != nil {
 		hits := uint64(scorer.cacheHits.Load())
 		misses := uint64(scorer.cacheMisses.Load())
 		scorer.cacheMu.RLock()

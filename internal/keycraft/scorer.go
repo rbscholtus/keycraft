@@ -52,11 +52,11 @@ type Scorer struct {
 // It computes median and IQR statistics from the reference layouts and filters out metrics
 // with insignificant variance or weight to ensure robust scoring.
 func NewScorer(layoutsDir string, corpus *Corpus, targets *TargetLoads, weights *Weights) (*Scorer, error) {
-	analysers, err := LoadAnalysers(layoutsDir, corpus, targets)
+	analysers, err := LoadAnalysers(layoutsDir, corpus, targets, true)
 	if err != nil {
 		return nil, fmt.Errorf("could not load analysers: %w", err)
 	}
-	medians, iqrs := computeMediansAndIQR(analysers)
+	medians, iqrs := computeMediansAndIQR(analysers, false)
 
 	// Filter out metrics with insignificant IQR values or weights
 	numMetrics := len(medians)
@@ -90,6 +90,54 @@ func NewScorer(layoutsDir string, corpus *Corpus, targets *TargetLoads, weights 
 	}
 
 	return sc, nil
+}
+
+// NewScorerWithStats creates a Scorer with pre-computed medians, IQRs and filtered weights.
+// This skips LoadAnalysers entirely, making it suitable for concurrent use where
+// reference stats have been computed once and shared across goroutines.
+func NewScorerWithStats(corpus *Corpus, targets *TargetLoads, medians, iqrs, filteredWeights map[string]float64) *Scorer {
+	return &Scorer{
+		corpus:     corpus,
+		targets:    targets,
+		medians:    medians,
+		iqrs:       iqrs,
+		weights:    filteredWeights,
+		scoreCache: make(map[string]float64, 1000),
+	}
+}
+
+// ComputeReferenceStats loads reference layouts, computes medians/IQRs, and filters
+// metrics by IQR significance and weight magnitude. Returns the filtered maps suitable
+// for passing to NewScorerWithStats.
+func ComputeReferenceStats(layoutsDir string, corpus *Corpus, targets *TargetLoads, weights *Weights) (
+	medians, iqrs, filteredWeights map[string]float64, err error) {
+	analysers, err := LoadAnalysers(layoutsDir, corpus, targets, true)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("could not load analysers: %w", err)
+	}
+	rawMedians, rawIQRs := computeMediansAndIQR(analysers, false)
+
+	// Filter out metrics with insignificant IQR values or weights
+	numMetrics := len(rawMedians)
+	medians = make(map[string]float64, numMetrics)
+	iqrs = make(map[string]float64, numMetrics)
+	filteredWeights = make(map[string]float64, numMetrics)
+	for metric, median := range rawMedians {
+		const epsilon = 1e-9
+		iqr, iqrExists := rawIQRs[metric]
+		if !iqrExists || iqr <= epsilon {
+			continue
+		}
+		weight := weights.Get(metric)
+		if math.Abs(weight) <= 0.01 {
+			continue
+		}
+		medians[metric] = median
+		iqrs[metric] = iqr
+		filteredWeights[metric] = weight
+	}
+
+	return medians, iqrs, filteredWeights, nil
 }
 
 // prepareTrigramCache pre-filters corpus trigrams using a template layout and applies
@@ -292,10 +340,19 @@ type LayoutScore struct {
 	Analyser *Analyser // Analyser with detailed metric values.
 }
 
-// LoadAnalysers loads and analyses all .klf layout files from a directory in parallel.
-// Only loads reference layouts, excluding files that start with "_" or contain "-flipped", "-best", or "-opt".
+// isReferenceLayout returns true if the layout name is a reference layout
+// (not generated, flipped, best, or optimized).
+func isReferenceLayout(name string) bool {
+	return !strings.HasPrefix(name, "_") &&
+		!strings.Contains(name, "-flipped") &&
+		!strings.Contains(name, "-best") &&
+		!strings.Contains(name, "-opt")
+}
+
+// LoadAnalysers loads and analyses .klf layout files from a directory in parallel.
+// When referenceOnly is true, excludes files that start with "_" or contain "-flipped", "-best", or "-opt".
 // Uses bounded concurrency based on GOMAXPROCS to avoid overloading the system.
-func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*Analyser, error) {
+func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads, referenceOnly bool) ([]*Analyser, error) {
 	layoutFiles, err := os.ReadDir(layoutsDir)
 	if err != nil {
 		return nil, fmt.Errorf("error reading layout files from %v: %w", layoutsDir, err)
@@ -314,15 +371,21 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*
 			continue
 		}
 
+		layoutName := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
+
+		// Skip non-reference layouts when filtering
+		if referenceOnly && !isReferenceLayout(layoutName) {
+			continue
+		}
+
 		wg.Add(1)
 		sem <- struct{}{}
-		go func(f os.DirEntry) {
+		go func(f os.DirEntry, name string) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			layoutName := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
 			layoutPath := filepath.Join(layoutsDir, f.Name())
-			layout, err := NewLayoutFromFile(layoutName, layoutPath)
+			layout, err := NewLayoutFromFile(name, layoutPath)
 			if err != nil {
 				errs <- fmt.Errorf("could not load layout from file %s: %w", layoutPath, err)
 				return
@@ -332,7 +395,7 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*
 			mu.Lock()
 			analysers = append(analysers, analyser)
 			mu.Unlock()
-		}(file)
+		}(file, layoutName)
 	}
 
 	wg.Wait()
@@ -352,18 +415,13 @@ func LoadAnalysers(layoutsDir string, corpus *Corpus, targets *TargetLoads) ([]*
 
 // computeMediansAndIQR computes median and interquartile range (IQR) for each metric
 // across all analysers. These values are used for robust normalization of layout scores.
-// Only uses reference layouts for normalization, excluding layouts that start with "_" or
-// contain "-flipped", "-best", or "-opt" in their name.
-func computeMediansAndIQR(analysers []*Analyser) (map[string]float64, map[string]float64) {
+// When referenceOnly is true, only uses reference layouts for normalization, excluding
+// layouts that start with "_" or contain "-flipped", "-best", or "-opt" in their name.
+func computeMediansAndIQR(analysers []*Analyser, referenceOnly bool) (map[string]float64, map[string]float64) {
 	metrics := make(map[string][]float64)
 	for _, analyser := range analysers {
-		layoutName := analyser.Layout.Name
-
 		// Skip non-reference layouts for normalization statistics
-		if strings.HasPrefix(layoutName, "_") ||
-			strings.Contains(layoutName, "-flipped") ||
-			strings.Contains(layoutName, "-best") ||
-			strings.Contains(layoutName, "-opt") {
+		if referenceOnly && !isReferenceLayout(analyser.Layout.Name) {
 			continue
 		}
 

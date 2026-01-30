@@ -36,7 +36,7 @@ func Benchmark_Rankings(b *testing.B) {
 		PinkyPenalties:   DefaultPinkyPenalties(),
 	}
 	for b.Loop() {
-		analysers, err := LoadAnalysers(layoutDir, corpus, targets)
+		analysers, err := LoadAnalysers(layoutDir, corpus, targets, false)
 		if err != nil {
 			panic(err)
 		}
