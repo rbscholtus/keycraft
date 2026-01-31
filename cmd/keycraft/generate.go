@@ -23,7 +23,7 @@ var generateFlagsMap = map[string]cli.Flag{
 		Name:     "max-layouts",
 		Aliases:  []string{"m"},
 		Usage:    "Maximum number of permutations to generate (0 = all)",
-		Value:    1500,
+		Value:    5000,
 		Category: "Generation",
 	},
 	"seed": &cli.Uint64Flag{
@@ -203,13 +203,14 @@ func optimiseLayout(result *kc.GenerationResult, config *kc.GenerationConfig, c 
 	s := progress.StyleDefault
 	s.Colors = progress.StyleColorsExample
 	s.Options.TimeInProgressPrecision = time.Second
+	s.Visibility.ETA = true
 
 	pw := progress.NewWriter()
 	pw.SetStyle(s)
 	pw.SetTrackerLength(40)
+	pw.SetTrackerPosition(progress.PositionRight)
 	pw.SetNumTrackersExpected(1)
 	pw.SetAutoStop(true)
-	pw.SetTrackerPosition(progress.PositionRight)
 	go pw.Render()
 
 	tracker := &progress.Tracker{

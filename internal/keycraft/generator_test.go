@@ -130,6 +130,17 @@ colstag
 
 charset=etaoinshrd
 `
+
+	testConfigFixedCharInGroup = `# Fixed char 'd' also appears in set1
+colstag
+~ 0 0 h g 0  0 0 0 0 0 ~
+~ 1 1 n t 0  0 e a c i ~
+~ 0 0 0 d 0  0 0 0 0 0 ~
+      ~ ~ 1  _ ~ ~
+
+charset=etaoinshrdlcumwfgypbvkjxqz ,./;'
+set1=srld
+`
 )
 
 // ============================================================================
@@ -338,6 +349,24 @@ func TestValidateConfig_MissingGroup(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not defined") {
 		t.Errorf("expected 'not defined' in error, got: %v", err)
+	}
+}
+
+func TestValidateConfig_FixedCharInGroup(t *testing.T) {
+	config, err := ParseConfigString(testConfigFixedCharInGroup)
+	if err != nil {
+		t.Fatalf("ParseConfigString failed: %v", err)
+	}
+
+	err = ValidateConfig(config)
+	if err == nil {
+		t.Fatal("expected validation error when fixed character appears in a set")
+	}
+	if !strings.Contains(err.Error(), "fixed in template") {
+		t.Errorf("expected 'fixed in template' in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "set1") {
+		t.Errorf("expected 'set1' in error, got: %v", err)
 	}
 }
 

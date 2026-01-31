@@ -12,7 +12,7 @@ import (
 // GenerateInput captures CLI inputs for generation.
 type GenerateInput struct {
 	ConfigPath      string // resolved .gen file path
-	MaxLayouts      int    // from --max-layouts flag (default 1500, 0=all)
+	MaxLayouts      int    // from --max-layouts flag (default 5000, 0=all)
 	Seed            uint64 // from --seed flag (0=timestamp)
 	Optimize        bool   // from --optimize flag
 	KeepUnoptimized bool   // from --keep-unoptimized flag
@@ -37,21 +37,21 @@ type PositionSpec struct {
 
 // GenerationConfig represents a parsed .gen file.
 type GenerationConfig struct {
-	LayoutType LayoutType          // ROWSTAG, ANGLEMOD, ORTHO, or COLSTAG
-	Template   [42]PositionSpec    // Specification for each position
-	Charset    []rune              // All characters to allocate
-	Groups     map[int][]rune      // Group number -> character set
-	FilePath   string              // Original file path for error messages
-	LineNums   map[string]int      // Line numbers for error messages (key -> line number)
+	LayoutType LayoutType       // ROWSTAG, ANGLEMOD, ORTHO, or COLSTAG
+	Template   [42]PositionSpec // Specification for each position
+	Charset    []rune           // All characters to allocate
+	Groups     map[int][]rune   // Group number -> character set
+	FilePath   string           // Original file path for error messages
+	LineNums   map[string]int   // Line numbers for error messages (key -> line number)
 }
 
 // GenerationResult holds the results of a generation run.
 type GenerationResult struct {
-	Layouts      []*SplitLayout // Generated layouts
-	LayoutPaths  []string       // Paths where layouts were saved
-	TotalPerms   int            // Total permutations computed
-	Generated    int            // Number actually generated (may be limited by MaxLayouts)
-	Warnings     []string       // Any warnings during generation
+	Layouts     []*SplitLayout // Generated layouts
+	LayoutPaths []string       // Paths where layouts were saved
+	TotalPerms  int            // Total permutations computed
+	Generated   int            // Number actually generated (may be limited by MaxLayouts)
+	Warnings    []string       // Any warnings during generation
 }
 
 // ParseConfigFile parses a .gen file and returns a GenerationConfig.
@@ -440,6 +440,15 @@ func ValidateConfig(config *GenerationConfig) error {
 		}
 	}
 
+	// Check that fixed characters do not appear in any group set
+	for groupNum, groupChars := range config.Groups {
+		for _, r := range groupChars {
+			if _, isFixed := fixedChars[r]; isFixed {
+				errors = append(errors, fmt.Sprintf("character %q is fixed in template and also in set%d", r, groupNum))
+			}
+		}
+	}
+
 	// Warn if setN is defined but not used (this is just a warning, not an error)
 	for groupNum := range config.Groups {
 		if groupPositions[groupNum] == 0 {
@@ -493,10 +502,6 @@ func GeneratePermutations(config *GenerationConfig, maxLayouts int) ([]map[int][
 	// Count total valid permutations first (without allocating memory for all of them)
 	// Use string instead of map for better performance (immutable, passed by value)
 	totalPerms := countConstrainedPerms(config, groupNums, groupPositions, 0, "")
-
-	if totalPerms > 1000 {
-		warnings = append(warnings, fmt.Sprintf("generating %d permutations (this may take a while)", totalPerms))
-	}
 
 	// Determine limit for generation
 	limit := 0 // 0 means no limit

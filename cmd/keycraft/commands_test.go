@@ -1297,8 +1297,8 @@ charset=etaoinshrdlcumwfgypbvkjxqz,./;'_
 			}
 
 			// Verify defaults
-			if input.MaxLayouts != 1500 {
-				t.Errorf("MaxLayouts default = %d, want 1500", input.MaxLayouts)
+			if input.MaxLayouts != 5000 {
+				t.Errorf("MaxLayouts default = %d, want 5000", input.MaxLayouts)
 			}
 
 			if input.Seed != 0 {

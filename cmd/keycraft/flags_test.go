@@ -287,7 +287,7 @@ func TestFlagDefaults_CommandSpecific(t *testing.T) {
 		{"generations_optimize", &optimizeFlags, "generations", uint64(1000)},
 		{"maxtime", &optimizeFlags, "maxtime", uint64(5)},
 		{"seed_optimize", &optimizeFlags, "seed", int64(0)},
-		{"max-layouts", &genFlags, "max-layouts", int64(1500)},
+		{"max-layouts", &genFlags, "max-layouts", int64(5000)},
 		{"optimize", &genFlags, "optimize", false},
 		{"seed_generate", &genFlags, "seed", uint64(0)},
 		{"keep-unoptimized", &genFlags, "keep-unoptimized", false},
