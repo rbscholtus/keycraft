@@ -112,7 +112,7 @@ The command is `generate` (alias: `g`). Config file is a required positional arg
 ### Flags
 
 **Generation Flags:**
-- `--max-layouts`, `-m` (int, default=1500): Maximum number of permutations to generate. Set to 0 to generate all permutations.
+- `--max-layouts`, `-m` (int, default=5000): Maximum number of permutations to generate. Set to 0 to generate all permutations.
 - `--seed`, `-s` (uint64, default=0): Random seed for random position allocation (0=timestamp). Seed is incremented for each permutation to vary random fills.
 
 **Optimization Flags:**
@@ -135,7 +135,7 @@ The command is `generate` (alias: `g`). Config file is a required positional arg
 
 **Max-Layouts Limiting:**
 - `--max-layouts 0`: Generate all permutations (no limit)
-- `--max-layouts N` (default 1500): Generate only first N permutations
+- `--max-layouts N` (default 5000): Generate only first N permutations
 
 **Seed Handling:**
 - `--seed 0` (default): timestamp-based for random positions
@@ -207,7 +207,7 @@ The `buildGenerateInput()` function handles all generation-specific input:
 ```go
 type GenerateInput struct {
     ConfigPath      string // resolved .gen file path
-    MaxLayouts      int    // from --max-layouts (default 1500, 0=all)
+    MaxLayouts      int    // from --max-layouts (default 5000, 0=all)
     Seed            uint64 // from --seed (0=timestamp)
     Optimize        bool   // from --optimize flag
     KeepUnoptimized bool   // from --keep-unoptimized flag
@@ -278,7 +278,7 @@ The CLI layer (`cmd/keycraft/generate.go`) is tested separately from the generat
 4. Valid .gen file → success
 
 **Flag Defaults:**
-- `--max-layouts` defaults to 1500
+- `--max-layouts` defaults to 5000
 - `--seed` defaults to 0
 - `--optimize` defaults to false
 - `--generations` defaults to 1000
@@ -352,7 +352,7 @@ The generation process follows these steps:
    - For each group (set1, set2, etc.), compute all possible permutations of selecting k characters from n available (where k = number of positions for that group, n = size of setN)
    - This generates P(n,k) = n!/(n-k)! permutations per group
    - Calculate total permutation count (product of all group permutations)
-   - If `--max-layouts` is set (default 1500) and total exceeds it, generate only first N permutations
+   - If `--max-layouts` is set (default 5000) and total exceeds it, generate only first N permutations
    - If `--max-layouts 0`, generate all permutations (no limit)
    - Print warning if total permutation count exceeds 1,000
    - If multiple groups: use constrained cartesian product (see algorithm below)
@@ -445,7 +445,7 @@ The generation process follows these steps:
 
 **Why 4-digit hexadecimal index (0000-FFFF)?**
 - Provides 65,536 unique indices - ample headroom for typical use
-- Default `--max-layouts 1500` fits easily (1500 = 0x05DC)
+- Default `--max-layouts 5000` fits easily (5000 = 0x05DC)
 - Permutation counts can grow quickly with larger sets: P(6,4) = 360
 - Multiple groups multiply: 6 × 360 = 2160 permutations
 - Keeps filenames compact and readable: `_srnteaio-002f.klf`
