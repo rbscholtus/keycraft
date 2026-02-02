@@ -1016,9 +1016,9 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 					if _, ok := red.Custom[triStr]; !ok {
 						red.Custom[triStr] = make(map[string]any)
 					}
-					if f0 != LI && f0 != RI &&
-						f1 != LI && f1 != RI &&
-						f2 != LI && f2 != RI {
+					if (f0 < LI || f0 > RI) &&
+						(f1 < LI || f1 > RI) &&
+						(f2 < LI || f2 > RI) {
 						red.Custom[triStr]["Dir"] = "WEAK"
 					} else if f0 == f2 && r0.Index != r2.Index {
 						red.Custom[triStr]["Dir"] = "SFS"
