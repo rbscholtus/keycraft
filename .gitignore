@@ -25,6 +25,7 @@ vendor/
 /data/layouts/enthium-promax.klf
 /data/layouts/northeast.klf
 /data/layouts2
+/data/gen_layouts
 *-opt*.klf
 *-best*.klf
 *-flipped*.klf
