@@ -8,54 +8,87 @@
 
 Keycraft is a Golang-based command-line utility for analysing, comparing, and optimizing keyboard layouts. It helps layout designers quickly evaluate efficiency with detailed metrics, rankings, and visualizations.
 
-## Basic analysis example (QWERTY; Shai corpus)
+## Table of Contents
+
+- [Keycraft](#keycraft)
+  - [Table of Contents](#table-of-contents)
+  - [Basic example (QWERTY; Sanitized Reddit Corpus)](#basic-example-qwerty-sanitized-reddit-corpus)
+  - [Quick Start](#quick-start)
+    - [Installing Keycraft](#installing-keycraft)
+    - [Installing and running Keycraft with Golang installed on your system](#installing-and-running-keycraft-with-golang-installed-on-your-system)
+  - [Features](#features)
+    - [Core Features](#core-features)
+    - [Advanced Features](#advanced-features)
+  - [Supported Metrics](#supported-metrics)
+    - [Metrics](#metrics)
+    - [Load Deviation \& Penalty Metrics](#load-deviation--penalty-metrics)
+    - [Target Definitions](#target-definitions)
+    - [Load Distribution Considerations](#load-distribution-considerations)
+  - [Usage](#usage)
+    - [Getting help](#getting-help)
+    - [Viewing one or more layouts](#viewing-one-or-more-layouts)
+    - [Analysing and comparing one or more layouts](#analysing-and-comparing-one-or-more-layouts)
+    - [Ranking layouts](#ranking-layouts)
+    - [Optimizing a layout](#optimizing-a-layout)
+    - [Generating layouts](#generating-layouts)
+  - [Configuration](#configuration)
+    - [Specifying and choosing a suitable corpus (for all commands)](#specifying-and-choosing-a-suitable-corpus-for-all-commands)
+    - [Specifying weights (for ranking and optimizing)](#specifying-weights-for-ranking-and-optimizing)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [Contact](#contact)
+
+## Basic example (QWERTY; Sanitized Reddit Corpus)
+
+
+This is the output of viewing QWERTY in keycraft.
 
 ```
 ╭     ┬                                                       ╮
                                 QWERTY                         
 ├     ┼                                                       ┤
- Board ╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮    
-       │   │ q │ w │ e │ r │ t │  │ y │ u │ i │ o │ p │ \ │    
-       ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮ ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮   
-        │   │ a │ s │ d │ f │ g │  │ h │ j │ k │ l │ ; │ ' │   
-        ╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮ 
-          │   │ z │ x │ c │ v │ b │  │ n │ m │ , │ . │ / │   │ 
-          ╰───┴───┴───┼───┼───┼───┤  ├───┼───┼───┼───┴───┴───╯ 
-                      │   │   │   │  │ _ │   │   │             
-                      ╰───┴───┴───╯  ╰───┴───┴───╯             
+ Board ╭───┬───┬───┬───┬───┬───╮  ╭───┬───┬───┬───┬───┬───╮    
+       │   │ q │ w │ e │ r │ t │  │ y │ u │ i │ o │ p │ \ │    
+       ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮ ╰┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴╮   
+        │   │ a │ s │ d │ f │ g │  │ h │ j │ k │ l │ ; │ ' │   
+        ╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮╰─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─╮ 
+          │   │ z │ x │ c │ v │ b │  │ n │ m │ , │ . │ / │   │ 
+          ╰───┴───┴───┼───┼───┼───┤  ├───┼───┼───┼───┴───┴───╯ 
+                      │   │   │   │  │ _ │   │   │             
+                      ╰───┴───┴───╯  ╰───┴───┴───╯             
 ├     ┼                                                       ┤
  Hand   ╭───────┬───┬────┬────────┬────────┬───┬────┬───────╮  
         │   LP  │ LR│ LM │   LI   │   RI   │ RM│ RR │   RP  │  
         ├───┬───┼───┼────┼───┬────┼────┬───┼───┼────┼───┬───┤  
-        │0.0│8.2│8.5│18.5│9.3│12.5│13.3│5.5│9.0│12.9│2.2│0.3│  
+        │0.0│8.0│8.5│17.5│8.2│13.2│13.9│5.8│9.0│13.3│2.0│0.8│  
         ├───┴───┼───┼────┼───┴────┼────┴───┼───┼────┼───┴───┤  
-        │  8.2  │8.5│18.5│  21.8  │  18.8  │9.0│12.9│  2.4  │  
+        │  8.0  │8.5│17.5│  21.4  │  19.7  │9.0│13.3│  2.8  │  
         ├───────┴───┴────┴────────┼────────┴───┴────┴───────┤  
-        │          56.9%          │          43.1%          │  
+        │          55.2%          │          44.8%          │  
         ╰─────────────────────────┴─────────────────────────╯  
 ├     ┼                                                       ┤
  Row              ╭───────┬───────┬────────┬───────╮           
                   │  Top  │  Home │ Bottom │ Thumb │           
                   ├───────┼───────┼────────┼───────┤           
-                  │ 50.4% │ 32.2% │  17.4% │  0.0% │           
+                  │ 50.5% │ 32.6% │  16.9% │  0.0% │           
                   ╰───────┴───────┴────────┴───────╯           
 ├     ┼                                                       ┤
  Stats   ╭───────────┬────────────┬────────────┬───────────╮   
-         │SFB:  6.52%│LSB:   3.36%│FSB:   1.19%│HSB:  4.75%│   
+         │SFB:  5.98%│LSB:   3.36%│FSB:   1.11%│HSB:  4.74%│   
          ├───────────┼────────────┼────────────┼───────────┤   
-         │SFS: 11.08%│LSS:   6.50%│FSS:   1.57%│HSS:  5.19%│   
+         │SFS: 12.13%│LSS:   6.16%│FSS:   1.42%│HSS:  4.87%│   
          ├───────────┼────────────┼────────────┼───────────┤   
-         │RED: 13.04%│.NML:  7.38%│.WEAK: 1.41%│.SFS: 4.25%│   
+         │RED: 13.68%│.NML:  7.20%│.WEAK: 1.44%│.SFS: 5.05%│   
          ├───────────┼────────────┼────────────┼───────────┤   
-         │ALT: 26.11%│.NML: 20.65%│.SFS:  5.45%│           │   
+         │ALT: 25.53%│.NML: 19.90%│.SFS:  5.64%│           │   
          ├───────────┼────────────┼────────────┼───────────┤   
-         │2RL: 46.42%│.IN:  19.85%│.OUT: 16.97%│.SFB: 9.60%│   
+         │2RL: 47.30%│.IN:  20.25%│.OUT: 17.69%│.SFB: 9.35%│   
          ├───────────┼────────────┼────────────┼───────────┤   
-         │3RL: 11.82%│.IN:   1.29%│.OUT:  1.45%│.SFB: 9.08%│   
+         │3RL: 11.04%│.IN:   1.27%│.OUT:  1.28%│.SFB: 8.48%│   
          ├───────────┼────────────┼────────────┼───────────┤   
-         │FLW: 60.21%│I:O:    1.15│            │           │
-         ├───────────┼────────────┼────────────┼───────────┤
-         │HLD:   0.00│FLD:   0.00%│RLD:   0.00%│POH:  4.80%│
+         │FLW: 60.40%│I:O:    1.13│            │           │   
+         ├───────────┼────────────┼────────────┼───────────┤   
+         │HLD:  10.47│FLD:  21.35%│RLD:   84.71│POH:  4.05%│   
          ╰───────────┴────────────┴────────────┴───────────╯   
 ╰     ┴                                                       ╯
 ```
@@ -174,64 +207,64 @@ Keycraft supports the following metrics. Here are some notes:
 ### Metrics
 
 #### Bigram Metrics
-| Acronym  | Metric                              | Description                                                           | Examples            |
-|----------|-------------------------------------|-----------------------------------------------------------------------|---------------------|
-| SFB      | Same Finger Bigram                  | Percentage of bigrams typed using the same finger (excluding repeats) | "ed", "lo" (not "ee") |
-| LSB      | Lateral Stretch Bigram              | Percentage of bigrams that map to lateral-stretch finger pairs        | "te", "be"          |
-| FSB      | Full Scissor Bigram                 | Percentage of bigrams forming scissor patterns that skip the home row    | "ct", "ex"          |
-| HSB      | Half Scissor Bigram                 | Percentage of bigrams forming scissor patterns that involve the home row | "st", "ca"          |
+| Acronym | Metric                 | Description                                                              | Examples              |
+| ------- | ---------------------- | ------------------------------------------------------------------------ | --------------------- |
+| SFB     | Same Finger Bigram     | Percentage of bigrams typed using the same finger (excluding repeats)    | "ed", "lo" (not "ee") |
+| LSB     | Lateral Stretch Bigram | Percentage of bigrams that map to lateral-stretch finger pairs           | "te", "be"            |
+| FSB     | Full Scissor Bigram    | Percentage of bigrams forming scissor patterns that skip the home row    | "ct", "ex"            |
+| HSB     | Half Scissor Bigram    | Percentage of bigrams forming scissor patterns that involve the home row | "st", "ca"            |
 
 #### Skipgram Metrics
-| Acronym  | Metric                              | Description                                                           | Examples            |
-|----------|-------------------------------------|-----------------------------------------------------------------------|---------------------|
-| SFS      | Same Finger Skipgram                | Percentage of skipgrams typed using the same finger (excluding repeats) | "end", "tor" (not "ene") |
-| LSS      | Lateral Stretch Skipgram            | Percentage of skipgrams that map to lateral-stretch pairs             | "the", "ble"        |
-| FSS      | Full Scissor Skipgram               | Percentage of skipgrams forming full-scissor patterns                 | "cut", "roc"        |
-| HSS      | Half Scissor Skipgram               | Percentage of skipgrams forming half-scissor patterns                 | "sit", "rus"        |
+| Acronym | Metric                   | Description                                                             | Examples                 |
+| ------- | ------------------------ | ----------------------------------------------------------------------- | ------------------------ |
+| SFS     | Same Finger Skipgram     | Percentage of skipgrams typed using the same finger (excluding repeats) | "end", "tor" (not "ene") |
+| LSS     | Lateral Stretch Skipgram | Percentage of skipgrams that map to lateral-stretch pairs               | "the", "ble"             |
+| FSS     | Full Scissor Skipgram    | Percentage of skipgrams forming full-scissor patterns                   | "cut", "roc"             |
+| HSS     | Half Scissor Skipgram    | Percentage of skipgrams forming half-scissor patterns                   | "sit", "rus"             |
 
 #### Trigram Metrics
-| Acronym  | Metric                              | Description                                                    | Examples            |
-|----------|-------------------------------------|----------------------------------------------------------------|---------------------|
-| RED      | Redirections total                  | Total % of redirections                                        |                     |
-| RED-WEAK | Redirections — Weak                 | Redirections on one hand with no index and thumb involvement             | "was", "ese"        |
-| RED-SFS  | Redirections — Same Finger Skipgram | Redirections on one hand that are same-finger skipgrams        | "you", "ter"        |
-| RED-NML  | Redirections — Other                | Other (normal) redirections on one hand                        | "ion", "ate", "ere" |
-| ALT      | Alternation total                   | Total % of hand alternations (ALT-NML + ALT-SFS)               |                     |
-| ALT-SFS  | Alternation — Same Finger Skipgram  | Cross-hand alternations that are same-finger alternations      | "for", "men"        |
-| ALT-NML  | Alternation — Normal                | Cross-hand alternations not classified as SFS     | "and", "ent", "iti" |
-| 2RL      | 2-key Rolls total                   | Total % of two-key roll trigrams (2RL-IN + 2RL-OUT + 2RL-SFB)  |                     |
-| 2RL-IN   | 2-key Rolls — Inward                | Two-key roll trigrams classified as inward rolls               | "ing", "hat"        |
-| 2RL-OUT  | 2-key Rolls — Outward               | Two-key roll trigrams classified as outward rolls              | "tio", "thi"        |
-| 2RL-SFB  | 2-key Rolls — Same Finger Bigram    | Two-key rolls where both keys use the same finger              | "nce", "all"        |
+| Acronym  | Metric                              | Description                                                     | Examples            |
+| -------- | ----------------------------------- | --------------------------------------------------------------- | ------------------- |
+| RED      | Redirections total                  | Total % of redirections                                         |                     |
+| RED-WEAK | Redirections — Weak                 | Redirections on one hand with no index and thumb involvement    | "was", "ese"        |
+| RED-SFS  | Redirections — Same Finger Skipgram | Redirections on one hand that are same-finger skipgrams         | "you", "ter"        |
+| RED-NML  | Redirections — Other                | Other (normal) redirections on one hand                         | "ion", "ate", "ere" |
+| ALT      | Alternation total                   | Total % of hand alternations (ALT-NML + ALT-SFS)                |                     |
+| ALT-SFS  | Alternation — Same Finger Skipgram  | Cross-hand alternations that are same-finger alternations       | "for", "men"        |
+| ALT-NML  | Alternation — Normal                | Cross-hand alternations not classified as SFS                   | "and", "ent", "iti" |
+| 2RL      | 2-key Rolls total                   | Total % of two-key roll trigrams (2RL-IN + 2RL-OUT + 2RL-SFB)   |                     |
+| 2RL-IN   | 2-key Rolls — Inward                | Two-key roll trigrams classified as inward rolls                | "ing", "hat"        |
+| 2RL-OUT  | 2-key Rolls — Outward               | Two-key roll trigrams classified as outward rolls               | "tio", "thi"        |
+| 2RL-SFB  | 2-key Rolls — Same Finger Bigram    | Two-key rolls where both keys use the same finger               | "nce", "all"        |
 | 3RL      | 3-key Rolls total                   | Total % of three-key roll trigrams (3RL-IN + 3RL-OUT + 3RL-SFB) |                     |
-| 3RL-IN   | 3-key Rolls — Inward                | Three-key roll trigrams classified as inward sequences         | "act", "lin"        |
-| 3RL-OUT  | 3-key Rolls — Outward               | Three-key roll trigrams classified as outward sequences        | "rea", "tes"        |
-| 3RL-SFB  | 3-key Rolls — Same Finger Bigram    | Three-key rolls where first and last keys use the same finger  | "ted", "ill"        |
+| 3RL-IN   | 3-key Rolls — Inward                | Three-key roll trigrams classified as inward sequences          | "act", "lin"        |
+| 3RL-OUT  | 3-key Rolls — Outward               | Three-key roll trigrams classified as outward sequences         | "rea", "tes"        |
+| 3RL-SFB  | 3-key Rolls — Same Finger Bigram    | Three-key rolls where first and last keys use the same finger   | "ted", "ill"        |
 
 #### Flow Metrics
-| Acronym  | Metric                              | Description                                                    | Examples            |
-|----------|-------------------------------------|----------------------------------------------------------------|---------------------|
-| FLW      | Flowiness                           | Flow measure: ALT-NML + 2RL-IN + 2RL-OUT + 3RL-IN + 3RL-OUT   |                     |
-| IN:OUT   | Inward:Outward rolls ratio          | Ratio of inward to outward rolls: (2RL-IN + 3RL-IN) / (2RL-OUT + 3RL-OUT) |                     |
+| Acronym | Metric                     | Description                                                               | Examples |
+| ------- | -------------------------- | ------------------------------------------------------------------------- | -------- |
+| FLW     | Flowiness                  | Flow measure: ALT-NML + 2RL-IN + 2RL-OUT + 3RL-IN + 3RL-OUT               |          |
+| IN:OUT  | Inward:Outward rolls ratio | Ratio of inward to outward rolls: (2RL-IN + 3RL-IN) / (2RL-OUT + 3RL-OUT) |          |
 
 #### Load Distribution Deviation & Penalty Metrics
-| Acronym  | Metric                              | Description                                                    | Examples            |
-|----------|-------------------------------------|----------------------------------------------------------------|---------------------|
-| HLD      | Hand Load Deviation                 | Deviation from target hand load distribution (see below)            |                     |
-| FLD      | Finger Load Deviation               | Deviation from target finger load distribution (see below)          |                     |
-| RLD      | Row Load Deviation                  | Deviation from target row load distribution (see below)             |                     |
-| POH      | Pinky Off Home (Weighted)           | Weighted penalty for off-home pinky usage (see below)          |                     |
+| Acronym | Metric                    | Description                                                | Examples |
+| ------- | ------------------------- | ---------------------------------------------------------- | -------- |
+| HLD     | Hand Load Deviation       | Deviation from target hand load distribution (see below)   |          |
+| FLD     | Finger Load Deviation     | Deviation from target finger load distribution (see below) |          |
+| RLD     | Row Load Deviation        | Deviation from target row load distribution (see below)    |          |
+| POH     | Pinky Off Home (Weighted) | Weighted penalty for off-home pinky usage (see below)      |          |
 
 #### Usage Distribution Measures
 
 These measures report actual keystroke percentages. Unlike HLD/FLD/RLD, these are raw measurements, not deviations from targets.
 
-| Acronym  | Measure                             | Description                                                    | Examples            |
-|----------|-------------------------------------|----------------------------------------------------------------|---------------------|
-| H0, H1   | Hand usage percentages              | Left/right hand % (main rows 0-2 only)                         |                     |
-| F0–F9    | Finger usage percentages            | Per-finger % (main rows 0-2 only). See below for mapping       |                     |
-| C0–C11   | Column usage percentages            | Per-column % (main rows 0-2 only)                              |                     |
-| R0–R3    | Row usage percentages               | Per-row % (all rows 0-3, includes thumbs)                      |                     |
+| Acronym | Measure                  | Description                                              | Examples |
+| ------- | ------------------------ | -------------------------------------------------------- | -------- |
+| H0, H1  | Hand usage percentages   | Left/right hand % (main rows 0-2 only)                   |          |
+| F0–F9   | Finger usage percentages | Per-finger % (main rows 0-2 only). See below for mapping |          |
+| C0–C11  | Column usage percentages | Per-column % (main rows 0-2 only)                        |          |
+| R0–R3   | Row usage percentages    | Per-row % (all rows 0-3, includes thumbs)                |          |
 
 **Mappings**:
 - **F0-F9**: F0=Left Pinky, F1=Left Ring, F2=Left Middle, F3=Left Index, F4=Left Thumb (0% in main row counts), F5=Right Thumb (0% in main row counts), F6=Right Index, F7=Right Middle, F8=Right Ring, F9=Right Pinky
@@ -295,12 +328,12 @@ Finger load distribution in ergonomic keyboard layouts aims to allocate typing e
 
 Here's a synthesis of reasonable targets:
 
-| Finger (Per Hand) | Reasonable Load Range (%) | Rationale / Sources |
-|----------|---------------------------------|-----------------------------|
-| Pinky | 6–8% | Weakest finger; minimize to avoid strain. Carpalx penalizes pinky heavily; Workman and Colemak aim low here. Ergonomic reviews (e.g., NIH studies on wrist deviation) note pinky overuse contributes to RSI. |
-| Ring | 8–12% | Slightly stronger than pinky but still limited; sources like Hands Down and MTGAP layouts target this to balance with middle finger. |
-| Middle | 12–15% | Strong and central; can handle moderate-high load. Colemak and Carpalx variants often place vowels here for efficiency. |
-| Index | 15–20% | Most dexterous; handles higher load but not overload (to avoid hand displacement). Workman reduces index stretching vs. Colemak; PDF study on English layouts weights index heavily for common bigrams. |
+| Finger (Per Hand) | Reasonable Load Range (%) | Rationale / Sources                                                                                                                                                                                          |
+| ----------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pinky             | 6–8%                      | Weakest finger; minimize to avoid strain. Carpalx penalizes pinky heavily; Workman and Colemak aim low here. Ergonomic reviews (e.g., NIH studies on wrist deviation) note pinky overuse contributes to RSI. |
+| Ring              | 8–12%                     | Slightly stronger than pinky but still limited; sources like Hands Down and MTGAP layouts target this to balance with middle finger.                                                                         |
+| Middle            | 12–15%                    | Strong and central; can handle moderate-high load. Colemak and Carpalx variants often place vowels here for efficiency.                                                                                      |
+| Index             | 15–20%                    | Most dexterous; handles higher load but not overload (to avoid hand displacement). Workman reduces index stretching vs. Colemak; PDF study on English layouts weights index heavily for common bigrams.      |
 
 #### Row Load Distribution
 
@@ -308,11 +341,11 @@ Row distribution prioritizes the home row for most typing, as it aligns with nat
 
 Common targets from other analyzers and layouts:
 
-| Row | Reasonable Load Range (%) | Rationale / Sources |
-|----------|---------------------------------|-----------------------------|
-| Top | 15–25% | Requires upward extension. Colemak reduces top-row load vs. QWERTY; ergonomic guides (e.g., Dygma, Truly Ergonomic) penalize it heavily. Kvikk layout: ~15–20%. |
-| Home | 60–75% | Core for efficiency; most common letters here. Colemak: 74%; Dvorak: 70%; QWERTY: only 32% (poor). Hands Down and MTGAP aim for 70%+ to keep fingers "fixed." |
-| Bottom | 10–15% | The Top row is generally preferred over the Bottom row. Reaching "up" is anatomically easier for most typists than curling the fingers "down" and "in." |
+| Row    | Reasonable Load Range (%) | Rationale / Sources                                                                                                                                             |
+| ------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Top    | 15–25%                    | Requires upward extension. Colemak reduces top-row load vs. QWERTY; ergonomic guides (e.g., Dygma, Truly Ergonomic) penalize it heavily. Kvikk layout: ~15–20%. |
+| Home   | 60–75%                    | Core for efficiency; most common letters here. Colemak: 74%; Dvorak: 70%; QWERTY: only 32% (poor). Hands Down and MTGAP aim for 70%+ to keep fingers "fixed."   |
+| Bottom | 10–15%                    | The Top row is generally preferred over the Bottom row. Reaching "up" is anatomically easier for most typists than curling the fingers "down" and "in."         |
 
 ## Usage
 
@@ -491,6 +524,38 @@ keycraft o -w FBL=-100 -g 100 canary
 # Optimizing special characters should be used in combination with a more specific corpus
 keycraft o -g 50 --free "';,.-/" graphite
 ```
+
+### Generating layouts
+
+Use the `generate` command with a `.gen` config file to create new keyboard layouts. This feature allows you to systematically explore layout variations by specifying fixed characters, character groups for permutation, and random positions.
+
+```bash
+# Generate layouts from a config file (saves to data/layouts/)
+keycraft generate example.gen
+
+# Using alias
+keycraft g example.gen
+
+# Generate and optimize layouts (pins fixed and group chars, frees random positions)
+keycraft generate example.gen --optimize
+
+# Generate and optimize with custom pins (override default, only pin specified chars + space)
+keycraft generate example.gen --optimize --pins "eaio"
+
+# Generate and optimize with more iterations
+keycraft generate example.gen --optimize --generations 2000
+
+# Keep both original and optimized versions
+keycraft generate example.gen --optimize --keep-unoptimized
+```
+
+The `.gen` config file format allows you to:
+- Fix specific characters at positions (e.g., vowels on home row)
+- Define character groups that will be permuted (e.g., try all arrangements of `tnsh` on left home)
+- Mark positions for random allocation from remaining characters
+- Mark unused positions
+
+See the Generation Config File Format section in [docs/GENERATION.md](docs/GENERATION.md) for the full config file format and detailed usage instructions.
 
 ## Configuration
 

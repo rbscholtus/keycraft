@@ -1,0 +1,54 @@
+# Focus on basics (SFB, SFS, Redirects, balance, and Pinky/Col1/Col5 load)
+# Docs: https://github.com/rbscholtus/keycraft
+
+# Bigrams
+SFB = -8.0
+LSB = -3.0
+FSB = -2.666
+HSB = -1.333
+
+# Skipgrams
+SFS = -3.0
+LSS = -0.001
+FSS = -0.001
+HSS = -0.001
+
+# Redirections
+#RED = RED-WEAK + RED-SFS + RED-NML
+RED      = -0.001
+RED-WEAK = -5
+RED-SFS  = -0.001
+RED-NML  = -2
+
+# Flow
+FLW    = 6
+IN:OUT = 0
+
+# Load Distribution Deviation
+HLD    = -1
+FLD    = -2
+RLD    = -1.0
+POH    = -4.0
+
+C1 = -1
+C5 = -5
+
+
+# Alternations
+#ALT = ALT-SFS + ALT-NML
+ALT     = 0
+ALT-SFS = -0.001
+ALT-NML = 0
+
+# 2-Rolls and 3-rolls
+#2RL = 2RL-IN + 2RL-OUT + 2RL-SFB
+2RL     = 0
+2RL-SFB = -0.001
+2RL-IN  = 0
+2RL-OUT = 0
+
+#3RL = 3RL-IN + 3RL-OUT + 3RL-SFB
+3RL     = 0
+3RL-SFB = -0.001
+3RL-IN  = 0
+3RL-OUT = 0
