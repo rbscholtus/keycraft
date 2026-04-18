@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in keycraft. This is a personal project; contributions are welcome but scope is steered from `todo.txt`.
+Thanks for your interest in keycraft. This is a personal project; contributions are welcome.
 
 ## Prerequisites
 
@@ -37,12 +37,12 @@ The binary expects `data/` to be next to it (corpus, layouts, configs). Run from
 
 1. Drop a `.klf` file into `data/layouts/`.
 2. Confirm it loads: `./keycraft view <name>`.
-3. If it should appear in rankings by default, add it to the layout set used by `rank`/`optimize` (see `cmd/keycraft/rank.go`).
+3. It is picked up automatically by `rank`/`optimize` — no code change needed. Naming affects how it is used though: filenames that start with `_` or contain `-flipped`, `-best`, or `-opt` are treated as non-reference layouts. They are still loaded and ranked, but excluded from the median/IQR normalization baseline used for scoring (see `isReferenceLayout()` in `internal/keycraft/scorer.go`). Use a plain name (e.g. `colemak.klf`) for a layout that should contribute to the baseline.
 
 ### A new corpus
 
-1. Build a JSON frequency file under `data/corpus/` (matching the schema of `data/corpus/reddit_small.txt.json`).
-2. If it should become the default, update the default in `cmd/keycraft/flags.go`.
+1. Drop a plain-text `.txt` file into `data/corpus/`. On the first run that references it, `NewCorpusFromFile` (`internal/keycraft/corpus.go`) parses the text and writes a `<name>.txt.json` cache next to it; subsequent runs load from the cache. Pass `--coverage` to truncate by cumulative word frequency.
+2. To make it the default, name the source file `default.txt` — the `--corpus` flag defaults to `default.txt`, so renaming overrides the existing default without editing code.
 
 ### A new metric
 
