@@ -60,4 +60,3 @@ jobs:
           ${{ github.event.repository.name }}-darwin-arm64
           ${{ github.event.repository.name }}-windows-amd64.exe
           data.tar.gz
-        generate_release_notes: true
