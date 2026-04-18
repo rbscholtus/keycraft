@@ -1,11 +1,9 @@
-# Example config: based on focal
+# based on focal
 colstag
-~ ? ? ? ? ?  ? ? ? ? ? ~
-~ s r n t ?  ? 2 2 2 2 ~
-~ ? ? ? ? ?  ? ? ? ? ? ~
-      ~ ~ 1  _ ~ ~
-
+~ 1 1 h g 1   ; u o y 1 ~
+~ l s n t 1   - e a i c 1
+~ m f 1 d 1   = 1 1 1 1 ~
+      ~ ~ r   _ ' ~
 # Character definitions
 charset=etaoinshrdlcumwfgypbvkjxqz ,./;'
-set1=l
-set2=caei
+set1=xvbp,./zqwjk

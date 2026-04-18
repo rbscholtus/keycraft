@@ -1,0 +1,10 @@
+colstag
+~ 0 0 0 0 0   ; u o y , ~
+~ n s t 1 0   - e a i c .
+~ 0 0 0 0 0   = z q / w ~
+      ~ ~ r   _ ' ~
+
+# Character definitions
+charset=etaoinshrdlcumwfgypbvkjxqz ,./;-='
+set1=hdpl
+

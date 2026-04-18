@@ -1,0 +1,10 @@
+colstag
+~ 0 0 0 0 0  0 o u 0 0 ~
+~ 1 1 1 1 0  0 a e c i ~
+~ 0 0 0 0 0  0 0 0 0 0 ~
+      ~ ~ s  _ ~ ~
+
+# Character definitions
+charset=etaoinshrdlcumwfgypbvkjxqz ,./;'
+set1=tnrdc
+
