@@ -11,10 +11,10 @@ Items carried over from `todo.txt` for `v0.6.0` final:
 
 ## [0.6.0-beta.1] - 2026-04-19
 
-First pre-release of the `generate` command and several ranking/analyser improvements. Pre-release: APIs and CLI flags for `generate` may still change before `0.6.0` final.
+First pre-release of the `generate` command and several ranking/analyser improvements.
 
 ### Added
-- `generate` command: synthesise layouts from a `.gen` config with parallel Breakout Local Search. See `data/config/example.gen` for a starting point.
+- `generate` command: synthesise layouts from a `.gen` config, and apply parallel optimisation. See `data/config/example.gen` for a starting point.
 - Progress bar for parallel optimisation.
 - Seeded RNG via `internal/keycraft/random.go`; all random behaviour is now reproducible.
 - Layouts: 7 from cyanophage, plus `afterburner` and `racket`.
@@ -23,7 +23,7 @@ First pre-release of the `generate` command and several ranking/analyser improve
 - Wrapped error messages across CLI actions for clearer failure traces.
 - Panic on unknown `Distance` lookup replaced with a wrapped error.
 
-### Changed (breaking)
+### Changed
 - `-best` flag renamed to `-opt` on optimise/rank commands.
 - Default corpus switched from `default` to `reddit_small`.
 - Stats table header `Cum%` → `Cumul%`.
