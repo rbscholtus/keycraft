@@ -64,4 +64,4 @@ corpus JSON ─▶ Analyser ─▶ per-layout metrics ─┬─▶ Scorer+Weight
 - Don't duplicate metric formulas; extend `analyser.go`/`scorer.go` instead.
 - RNG must go through `internal/keycraft/random.go`. Do not call `math/rand` or `crypto/rand` directly in domain code.
 - `.bak` files in the tree are scratch from earlier refactors; ignore them (don't compile, don't edit).
-- Docs regeneration (`docs/index.html`) is a manual step; CI commits show `[skip ci]` on those — leave that convention alone.
+- Docs regeneration (`docs/index.html`) is automated. `.github/workflows/static.yml` runs on every push to `main`, sandwiches `keycraft r --metrics all --output html` between `docs/header.html` and `docs/footer.html`, and only commits the result back when the bytes change (with `[skip ci]` to avoid loops). Don't regenerate by hand and don't drop the `[skip ci]` convention.

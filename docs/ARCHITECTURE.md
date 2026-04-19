@@ -108,4 +108,20 @@ Produce a JSON file matching the schema used by existing files in `data/corpus/`
 
 ## Build + release
 
-`.github/workflows/go.yml` triggers on pushed `v*` tags and PRs to `main`. On a tag push, CI builds Linux/macOS/Windows binaries + `data.tar.gz` and creates a GitHub Release via `softprops/action-gh-release` with auto-generated notes. No local `gh` CLI needed for releases — pushing the tag is enough.
+Two workflows in `.github/workflows/`:
+
+### `go.yml` — release pipeline
+
+Triggers on pushed `v*` tags (and PRs to `main` for build/test only). On a tag push, CI builds Linux/macOS/Windows binaries + `data.tar.gz` and uploads them to a GitHub Release via `softprops/action-gh-release`. The release body is *not* auto-generated — it is whatever was set when the release was created (see `CONTRIBUTING.md` §Releasing for the `gh release create --notes-file` flow that sources notes from `CHANGELOG.md`).
+
+### `static.yml` — docs deployment
+
+Triggers on push to `main`. Builds the binary and regenerates `docs/index.html` by sandwiching the ranking output:
+
+```sh
+(cat docs/header.html; ./keycraft r --metrics all --output html; cat docs/footer.html) > docs/index.html
+```
+
+If the regenerated file differs from what's in the tree, CI commits it back to `main` with `[skip ci]` (the marker prevents an infinite loop, since the bot's own commit would otherwise re-trigger the workflow). Then it uploads the entire `docs/` folder as a Pages artifact and deploys to https://rbscholtus.github.io/keycraft/ via `actions/deploy-pages@v4`.
+
+Pages is configured via the workflow build type (`build_type: workflow`), not the legacy "deploy from branch" setting. The HTML wrapper styles (light/dark theme, sticky-sortable headers) live in `docs/header.html` + `docs/footer.html`; the body table is whatever `keycraft r --output html` emits — keep its `<table class="keycraft-ranking-table">` selector intact, since the JS in `footer.html` queries on it.
