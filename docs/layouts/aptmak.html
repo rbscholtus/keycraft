@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Keycraft Layout: aptmak</title>
+ <style>
+  :root {
+   --bg-color: #ffffff;
+   --text-color: #333333;
+   --pre-bg: #f7f7f7;
+   --pre-border: #dddddd;
+   --link-color: #007bff;
+  }
+
+  @media (prefers-color-scheme: dark) {
+   :root {
+    --bg-color: #1e1e1e;
+    --text-color: #e0e0e0;
+    --pre-bg: #262626;
+    --pre-border: #444444;
+    --link-color: #4da3ff;
+   }
+  }
+
+  body {
+   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+   background-color: var(--bg-color);
+   color: var(--text-color);
+   margin: 0;
+   padding: 20px;
+   line-height: 1.5;
+  }
+
+  .container {
+   max-width: 100%;
+   overflow-x: auto;
+   margin: 0 auto;
+   box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+   border-radius: 8px;
+   padding: 20px;
+   box-sizing: border-box;
+  }
+
+  h1 {
+   font-size: 1.5rem;
+   margin: 0 0 16px 0;
+   color: var(--link-color);
+  }
+
+  .nav {
+   margin-bottom: 16px;
+  }
+
+  .nav a {
+   color: var(--link-color);
+   text-decoration: none;
+  }
+
+  .nav a:hover {
+   text-decoration: underline;
+  }
+
+  pre.keycraft-view {
+   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+   line-height: 1.15;
+   font-size: 13px;
+   overflow-x: auto;
+   padding: 16px;
+   margin: 0;
+   background-color: var(--pre-bg);
+   border: 1px solid var(--pre-border);
+   border-radius: 6px;
+   color: var(--text-color);
+  }
+ </style>
+</head>
+
+<body>
+ <div class="container">
+  <p class="nav"><a href="../index.html">← Back to ranking</a></p>
+  <h1>aptmak</h1>
+<pre class="keycraft-view">
+╭     ┬                                                       ╮
+                                APTMAK                         
+├     ┼                                                       ┤
+ Board           ╭───┬───┬───╮          ╭───┬───┬───╮          
+         ╭───┬───┤ w │ f │ p ├───╮  ╭───┤ l │ u │ y ├───┬───╮  
+         │   │ v ├───┼───┼───┤ b │  │ j ├───┼───┼───┤ ' │   │  
+         ├───┼───┤ s │ t │ h ├───┤  ├───┤ n │ a │ i ├───┼───┤  
+         │   │ r ├───┼───┼───┤ k │  │ x ├───┼───┼───┤ o │ ; │  
+         ├───┼───┤ c │ g │ d ├───┤  ├───┤ m │ , │ . ├───┼───┤  
+         │   │ / ├───┼───┼───┤ q │  │ z ├───┼───┼───┤   │   │  
+         ╰───┴───╯   │   │   ├───┤  ├───┤   │   │   ╰───┴───╯  
+                     ╰───┴───┤ e │  │ _ ├───┴───╯              
+                             ╰───╯  ╰───╯                      
+├     ┼                                                       ┤
+ Hand  ╭───────┬────┬────┬────────┬────────┬────┬────┬───────╮ 
+       │   LP  │ LR │ LM │   LI   │   RI   │ RM │ RR │   RP  │ 
+       ├───┬───┼────┼────┼────┬───┼───┬────┼────┼────┼───┬───┤ 
+       │0.0│7.2│12.2│15.2│11.6│3.0│0.6│14.8│13.2│12.5│9.6│0.0│ 
+       ├───┴───┼────┼────┼────┴───┼───┴────┼────┼────┼───┴───┤ 
+       │  7.2  │12.2│15.2│  14.7  │  15.4  │13.2│12.5│  9.6  │ 
+       ├───────┴────┴────┴────────┼────────┴────┴────┴───────┤ 
+       │           49.3%          │           50.7%          │ 
+       ╰──────────────────────────┴──────────────────────────╯ 
+├     ┼                                                       ┤
+ Row              ╭───────┬───────┬────────┬───────╮           
+                  │  Top  │  Home │ Bottom │ Thumb │           
+                  ├───────┼───────┼────────┼───────┤           
+                  │ 21.6% │ 63.6% │  14.9% │ 12.9% │           
+                  ╰───────┴───────┴────────┴───────╯           
+├     ┼                                                       ┤
+ Stats   ╭───────────┬────────────┬────────────┬───────────╮   
+         │SFB:  1.11%│LSB:   0.35%│FSB:   0.23%│HSB:  5.02%│   
+         ├───────────┼────────────┼────────────┼───────────┤   
+         │SFS:  5.29%│LSS:   0.78%│FSS:   1.22%│HSS:  6.12%│   
+         ├───────────┼────────────┼────────────┼───────────┤   
+         │RED: 13.64%│.NML:  9.69%│.WEAK: 1.29%│.SFS: 2.66%│   
+         ├───────────┼────────────┼────────────┼───────────┤   
+         │ALT: 22.57%│.NML: 20.13%│.SFS:  2.44%│           │   
+         ├───────────┼────────────┼────────────┼───────────┤   
+         │2RL: 51.70%│.IN:  32.74%│.OUT: 14.59%│.SFB: 4.38%│   
+         ├───────────┼────────────┼────────────┼───────────┤   
+         │3RL:  9.63%│.IN:   4.38%│.OUT:  0.53%│.SFB: 4.72%│   
+         ├───────────┼────────────┼────────────┼───────────┤   
+         │FLW: 72.37%│I:O:    2.46│            │           │   
+         ├───────────┼────────────┼────────────┼───────────┤   
+         │HLD:   1.45│FLD:  14.99%│RLD:   22.90│POH:  3.16%│   
+         ╰───────────┴────────────┴────────────┴───────────╯   
+╰     ┴                                                       ╯
+</pre>
+ </div>
+</body>
+
+</html>
