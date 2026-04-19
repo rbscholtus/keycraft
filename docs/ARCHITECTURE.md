@@ -116,12 +116,23 @@ Triggers on pushed `v*` tags (and PRs to `main` for build/test only). On a tag p
 
 ### `static.yml` — docs deployment
 
-Triggers on push to `main`. Builds the binary and regenerates `docs/index.html` by sandwiching the ranking output:
+Triggers on push to `main`. Builds the binary, then regenerates two things:
 
-```sh
-(cat docs/header.html; ./keycraft r --metrics all --output html; cat docs/footer.html) > docs/index.html
-```
+1. **`docs/index.html`** — sandwiches the ranking output between `docs/header.html` and `docs/footer.html`:
 
-If the regenerated file differs from what's in the tree, CI commits it back to `main` with `[skip ci]` (the marker prevents an infinite loop, since the bot's own commit would otherwise re-trigger the workflow). Then it uploads the entire `docs/` folder as a Pages artifact and deploys to https://rbscholtus.github.io/keycraft/ via `actions/deploy-pages@v4`.
+   ```sh
+   (cat docs/header.html; \
+    ./keycraft r --metrics all --output html --link-base layouts/; \
+    cat docs/footer.html) > docs/index.html
+   ```
 
-Pages is configured via the workflow build type (`build_type: workflow`), not the legacy "deploy from branch" setting. The HTML wrapper styles (light/dark theme, sticky-sortable headers) live in `docs/header.html` + `docs/footer.html`; the body table is whatever `keycraft r --output html` emits — keep its `<table class="keycraft-ranking-table">` selector intact, since the JS in `footer.html` queries on it.
+   The `--link-base layouts/` flag (defined in `cmd/keycraft/rank.go`, plumbed through `RankingDisplayOptions.LinkBase` in `internal/tui/ranking.go`) wraps each layout Name cell in `<a href="layouts/<name>.html">…</a>` so the ranking table doubles as a link index.
+
+2. **`docs/layouts/<name>.html`** — one page per `.klf` file. The workflow loops over `data/layouts/*.klf`, substitutes the layout name into `docs/layout-header.html` (a `{{NAME}}` placeholder), captures the verbatim terminal output of `./keycraft view <name>` between `<pre class="keycraft-view">` and `</pre>` from `docs/layout-footer.html`. The browser's default monospace rendering of `<pre>` keeps the box-drawing keyboard board aligned.
+
+If anything in `docs/index.html` or `docs/layouts/` differs from what's in the tree, CI commits the regenerated files back to `main` with `[skip ci]` (the marker prevents an infinite loop, since the bot's own commit would otherwise re-trigger the workflow). Then it uploads the entire `docs/` folder as a Pages artifact and deploys to https://rbscholtus.github.io/keycraft/ via `actions/deploy-pages@v4`.
+
+Pages is configured via the workflow build type (`build_type: workflow`), not the legacy "deploy from branch" setting. The HTML wrappers (light/dark theme, sticky-sortable headers on the ranking) live in:
+
+- `docs/header.html` + `docs/footer.html` — ranking page; keep the `<table class="keycraft-ranking-table">` selector intact, since the JS in `footer.html` queries on it for sortable behaviour.
+- `docs/layout-header.html` + `docs/layout-footer.html` — per-layout page; no JS needed. Header has a `{{NAME}}` placeholder for the title and `<h1>`, and a back-link to `../index.html`.

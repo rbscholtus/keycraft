@@ -38,6 +38,7 @@ The binary expects `data/` to be next to it (corpus, layouts, configs). Run from
 1. Drop a `.klf` file into `data/layouts/`.
 2. Confirm it loads: `./keycraft view <name>`.
 3. It is picked up automatically by `rank`/`optimize` — no code change needed. Naming affects how it is used though: filenames that start with `_` or contain `-flipped`, `-best`, or `-opt` are treated as non-reference layouts. They are still loaded and ranked, but excluded from the median/IQR normalization baseline used for scoring (see `isReferenceLayout()` in `internal/keycraft/scorer.go`). Use a plain name (e.g. `colemak.klf`) for a layout that should contribute to the baseline.
+4. The next push to `main` also auto-generates `docs/layouts/<name>.html` for it (see `docs/ARCHITECTURE.md` §`static.yml`); the ranking page links there.
 
 ### A new corpus
 

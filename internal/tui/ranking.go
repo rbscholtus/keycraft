@@ -3,10 +3,13 @@ package tui
 import (
 	"encoding/csv"
 	"fmt"
+	"html"
 	"io"
+	"net/url"
 	"os"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -55,6 +58,7 @@ type RankingDisplayOptions struct {
 	DeltasOption   DeltasOption // "none", "rows", "median", "custom"
 	BaseLayoutName string       // Name of reference layout when DeltasOption == DeltasCustom
 	CorpusName     string       // Name of the corpus used for ranking
+	LinkBase       string       // When non-empty and OutputFormat == OutputHTML, wrap each Name cell in <a href="<LinkBase><name>.html">…</a>
 	// baseLayoutScores *kc.LayoutScore // Cached reference to base layout scores (set during rendering)
 }
 
@@ -115,11 +119,24 @@ func renderTableTerminal(scores []kc.LayoutScore, metrics []string, opts Ranking
 	fmt.Println(tw.Render())
 }
 
-// renderTableHTML uses go-pretty's built-in HTML rendering.
+// renderTableHTML uses go-pretty's built-in HTML rendering. When opts.LinkBase
+// is non-empty, each layout Name cell is wrapped in an anchor tag pointing to
+// "<LinkBase><url-escaped name>.html" so the rendered table can link to per-layout pages.
 func renderTableHTML(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOptions) {
 	tw := buildTable(scores, metrics, opts)
 	tw.SetHTMLCSSClass("keycraft-ranking-table")
-	fmt.Println(tw.RenderHTML())
+	out := tw.RenderHTML()
+
+	if opts.LinkBase != "" {
+		for _, score := range scores {
+			esc := html.EscapeString(score.Name)
+			link := fmt.Sprintf(`<a href="%s%s.html">%s</a>`,
+				opts.LinkBase, url.PathEscape(score.Name), esc)
+			out = strings.Replace(out, ">"+esc+"<", ">"+link+"<", 1)
+		}
+	}
+
+	fmt.Println(out)
 }
 
 // buildTable creates the table structure (shared by both HTML and terminal rendering).

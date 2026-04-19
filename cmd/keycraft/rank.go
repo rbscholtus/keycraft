@@ -40,6 +40,11 @@ var rankFlags = []cli.Flag{
 		Value:    "table",
 		Category: "Display",
 	},
+	&cli.StringFlag{
+		Name:     "link-base",
+		Usage:    "When --output html, wrap each Name cell in <a href=\"<base><name>.html\">…</a>. Example: --link-base layouts/",
+		Category: "Display",
+	},
 }
 
 // rankFlagsSlice returns all flags for the rank command.
@@ -214,6 +219,7 @@ func buildDisplayOptions(c *cli.Command) (tui.RankingDisplayOptions, error) {
 		Weights:        weights,
 		DeltasOption:   deltasOpt,
 		BaseLayoutName: baseLayoutName,
+		LinkBase:       c.String("link-base"),
 	}, nil
 }
 

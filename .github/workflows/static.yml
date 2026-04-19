@@ -42,16 +42,31 @@ jobs:
 
       - name: Generate index.html
         run: |
-          (cat docs/header.html; ./keycraft r --metrics all --output html; cat docs/footer.html) > docs/index.html
+          (cat docs/header.html; \
+           ./keycraft r --metrics all --output html --link-base layouts/; \
+           cat docs/footer.html) > docs/index.html
+
+      - name: Generate per-layout pages
+        run: |
+          mkdir -p docs/layouts
+          rm -f docs/layouts/*.html        # purge stale pages from removed/renamed layouts
+          for klf in data/layouts/*.klf; do
+            name=$(basename "$klf" .klf)
+            {
+              sed "s|{{NAME}}|$name|g" docs/layout-header.html
+              ./keycraft view "$name"
+              cat docs/layout-footer.html
+            } > "docs/layouts/$name.html"
+          done
 
       - name: Commit and push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html
+          git add docs/index.html docs/layouts/
           # Commit only if there are changes. Use [skip ci] to avoid infinite loops.
           if ! git diff --quiet --staged; then
-            git commit -m "Regenerate docs/index.html [skip ci]"
+            git commit -m "Regenerate docs [skip ci]"
             git push origin HEAD:main
           fi
 

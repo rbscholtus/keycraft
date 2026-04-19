@@ -202,7 +202,7 @@ func TestCommandSpecificFlagsComplete(t *testing.T) {
 		{
 			name:          "rankFlags",
 			flags:         &rankFlags,
-			expectedFlags: []string{"metrics", "deltas", "output"},
+			expectedFlags: []string{"metrics", "deltas", "output", "link-base"},
 		},
 		{
 			name:          "optimizeFlags",
