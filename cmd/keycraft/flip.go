@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
+	kc "github.com/rbscholtus/keycraft/internal/keycraft"
 	"github.com/urfave/cli/v3"
 )
 
@@ -30,26 +32,21 @@ func flipAction(ctx context.Context, c *cli.Command) error {
 	}
 
 	layoutArg := c.Args().First()
+	if !strings.EqualFold(filepath.Ext(layoutArg), ".klf") {
+		layoutArg = layoutArg + ".klf"
+	}
+	layoutPath := filepath.Join(layoutDir, layoutArg)
 
-	// Load the layout using helper function
-	layout, err := loadLayout(layoutArg)
+	res, err := kc.FlipLayout(kc.FlipInput{LayoutFile: layoutPath})
 	if err != nil {
-		return fmt.Errorf("could not load layout: %w", err)
+		return fmt.Errorf("could not flip layout: %w", err)
 	}
 
-	// Flip the layout horizontally
-	layout.FlipHorizontal()
-
-	// Update the name with "-flipped" suffix
-	layout.Name = layout.Name + "-flipped"
-
-	// Save to new file
-	outputPath := filepath.Join(layoutDir, layout.Name+".klf")
-
-	if err := layout.SaveToFile(outputPath); err != nil {
+	outputPath := filepath.Join(layoutDir, res.Layout.Name+".klf")
+	if err := res.Layout.SaveToFile(outputPath); err != nil {
 		return fmt.Errorf("could not save flipped layout: %w", err)
 	}
 
-	fmt.Printf("Flipped layout and saved to: %s.klf\n", layout.Name)
+	fmt.Printf("Flipped layout and saved to: %s.klf\n", res.Layout.Name)
 	return nil
 }
