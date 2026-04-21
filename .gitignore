@@ -35,6 +35,7 @@ _cleanuipman
 /keycraft
 /keycraft-serve
 /keycraft-mcp
+/keycraft-wails
 /main
 /*.log
 *.go.bak
