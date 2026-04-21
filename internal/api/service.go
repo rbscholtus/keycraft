@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -163,6 +164,136 @@ func (s *Service) Analyse(sessionID string, req AnalyseRequest) (AnalyseResponse
 // shape and reuses the analyse path.
 func (s *Service) View(sessionID string, req ViewRequest) (ViewResponse, error) {
 	return s.Analyse(sessionID, req)
+}
+
+// OptimiseFast runs BLS with LocalSearchOnly=true (single descent pass) on
+// the given layout. Sessions hold one long-running slot, so a concurrent call
+// on the same session returns ErrBusy. ctx cancellation (e.g. client
+// disconnect) propagates into the BLS inner loops.
+func (s *Service) OptimiseFast(ctx context.Context, sessionID string, req OptimiseFastRequest) (OptimiseFastResponse, error) {
+	sess, err := s.mgr.GetSession(sessionID)
+	if err != nil {
+		return OptimiseFastResponse{}, err
+	}
+	if req.Layout == "" {
+		return OptimiseFastResponse{}, fmt.Errorf("%w: layout is required", ErrInvalidInput)
+	}
+	if !sess.TryAcquireRun() {
+		return OptimiseFastResponse{}, ErrBusy
+	}
+	defer sess.ReleaseRun()
+
+	corpus, err := s.mgr.LoadCorpus(req.Corpus)
+	if err != nil {
+		return OptimiseFastResponse{}, err
+	}
+	defer s.mgr.ReleaseCorpus(req.Corpus)
+
+	targets, err := s.buildTargets(req.Targets)
+	if err != nil {
+		return OptimiseFastResponse{}, err
+	}
+	weights, err := s.buildWeights(req.Weights)
+	if err != nil {
+		return OptimiseFastResponse{}, err
+	}
+
+	layout, err := s.loadLayout(req.Layout)
+	if err != nil {
+		return OptimiseFastResponse{}, err
+	}
+
+	var pinsFilePath string
+	if req.PinsFile != "" {
+		pinsFilePath = filepath.Join(s.mgr.cfg.ConfigDir(), req.PinsFile)
+	}
+	pinned, err := kc.LoadPinsFromParams(pinsFilePath, req.Pins, req.Free, layout)
+	if err != nil {
+		return OptimiseFastResponse{}, fmt.Errorf("could not load pins: %w", err)
+	}
+
+	original := layout.Clone()
+
+	input := kc.OptimizeInput{
+		Layout:          layout,
+		LayoutsDir:      s.mgr.cfg.LayoutDir(),
+		Corpus:          corpus,
+		Targets:         targets,
+		Weights:         weights,
+		Pinned:          pinned,
+		Seed:            req.Seed,
+		UseParallel:     true,
+		LocalSearchOnly: true,
+	}
+
+	result, err := kc.OptimizeLayout(ctx, input, nil)
+	if err != nil {
+		// Partial best-so-far layout may be present on cancellation.
+		return OptimiseFastResponse{}, err
+	}
+
+	// Compute metrics on the resulting layout for the response.
+	analyser := kc.NewAnalyser(result.BestLayout, corpus, targets)
+
+	return OptimiseFastResponse{
+		Original: layoutToDTO(original),
+		Best:     layoutToDTO(result.BestLayout),
+		Metrics:  analyser.Metrics,
+	}, nil
+}
+
+// GenerateFast runs generator without the post-optimisation pass and persists
+// the resulting layouts under the data-dir's layouts subdirectory. Holds the
+// session's run slot for the duration.
+func (s *Service) GenerateFast(ctx context.Context, sessionID string, req GenerateFastRequest) (GenerateFastResponse, error) {
+	sess, err := s.mgr.GetSession(sessionID)
+	if err != nil {
+		return GenerateFastResponse{}, err
+	}
+	if req.Config == "" {
+		return GenerateFastResponse{}, fmt.Errorf("%w: config is required", ErrInvalidInput)
+	}
+	if !sess.TryAcquireRun() {
+		return GenerateFastResponse{}, ErrBusy
+	}
+	defer sess.ReleaseRun()
+
+	configPath := filepath.Join(s.mgr.cfg.ConfigDir(), req.Config)
+	config, err := kc.ParseConfigFile(configPath)
+	if err != nil {
+		return GenerateFastResponse{}, fmt.Errorf("parse config: %w", err)
+	}
+	if err := kc.ValidateConfig(config); err != nil {
+		return GenerateFastResponse{}, err
+	}
+
+	maxLayouts := req.MaxLayouts
+	if maxLayouts == 0 {
+		maxLayouts = 5000
+	}
+	genInput := kc.GenerateInput{
+		ConfigPath:      configPath,
+		MaxLayouts:      maxLayouts,
+		Seed:            req.Seed,
+		Optimize:        false,
+		KeepUnoptimized: false,
+	}
+
+	result, err := kc.GenerateFromConfig(ctx, config, genInput, s.mgr.cfg.LayoutDir())
+	if err != nil {
+		return GenerateFastResponse{}, err
+	}
+
+	names := make([]string, len(result.Layouts))
+	for i, l := range result.Layouts {
+		names[i] = l.Name
+	}
+	return GenerateFastResponse{
+		Layouts:    names,
+		TotalPerms: result.TotalPerms,
+		Generated:  result.Generated,
+		Warnings:   result.Warnings,
+	}, nil
 }
 
 // Rank computes weighted scoring across the supplied layouts.

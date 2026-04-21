@@ -111,7 +111,7 @@ func optimizeAction(ctx context.Context, c *cli.Command) error {
 		input.LogFile = f
 	}
 
-	optResult, err := kc.OptimizeLayout(input, os.Stdout)
+	optResult, err := kc.OptimizeLayout(ctx, input, os.Stdout)
 	if err != nil {
 		return fmt.Errorf("could not optimize layout: %w", err)
 	}

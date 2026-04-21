@@ -2,6 +2,7 @@ package keycraft
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -25,7 +26,7 @@ type PinnedKeys [42]bool
 // using pre-computed stats (skipping LoadAnalysers). Otherwise, a full Scorer is created.
 //
 // Returns the optimized layout.
-func OptimizeLayoutBLS(input OptimizeInput, consoleWriter io.Writer) (*SplitLayout, error) {
+func OptimizeLayoutBLS(ctx context.Context, input OptimizeInput, consoleWriter io.Writer) (*SplitLayout, error) {
 	// Count free keys
 	numFree := 0
 	for _, isPinned := range input.Pinned {
@@ -52,6 +53,7 @@ func OptimizeLayoutBLS(input OptimizeInput, consoleWriter io.Writer) (*SplitLayo
 		params.Seed = time.Now().UnixNano()
 	}
 	params.UseParallel = input.UseParallel
+	params.LocalSearchOnly = input.LocalSearchOnly
 
 	// Create scorer - use provided targets or defaults
 	targets := input.Targets
@@ -95,7 +97,11 @@ func OptimizeLayoutBLS(input OptimizeInput, consoleWriter io.Writer) (*SplitLayo
 	logger := NewBLSLogger(consoleWriter, input.LogFile)
 
 	// Run optimization
-	bestLayout := bls.Optimize(input.Layout, logger)
+	bestLayout, err := bls.Optimize(ctx, input.Layout, logger)
+	if err != nil {
+		// ctx cancellation: still return the best-so-far layout plus the error.
+		return bestLayout, err
+	}
 
 	// Log scorer statistics if console writer provided
 	if consoleWriter != nil {

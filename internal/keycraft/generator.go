@@ -2,6 +2,7 @@ package keycraft
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -774,8 +775,14 @@ func generateLayoutNameFromRunes(runes [42]rune, permIndex int) string {
 	return b.String()
 }
 
-// GenerateFromConfig generates all layouts from a config.
-func GenerateFromConfig(config *GenerationConfig, input GenerateInput, layoutsDir string) (*GenerationResult, error) {
+// GenerateFromConfig generates all layouts from a config. Respects ctx
+// cancellation between generated layouts; any layouts already produced are
+// still returned alongside ctx.Err().
+func GenerateFromConfig(ctx context.Context, config *GenerationConfig, input GenerateInput, layoutsDir string) (*GenerationResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	result := &GenerationResult{
 		Layouts:     make([]*SplitLayout, 0),
 		LayoutPaths: make([]string, 0),
@@ -788,6 +795,10 @@ func GenerateFromConfig(config *GenerationConfig, input GenerateInput, layoutsDi
 
 	// Generate each layout
 	for i, perm := range perms {
+		if err := ctx.Err(); err != nil {
+			result.Generated = len(result.Layouts)
+			return result, err
+		}
 		layout := GenerateLayout(config, perm, input.Seed, i)
 		result.Layouts = append(result.Layouts, layout)
 

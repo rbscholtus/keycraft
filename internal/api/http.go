@@ -105,6 +105,34 @@ func NewRouter(svc *Service) http.Handler {
 		writeJSON(w, dto, err)
 	})
 
+	mux.HandleFunc("POST /v1/optimise-fast", func(w http.ResponseWriter, r *http.Request) {
+		sid, ok := sessionID(w, r)
+		if !ok {
+			return
+		}
+		var req OptimiseFastRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeErr(w, err)
+			return
+		}
+		dto, err := svc.OptimiseFast(r.Context(), sid, req)
+		writeJSON(w, dto, err)
+	})
+
+	mux.HandleFunc("POST /v1/generate-fast", func(w http.ResponseWriter, r *http.Request) {
+		sid, ok := sessionID(w, r)
+		if !ok {
+			return
+		}
+		var req GenerateFastRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeErr(w, err)
+			return
+		}
+		dto, err := svc.GenerateFast(r.Context(), sid, req)
+		writeJSON(w, dto, err)
+	})
+
 	return mux
 }
 

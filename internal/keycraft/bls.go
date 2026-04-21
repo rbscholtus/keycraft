@@ -1,6 +1,7 @@
 package keycraft
 
 import (
+	"context"
 	"math"
 	"math/rand"
 	"runtime"
@@ -42,6 +43,11 @@ type BLSParams struct {
 
 	UseParallel     bool // Enable parallel evaluation in steepest descent
 	ParallelWorkers int  // Number of parallel workers (0 = use runtime.NumCPU())
+
+	// Fast mode: run a single steepest-descent pass and stop, skipping all
+	// perturbation and the outer BLS iteration loop. Useful for quick
+	// exploratory optimisation.
+	LocalSearchOnly bool
 }
 
 // DefaultBLSParams returns recommended BLS parameters for keyboard layout optimization.
@@ -198,9 +204,17 @@ func (bls *BLS) prefilterBigrams(layout *SplitLayout) {
 	})
 }
 
-// Optimize runs the BLS algorithm on the given layout and returns the best layout found.
-// Progress can optionally be reported to the provided logger (use nil to disable all logging).
-func (bls *BLS) Optimize(layout *SplitLayout, logger *BLSLogger) *SplitLayout {
+// Optimize runs the BLS algorithm on the given layout and returns the best
+// layout found. Progress can optionally be reported to the provided logger
+// (use nil to disable logging). If ctx is cancelled, the search exits and
+// returns the best layout found so far together with ctx.Err(). When
+// BLSParams.LocalSearchOnly is true a single steepest-descent pass runs and
+// perturbation is skipped entirely.
+func (bls *BLS) Optimize(ctx context.Context, layout *SplitLayout, logger *BLSLogger) (*SplitLayout, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Store logger for use in descent methods
 	bls.logger = logger
 
@@ -233,8 +247,26 @@ func (bls *BLS) Optimize(layout *SplitLayout, logger *BLSLogger) *SplitLayout {
 		logger.LogInitialCost(bls.state.bestCost)
 	}
 
+	// Fast mode: run one descent and stop. No perturbation, no outer loop.
+	if bls.params.LocalSearchOnly {
+		if err := bls.steepestDescent(ctx, current); err != nil {
+			return bls.finalize(logger), err
+		}
+		// Update best if descent found an improvement
+		currentCost := bls.scorer.Score(current)
+		if currentCost < bls.state.bestCost {
+			bls.state.bestCost = currentCost
+			bls.state.bestLayout = current.Clone()
+		}
+		return bls.finalize(logger), nil
+	}
+
 	// Main optimization loop
 	for bls.state.iteration < bls.params.MaxIterations {
+		if err := ctx.Err(); err != nil {
+			return bls.finalize(logger), err
+		}
+
 		// Check time limit
 		elapsed := time.Since(bls.state.startTime)
 		if elapsed >= bls.params.MaxTime {
@@ -245,7 +277,9 @@ func (bls *BLS) Optimize(layout *SplitLayout, logger *BLSLogger) *SplitLayout {
 		}
 
 		// Phase 1: Steepest Descent to local optimum
-		bls.steepestDescent(current)
+		if err := bls.steepestDescent(ctx, current); err != nil {
+			return bls.finalize(logger), err
+		}
 
 		// Compute cost of local optimum
 		currentCost := bls.scorer.Score(current)
@@ -287,7 +321,9 @@ func (bls *BLS) Optimize(layout *SplitLayout, logger *BLSLogger) *SplitLayout {
 
 		// Phase 2: Perturbation
 		bls.state.lastOptCost = currentCost
-		bls.perturb(current, bls.state.L)
+		if err := bls.perturb(ctx, current, bls.state.L); err != nil {
+			return bls.finalize(logger), err
+		}
 
 		// Progress reporting
 		if logger != nil && bls.params.ReportInterval > 0 &&
@@ -297,40 +333,65 @@ func (bls *BLS) Optimize(layout *SplitLayout, logger *BLSLogger) *SplitLayout {
 		}
 	}
 
+	return bls.finalize(logger), nil
+}
+
+// finalize emits the "end" log entry, renames the best layout, and returns
+// it. It's called from every exit point of Optimize so partial results still
+// come back on ctx cancellation.
+func (bls *BLS) finalize(logger *BLSLogger) *SplitLayout {
 	if logger != nil {
 		elapsed := time.Since(bls.state.startTime)
 		logger.LogEnd(bls.state.bestCost, bls.state.iteration, elapsed, bls.state.bestLayout)
 	}
-
-	bls.state.bestLayout.Name += "-opt"
+	if bls.state.bestLayout != nil && !endsWith(bls.state.bestLayout.Name, "-opt") {
+		bls.state.bestLayout.Name += "-opt"
+	}
 	return bls.state.bestLayout
 }
 
-// steepestDescent performs local search until a local optimum is reached.
-// Uses best-improvement strategy: evaluates all valid swaps and applies the best one.
-// Dispatches to parallel or sequential implementation based on params.
-func (bls *BLS) steepestDescent(layout *SplitLayout) {
-	if bls.params.UseParallel {
-		bls.steepestDescentParallel(layout)
-	} else {
-		bls.steepestDescentSequential(layout)
+func endsWith(s, suffix string) bool {
+	if len(s) < len(suffix) {
+		return false
 	}
+	return s[len(s)-len(suffix):] == suffix
+}
+
+// steepestDescent performs local search until a local optimum is reached.
+// Uses best-improvement strategy: evaluates all valid swaps and applies the
+// best one. Dispatches to the parallel or sequential implementation based on
+// params. Returns ctx.Err() if the search is cancelled mid-descent.
+func (bls *BLS) steepestDescent(ctx context.Context, layout *SplitLayout) error {
+	if bls.params.UseParallel {
+		return bls.steepestDescentParallel(ctx, layout)
+	}
+	return bls.steepestDescentSequential(ctx, layout)
 }
 
 // steepestDescentSequential is the sequential implementation.
-func (bls *BLS) steepestDescentSequential(layout *SplitLayout) {
+func (bls *BLS) steepestDescentSequential(ctx context.Context, layout *SplitLayout) error {
 	improved := true
 	swapCount := 0
 	startCost := bls.scorer.Score(layout)
 
 	for improved {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		improved = false
 		bestDelta := 0.0
 		var bestI, bestJ uint8
 
 		// Evaluate all possible swaps using pre-calculated pairs
 		costBefore := bls.scorer.Score(layout)
-		for _, pair := range bls.validPairs {
+		for idx, pair := range bls.validPairs {
+			// Check ctx cheaply every 64 pairs (avoid overhead on every iter)
+			if idx&63 == 0 {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+			}
 			i, j := pair[0], pair[1]
 
 			// Compute delta by scoring after swap
@@ -365,6 +426,7 @@ func (bls *BLS) steepestDescentSequential(layout *SplitLayout) {
 		endCost := bls.scorer.Score(layout)
 		bls.logger.LogDescent(bls.state.iteration, swapCount, startCost, endCost)
 	}
+	return nil
 }
 
 // swapResult holds the result of evaluating a single swap.
@@ -375,7 +437,7 @@ type swapResult struct {
 }
 
 // steepestDescentParallel is the parallel implementation using worker goroutines.
-func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
+func (bls *BLS) steepestDescentParallel(ctx context.Context, layout *SplitLayout) error {
 	improved := true
 	swapCount := 0
 	startCost := bls.scorer.Score(layout)
@@ -387,6 +449,10 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 	}
 
 	for improved {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		improved = false
 		bestDelta := 0.0
 		var bestI, bestJ uint8
@@ -418,7 +484,10 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 				var localBestI, localBestJ uint8
 				found := false
 
-				for _, pair := range pairs {
+				for idx, pair := range pairs {
+					if idx&63 == 0 && ctx.Err() != nil {
+						return
+					}
 					i, j := pair[0], pair[1]
 
 					// Compute delta by scoring after swap
@@ -458,6 +527,11 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 			}
 		}
 
+		// If ctx was cancelled mid-chunk, workers exit early and we bail here.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		if improved {
 			// Apply best swap
 			layout.Swap(bestI, bestJ)
@@ -475,16 +549,21 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 		endCost := bls.scorer.Score(layout)
 		bls.logger.LogDescent(bls.state.iteration, swapCount, startCost, endCost)
 	}
+	return nil
 }
 
 // perturb applies L perturbation moves to escape the current local optimum.
-func (bls *BLS) perturb(layout *SplitLayout, L int) {
+// Returns ctx.Err() if the search is cancelled mid-perturbation.
+func (bls *BLS) perturb(ctx context.Context, layout *SplitLayout, L int) error {
 	// Track strategies used and swaps applied for logging
 	strategies := make(map[string]int)
 	totalSwaps := 0
 	startCost := bls.scorer.Score(layout)
 
 	for range L {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		pertType := bls.selectPerturbationType()
 
 		var swapI, swapJ uint8
@@ -535,6 +614,7 @@ func (bls *BLS) perturb(layout *SplitLayout, L int) {
 		endCost := bls.scorer.Score(layout)
 		bls.logger.LogPerturb(bls.state.iteration, strategies, totalSwaps, startCost, endCost)
 	}
+	return nil
 }
 
 // selectPerturbationType chooses which perturbation type to use based on search state.

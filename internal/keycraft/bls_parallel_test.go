@@ -1,6 +1,7 @@
 package keycraft
 
 import (
+	"context"
 	"runtime"
 	"testing"
 )
@@ -29,7 +30,7 @@ func BenchmarkSteepestDescentSequential(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		testLayout := layout.Clone()
-		bls.steepestDescentSequential(testLayout)
+		_ = bls.steepestDescentSequential(context.Background(), testLayout)
 	}
 }
 
@@ -69,7 +70,7 @@ func BenchmarkSteepestDescentParallelWorkers(b *testing.B) {
 			b.ResetTimer()
 			for b.Loop() {
 				testLayout := layout.Clone()
-				bls.steepestDescentParallel(testLayout)
+				_ = bls.steepestDescentParallel(context.Background(), testLayout)
 			}
 		})
 	}
@@ -98,7 +99,7 @@ func BenchmarkSteepestDescentAuto(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		testLayout := layout.Clone()
-		bls.steepestDescent(testLayout)
+		_ = bls.steepestDescent(context.Background(), testLayout)
 	}
 }
 
@@ -157,7 +158,9 @@ func TestSteepestDescentEquivalence(t *testing.T) {
 	}
 
 	layoutSeq := layout.Clone()
-	blsSeq.steepestDescentSequential(layoutSeq)
+	if err := blsSeq.steepestDescentSequential(context.Background(), layoutSeq); err != nil {
+		t.Fatalf("sequential descent: %v", err)
+	}
 	costSeq := scorer.Score(layoutSeq)
 
 	// Test parallel version
@@ -176,7 +179,9 @@ func TestSteepestDescentEquivalence(t *testing.T) {
 	}
 
 	layoutPar := layout.Clone()
-	blsPar.steepestDescentParallel(layoutPar)
+	if err := blsPar.steepestDescentParallel(context.Background(), layoutPar); err != nil {
+		t.Fatalf("parallel descent: %v", err)
+	}
 	costPar := scorer.Score(layoutPar)
 
 	// Costs should be identical (both find same local optimum)

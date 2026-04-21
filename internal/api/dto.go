@@ -107,3 +107,40 @@ type ViewRequest = AnalyseRequest
 
 // ViewResponse is the same shape as AnalyseResponse.
 type ViewResponse = AnalyseResponse
+
+// OptimiseFastRequest runs a single BLS steepest-descent pass on a loaded
+// layout. Perturbation is skipped entirely, so the call returns quickly.
+type OptimiseFastRequest struct {
+	Layout   string         `json:"layout"`
+	Corpus   CorpusRef      `json:"corpus"`
+	Targets  TargetLoadsDTO `json:"targets,omitempty"`
+	Weights  WeightsDTO     `json:"weights,omitempty"`
+	PinsFile string         `json:"pins_file,omitempty"`
+	Pins     string         `json:"pins,omitempty"`
+	Free     string         `json:"free,omitempty"`
+	Seed     int64          `json:"seed,omitempty"`
+}
+
+// OptimiseFastResponse carries the best layout plus its metric map.
+type OptimiseFastResponse struct {
+	Original LayoutDTO          `json:"original"`
+	Best     LayoutDTO          `json:"best"`
+	Metrics  map[string]float64 `json:"metrics"`
+}
+
+// GenerateFastRequest produces layouts from a .gen config WITHOUT an
+// optimisation pass. Layouts are persisted under the data-dir's layouts
+// subdirectory.
+type GenerateFastRequest struct {
+	Config     string `json:"config"`
+	MaxLayouts int    `json:"max_layouts,omitempty"`
+	Seed       uint64 `json:"seed,omitempty"`
+}
+
+// GenerateFastResponse reports which layouts were produced.
+type GenerateFastResponse struct {
+	Layouts    []string `json:"layouts"`
+	TotalPerms int      `json:"total_perms"`
+	Generated  int      `json:"generated"`
+	Warnings   []string `json:"warnings,omitempty"`
+}

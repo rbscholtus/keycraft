@@ -125,7 +125,7 @@ func generateAction(ctx context.Context, c *cli.Command) error {
 	}
 
 	// Step 4: Generate layouts
-	result, err := kc.GenerateFromConfig(config, genInput, layoutDir)
+	result, err := kc.GenerateFromConfig(ctx, config, genInput, layoutDir)
 	if err != nil {
 		return fmt.Errorf("could not generate layouts: %w", err)
 	}
@@ -139,7 +139,7 @@ func generateAction(ctx context.Context, c *cli.Command) error {
 
 	// Step 5: Optimize if requested
 	if genInput.Optimize {
-		err := optimiseLayout(result, config, c, optInput, genInput)
+		err := optimiseLayout(ctx, result, config, c, optInput, genInput)
 		if err != nil {
 			return fmt.Errorf("could not optimise generated layout: %w", err)
 		}
@@ -183,7 +183,7 @@ type optResult struct {
 	err           error
 }
 
-func optimiseLayout(result *kc.GenerationResult, config *kc.GenerationConfig, c *cli.Command, optInput kc.OptimizeInput, genInput kc.GenerateInput) error {
+func optimiseLayout(ctx context.Context, result *kc.GenerationResult, config *kc.GenerationConfig, c *cli.Command, optInput kc.OptimizeInput, genInput kc.GenerateInput) error {
 	numLayouts := len(result.Layouts)
 	fmt.Printf("Optimizing %d layouts...\n", numLayouts)
 
@@ -257,7 +257,7 @@ func optimiseLayout(result *kc.GenerationResult, config *kc.GenerationConfig, c 
 				localInput.Pinned = &item.pinned
 
 				// Run optimization (nil writer = no console output)
-				optimizeResult, err := kc.OptimizeLayout(localInput, nil)
+				optimizeResult, err := kc.OptimizeLayout(ctx, localInput, nil)
 				tracker.Increment(1)
 				if err != nil {
 					results[item.index] = optResult{err: fmt.Errorf("optimization failed for %s: %w", item.layout.Name, err)}
