@@ -33,6 +33,8 @@ vendor/
 /testdata/
 _cleanuipman
 /keycraft
+/keycraft-serve
+/keycraft-mcp
 /main
 /*.log
 *.go.bak
