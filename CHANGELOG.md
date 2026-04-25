@@ -2,16 +2,9 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-04-24
 
-Items carried over from `todo.txt` for `v0.6.0` final:
-- Max-seed global hidden flag.
-- Clean up `*Layout + bool` interface.
-- Progress bar / slice-optimiser progress polish.
-
-## [0.6.0-beta.1] - 2026-04-19
-
-First pre-release of the `generate` command and several ranking/analyser improvements.
+Release of the `generate` command and several ranking/analyser improvements.
 
 ### Added
 - `generate` command: synthesise layouts from a `.gen` config, and apply parallel optimisation. See `data/config/example.gen` for a starting point.
@@ -50,6 +43,5 @@ Previous release. See `git log v0.4.0..v0.5.0` for details.
 
 See `git tag --sort=-v:refname` and `git log <tag>` for historical releases.
 
-[Unreleased]: https://github.com/rbscholtus/keycraft/compare/v0.6.0-beta.1...HEAD
-[0.6.0-beta.1]: https://github.com/rbscholtus/keycraft/compare/v0.5.0...v0.6.0-beta.1
+[0.6.0]: https://github.com/rbscholtus/keycraft/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/rbscholtus/keycraft/releases/tag/v0.5.0
