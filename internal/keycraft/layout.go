@@ -577,6 +577,7 @@ func (sl *SplitLayout) initLSBs() {
 	}
 
 	// Add geometry-specific edge cases for row-staggered layouts
+	//nolint:exhaustive // ORTHO and COLSTAG have no additional LSB edge cases
 	switch sl.LayoutType {
 	case ROWSTAG:
 		sl.LSBs = append(sl.LSBs, LSBInfo{1, 26, 1.75})

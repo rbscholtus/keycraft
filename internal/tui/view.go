@@ -128,9 +128,10 @@ func SplitLayoutString(sl *kc.SplitLayout) string {
 			38, 39,
 		}
 		return genLayoutStringFor(sl, colstagTempl, mapper[:])
-	default: // kc.ROWSTAG
+	case kc.ROWSTAG:
 		return genLayoutStringFor(sl, rowstagTempl, nil)
 	}
+	return genLayoutStringFor(sl, rowstagTempl, nil) // unreachable: all LayoutType values are handled above
 }
 
 // genLayoutStringFor applies runes to an ASCII template, optionally reordering via mapper.

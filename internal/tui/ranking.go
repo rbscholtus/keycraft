@@ -153,7 +153,7 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 		tw.SetTitle(fmt.Sprintf("Layout Ranking (Compare to %s)", opts.BaseLayoutName))
 	case DeltasMedian:
 		tw.SetTitle("Layout Ranking (Compare to median)")
-	default:
+	case DeltasNone, DeltasRows:
 		if opts.CorpusName != "" {
 			tw.SetTitle(fmt.Sprintf("Layout Ranking - %s", opts.CorpusName))
 		} else {
