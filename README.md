@@ -11,7 +11,6 @@ Keycraft is a Golang-based command-line utility for analysing, comparing, and op
 ## Table of Contents
 
 - [Keycraft](#keycraft)
-  - [Table of Contents](#table-of-contents)
   - [Basic example (QWERTY; Sanitized Reddit Corpus)](#basic-example-qwerty-sanitized-reddit-corpus)
   - [Quick Start](#quick-start)
     - [Installing Keycraft](#installing-keycraft)
@@ -34,6 +33,7 @@ Keycraft is a Golang-based command-line utility for analysing, comparing, and op
   - [Configuration](#configuration)
     - [Specifying and choosing a suitable corpus (for all commands)](#specifying-and-choosing-a-suitable-corpus-for-all-commands)
     - [Specifying weights (for ranking and optimizing)](#specifying-weights-for-ranking-and-optimizing)
+  - [Roadmap](#roadmap)
   - [Contributing](#contributing)
   - [License](#license)
   - [Contact](#contact)
@@ -570,10 +570,13 @@ More information will be provided.
  corpusDir  = "data/corpus/"
  configDir  = "data/config/"
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned features, active experiments, and the backlog of community requests.
+
 ## Contributing
 
 - Questions, suggestions, and feedback are super welcome! Just open a New Issue and I'll get back to you as soon as I can.
-- I probably cannot take PRs until I feel a solid base implementation is in place. Sorry about this!
 
 ## License
 
