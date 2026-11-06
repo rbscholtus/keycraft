@@ -50,6 +50,11 @@ linters:
       - third_party$
       - builtin$
       - examples$
+    rules:
+      - linters:
+          - gosec
+        path: '_test\.go$'
+        text: 'G306'
 formatters:
   exclusions:
     generated: lax
