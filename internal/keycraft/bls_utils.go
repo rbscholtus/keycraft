@@ -104,7 +104,7 @@ func OptimizeLayoutBLS(input OptimizeInput, consoleWriter io.Writer) (*SplitLayo
 
 	// Log cache stats to JSONL if file writer provided
 	if input.LogFile != nil {
-		hits := uint64(scorer.cacheHits.Load())   //nolint:gosec // hit counter is never negative
+		hits := uint64(scorer.cacheHits.Load())     //nolint:gosec // hit counter is never negative
 		misses := uint64(scorer.cacheMisses.Load()) //nolint:gosec // miss counter is never negative
 		scorer.cacheMu.RLock()
 		uniqueKeys := len(scorer.scoreCache)

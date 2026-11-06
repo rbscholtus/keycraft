@@ -277,10 +277,10 @@ func TestAddWeightsFromFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
-		name     string
-		content  string
-		wantErr  bool
-		checks   map[string]float64
+		name    string
+		content string
+		wantErr bool
+		checks  map[string]float64
 	}{
 		{
 			name: "valid file with comments",
