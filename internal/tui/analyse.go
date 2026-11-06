@@ -106,7 +106,8 @@ func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 	}
 
 	// Header
-	header := table.Row{"orderby", ma.Metric, "Count", "%", "Dist"}
+	header := make(table.Row, 0, 5+len(customKeys))
+	header = append(header, "orderby", ma.Metric, "Count", "%", "Dist")
 	for _, ck := range customKeys {
 		header = append(header, ck)
 	}
@@ -131,7 +132,8 @@ func MetricDetailsString(ma *kc.MetricDetails, nrows int) string {
 		t.AppendRow(row)
 	}
 
-	footer := table.Row{"", "", ma.TotalNGrams, float64(ma.TotalNGrams) / float64(ma.CorpusNGramC)}
+	footer := make(table.Row, 0, 4+len(customKeys))
+	footer = append(footer, "", "", ma.TotalNGrams, float64(ma.TotalNGrams)/float64(ma.CorpusNGramC))
 	for range customKeys {
 		footer = append(footer, "")
 	}
