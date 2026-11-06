@@ -33,6 +33,9 @@ linters:
     - wrapcheck        # every external error must be wrapped
     - err113           # all errors must be named/typed
 
+    # Deprecated (replaced by newer versions already enabled via default: all)
+    - gomodguard       # replaced by gomodguard_v2
+
     # Noisy / false positives
     - gochecknoglobals # no package-level variables
     - goconst          # repeated string literals
