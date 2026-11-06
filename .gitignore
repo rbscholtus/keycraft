@@ -33,6 +33,7 @@ vendor/
 /testdata/
 _cleanuipman
 /keycraft
+/keycraft-*
 /main
 /*.log
 *.go.bak
@@ -51,3 +52,4 @@ authors.json
 likes.json
 run.jsonl
 .gemini/*
+.claude/settings.local.json
