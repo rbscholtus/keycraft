@@ -6,13 +6,10 @@
     "go.lintFlags": [],
     "go.lintOnSave": "workspace",
     "go.testTags": "-v",
-    "gopls": {
-        "ui.diagnostic.diagnosticsDelay": "3600s",
-    },
     "[go]": {
         "editor.rulers": [
-            80,
-            100
+            100,
+            120
         ],
         "editor.codeActionsOnSave": {
             "source.organizeImports": "always"
