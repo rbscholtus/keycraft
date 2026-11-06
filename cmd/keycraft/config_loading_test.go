@@ -20,7 +20,7 @@ func TestTargetLoads_HardcodedDefaults(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("load-targets-file", "target-hand-load", "target-finger-load", "target-row-load", "pinky-penalties"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -79,7 +79,7 @@ pinky-penalties = 3.0, 2.0, 1.5, 0.5, 2.5, 2.0, 3.0, 2.0, 1.5, 0.5, 2.5, 2.0
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("load-targets-file"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -122,7 +122,7 @@ func TestTargetLoads_FromFile_PartialConfig(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("load-targets-file"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -173,7 +173,7 @@ target-finger-load = 5, 10, 20, 15, 15, 20, 10, 5
 	app := &cli.Command{
 		Name:  "test",
 		Flags: testFlags,
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -228,7 +228,7 @@ pinky-penalties = 3.0, 2.0, 1.5, 0.5, 2.5, 2.0
 	app := &cli.Command{
 		Name:  "test",
 		Flags: testFlags,
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -295,7 +295,7 @@ func TestTargetLoads_InvalidFileReturnsError(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("load-targets-file"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := loadTargetLoadsFromFlags(cmd)
 			if err == nil {
 				t.Error("expected error for nonexistent config file, got nil")
@@ -319,7 +319,7 @@ func TestWeights_HardcodedDefaults(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("weights-file", "weights"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			weights, err := loadWeightsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -362,7 +362,7 @@ FSB=-2.0
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("weights-file"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			weights, err := loadWeightsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -404,7 +404,7 @@ LSB=-5.0
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("weights-file", "weights"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			weights, err := loadWeightsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -445,7 +445,7 @@ func TestWeights_InvalidFileUsesDefaults(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("weights-file"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := loadWeightsFromFlags(cmd)
 			// Should return error for nonexistent file
 			if err == nil {
@@ -473,7 +473,7 @@ func TestCorpus_DefaultFile(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("corpus"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			corpus, err := loadCorpusFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -505,7 +505,7 @@ func TestCorpus_CustomFile(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("corpus"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			corpus, err := loadCorpusFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -588,7 +588,7 @@ func TestTargetLoads_MissingDefaultFile_FallsBackWithWarning(t *testing.T) {
 				Value: "load_targets.txt",
 			},
 		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -633,7 +633,7 @@ func TestTargetLoads_MissingExplicitFile_ReturnsError(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("load-targets-file"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := loadTargetLoadsFromFlags(cmd)
 			if err == nil {
 				t.Error("expected error for explicitly specified nonexistent config file, got nil")
@@ -671,7 +671,7 @@ func TestTargetLoads_EmptyStringFlag_UsesDefaultsSilently(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("load-targets-file"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			targets, err := loadTargetLoadsFromFlags(cmd)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -728,7 +728,7 @@ func TestError_MissingCorpusFile(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("corpus"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := loadCorpusFromFlags(cmd)
 			if err == nil {
 				t.Error("expected error for missing corpus file, got nil")
@@ -762,7 +762,7 @@ completely invalid line
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("load-targets-file"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := loadTargetLoadsFromFlags(cmd)
 			if err == nil {
 				t.Error("expected error for invalid targets file, got nil")
@@ -797,7 +797,7 @@ METRIC_WITHOUT_VALUE
 	app := &cli.Command{
 		Name:  "test",
 		Flags: commonFlags("weights-file"),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := loadWeightsFromFlags(cmd)
 			if err == nil {
 				t.Error("expected error for invalid weights file, got nil")
@@ -849,7 +849,7 @@ func TestError_MalformedFlags(t *testing.T) {
 			app := &cli.Command{
 				Name:  "test",
 				Flags: testFlags,
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					var err error
 					switch tt.flagName {
 					case "target-hand-load", "target-finger-load", "target-row-load":

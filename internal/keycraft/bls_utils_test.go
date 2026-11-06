@@ -31,7 +31,7 @@ func TestLoadPins_ValidFile(t *testing.T) {
 * - - - * -  - - - - - *
       * * *  * * *`
 
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 
@@ -82,7 +82,7 @@ func TestLoadPins_WithComments(t *testing.T) {
 * - - - * -  - - - - - *
       * * *  * * *`
 
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 
@@ -116,7 +116,7 @@ _ - . _ - .  _ - . _ - .
 . . . . . .  . . . . . .
       * x X  - _ .`
 
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 
@@ -188,7 +188,7 @@ func TestLoadPins_InvalidFormat_TooFewRows(t *testing.T) {
 * * * * * -  - - * * * -`
 	// Missing 2 rows
 
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 
@@ -212,7 +212,7 @@ func TestLoadPins_InvalidFormat_WrongKeyCount(t *testing.T) {
       * * *  * * *`
 	// First row has 14 keys instead of 12
 
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 
@@ -236,7 +236,7 @@ func TestLoadPins_InvalidCharacter(t *testing.T) {
       * * *  * * *`
 	// 'a' is not a valid pin symbol
 
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 
@@ -260,7 +260,7 @@ func TestLoadPins_MultiCharacterKey(t *testing.T) {
       * * *  * * *`
 	// '**' should be two separate keys but is parsed as one
 
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 
@@ -301,7 +301,7 @@ func TestLoadPinsFromParams_MutualExclusion(t *testing.T) {
 * * * * * -  - - * * * -
 * - - - * -  - - - - - *
       * * *  * * *`
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 
@@ -454,7 +454,7 @@ func TestLoadPinsFromParams_LoadFromFile(t *testing.T) {
 * - - - * -  - - - - - *
       * * *  * * *`
 
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 
@@ -481,7 +481,7 @@ func TestLoadPinsFromParams_FileAndPins(t *testing.T) {
 * - - - * -  - - - - - *
       * * *  * * *`
 
-	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pinsFile, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("Failed to create test pins file: %v", err)
 	}
 

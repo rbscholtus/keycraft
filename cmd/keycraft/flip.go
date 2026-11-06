@@ -20,7 +20,7 @@ var flipCommand = &cli.Command{
 
 // flipAction loads a keyboard layout, performs a horizontal mirror transformation,
 // and saves the resulting layout to a new file with a "-flipped" suffix.
-func flipAction(ctx context.Context, c *cli.Command) error {
+func flipAction(_ context.Context, c *cli.Command) error {
 	if isShellCompletion() {
 		return nil
 	}

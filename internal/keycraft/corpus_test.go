@@ -94,7 +94,7 @@ func TestAddTextWithWords_Apostrophes(t *testing.T) {
 		},
 		{
 			name:  "repeated contractions",
-			input: "don't don't don't",
+			input: "don't don't don't", //nolint:dupword // intentional repeated word in test data
 			expected: map[string]uint64{
 				"don't": 3,
 			},

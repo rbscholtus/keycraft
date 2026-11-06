@@ -85,8 +85,8 @@ func (t *Trigram) UnmarshalText(text []byte) error {
 type Skipgram [2]rune
 
 // String returns the string representation of the skipgram.
-func (b Skipgram) String() string {
-	return string(b[:])
+func (s Skipgram) String() string {
+	return string(s[:])
 }
 
 // MarshalText implements the encoding.TextMarshaler interface for Skipgram.

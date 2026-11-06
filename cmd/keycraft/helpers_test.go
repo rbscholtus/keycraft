@@ -14,7 +14,7 @@ import (
 func writeTestLayout(t *testing.T, dir, name string, content string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("failed to write test layout: %v", err)
 	}
 	return path

@@ -27,7 +27,7 @@ var viewCommand = &cli.Command{
 
 // viewAction gathers the necessary corpus and target load parameters, performs
 // a high-level ergonomic analysis of the specified layouts, and renders a summary view.
-func viewAction(ctx context.Context, c *cli.Command) error {
+func viewAction(_ context.Context, c *cli.Command) error {
 	if isShellCompletion() {
 		return nil
 	}

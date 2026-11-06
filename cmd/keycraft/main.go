@@ -61,7 +61,7 @@ func main() {
 
 // customCommandNotFound provides a friendly error message with suggestions
 // when a command is not found.
-func customCommandNotFound(ctx context.Context, cmd *cli.Command, command string) {
+func customCommandNotFound(_ context.Context, cmd *cli.Command, command string) {
 	suggestion := cli.SuggestCommand(cmd.Commands, command)
 
 	fmt.Fprintf(cmd.Root().Writer, "Command '%s' is not a thing.", command)

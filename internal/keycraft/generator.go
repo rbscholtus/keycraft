@@ -727,7 +727,7 @@ func GenerateLayout(config *GenerationConfig, groupPerm map[int][]rune, seed uin
 	}
 
 	// Shuffle remaining characters
-	rng := NewLockedRNG(seed+uint64(permIndex), 0)
+	rng := NewLockedRNG(seed+uint64(permIndex), 0) //nolint:gosec // permIndex is always non-negative
 	ShuffleSlice(rng, remaining)
 
 	// Assign to random positions
@@ -804,7 +804,7 @@ func GenerateFromConfig(config *GenerationConfig, input GenerateInput, layoutsDi
 
 // ComputeDefaultPins computes the default pinned keys for a generated layout.
 // Default pinning: Pin all non-random positions (unused, fixed, group chars, and space).
-func ComputeDefaultPins(config *GenerationConfig, layout *SplitLayout) PinnedKeys {
+func ComputeDefaultPins(config *GenerationConfig, _ *SplitLayout) PinnedKeys {
 	var pinned PinnedKeys
 
 	for i, spec := range config.Template {

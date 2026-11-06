@@ -81,7 +81,7 @@ func TestShuffleSlice(t *testing.T) {
 
 // TestConcurrencySafety runs multiple goroutines to trigger the race detector.
 // Run this test with: go test -race
-func TestConcurrencySafety(t *testing.T) {
+func TestConcurrencySafety(t *testing.T) { //nolint:revive // t required by testing framework
 	rng := NewLockedRNG(0, 0)
 	var wg sync.WaitGroup
 	workers := 100

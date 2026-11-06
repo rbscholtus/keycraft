@@ -170,7 +170,7 @@ func NewBLS(params BLSParams, scorer *Scorer, corpus *Corpus, pinned *PinnedKeys
 		scorer:     scorer,
 		corpus:     corpus,
 		pinned:     pinned,
-		rng:        rand.New(rand.NewSource(params.Seed)),
+		rng:        rand.New(rand.NewSource(params.Seed)), //nolint:gosec // seeded RNG for reproducible runs
 		numFree:    numFree,
 		validPairs: validPairs,
 	}
@@ -825,8 +825,8 @@ func (bls *BLS) applyColumnSwap(layout *SplitLayout) {
 
 	// Swap keys in corresponding positions of each column
 	for row := range uint8(3) {
-		posA := row*12 + uint8(colA)
-		posB := row*12 + uint8(colB)
+		posA := row*12 + uint8(colA) //nolint:gosec // colA is 0-11
+		posB := row*12 + uint8(colB) //nolint:gosec // colB is 0-11
 
 		if !bls.pinned[posA] && !bls.pinned[posB] {
 			layout.Swap(posA, posB)

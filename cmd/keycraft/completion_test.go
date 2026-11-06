@@ -179,7 +179,7 @@ func TestCorpusCommandShellCompletion(t *testing.T) {
 		if !strings.HasSuffix(name, ".json") {
 			content = "test corpus content"
 		}
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 			t.Fatalf("failed to create test corpus file: %v", err)
 		}
 	}
@@ -296,7 +296,7 @@ func TestGetCorpusFilesForCompletion(t *testing.T) {
 
 	for name, content := range testFiles {
 		path := filepath.Join(tmpDir, name)
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 			t.Fatalf("failed to create test file: %v", err)
 		}
 	}
@@ -435,7 +435,7 @@ func TestListFilesForCompletion(t *testing.T) {
 
 	for name, content := range testFiles {
 		path := filepath.Join(tmpDir, name)
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 			t.Fatalf("failed to create test file: %v", err)
 		}
 	}

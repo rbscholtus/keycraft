@@ -17,7 +17,7 @@ var analyseFlags = []cli.Flag{
 		Usage:    "Maximum number of rows to display in data tables.",
 		Value:    10,
 		Category: "Display",
-		Action: func(ctx context.Context, c *cli.Command, value int) error {
+		Action: func(_ context.Context, _ *cli.Command, value int) error {
 			if isShellCompletion() {
 				return nil
 			}
@@ -38,7 +38,7 @@ var analyseFlags = []cli.Flag{
 		Usage:    "Maximum number of trigrams to display in trigram table.",
 		Value:    50,
 		Category: "Display",
-		Action: func(ctx context.Context, c *cli.Command, value int) error {
+		Action: func(_ context.Context, _ *cli.Command, value int) error {
 			if isShellCompletion() {
 				return nil
 			}
@@ -70,7 +70,7 @@ var analyseCommand = &cli.Command{
 
 // analyseAction coordinates the loading of corpus and target data, executes a
 // detailed ergonomic analysis for one or more layouts, and renders the results.
-func analyseAction(ctx context.Context, c *cli.Command) error {
+func analyseAction(_ context.Context, c *cli.Command) error {
 	if isShellCompletion() {
 		return nil
 	}

@@ -17,7 +17,7 @@ var corpusFlags = []cli.Flag{
 		Usage:    "Maximum number of rows to display in corpus data tables.",
 		Value:    100,
 		Category: "Display",
-		Action: func(ctx context.Context, c *cli.Command, value int) error {
+		Action: func(_ context.Context, _ *cli.Command, value int) error {
 			if isShellCompletion() {
 				return nil
 			}
@@ -33,7 +33,7 @@ var corpusFlags = []cli.Flag{
 			"low-frequency words. Forces cache rebuild.",
 		Value:    98.0,
 		Category: "",
-		Action: func(ctx context.Context, c *cli.Command, value float64) error {
+		Action: func(_ context.Context, _ *cli.Command, value float64) error {
 			if isShellCompletion() {
 				return nil
 			}
@@ -64,7 +64,7 @@ var corpusCommand = &cli.Command{
 // corpusAction processes a text corpus to extract and display n-gram frequency
 // statistics, optionally applying word coverage filtering to prune low-frequency
 // vocabulary.
-func corpusAction(ctx context.Context, c *cli.Command) error {
+func corpusAction(_ context.Context, c *cli.Command) error {
 	if isShellCompletion() {
 		return nil
 	}
