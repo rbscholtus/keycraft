@@ -2,7 +2,8 @@ package keycraft
 
 import (
 	"bufio"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
 	"math"
 	"os"
@@ -488,8 +489,7 @@ func LoadJSON(jsonPath string) (*Corpus, error) {
 	defer CloseFile(jsonFile)
 
 	var c Corpus
-	decoder := json.NewDecoder(jsonFile)
-	if err := decoder.Decode(&c); err != nil {
+	if err := json.UnmarshalRead(jsonFile, &c); err != nil {
 		return nil, fmt.Errorf("could not decode corpus cache: %w", err)
 	}
 
@@ -504,9 +504,7 @@ func (c *Corpus) SaveJSON(jsonPath string) error {
 	}
 	defer CloseFile(file)
 
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(c); err != nil {
+	if err := json.MarshalWrite(file, c, jsontext.WithIndent("  ")); err != nil {
 		return fmt.Errorf("could not encode corpus cache: %w", err)
 	}
 	return nil
