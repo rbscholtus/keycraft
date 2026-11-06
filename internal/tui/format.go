@@ -9,7 +9,7 @@ func Comma[T ~int | ~int32 | ~int64 | ~uint | ~uint32 | ~uint64](v T) string {
 
 	// Calculate the number of digits and commas needed.
 	var count byte
-	for n := val; n != 0; n = n / 10 {
+	for n := val; n != 0; n /= 10 {
 		count++
 	}
 	count += (count - 1) / 3
@@ -22,7 +22,7 @@ func Comma[T ~int | ~int32 | ~int64 | ~uint | ~uint32 | ~uint64](v T) string {
 	var counter byte
 	for val > 9 {
 		output[j] = byte(val%10) + '0'
-		val = val / 10
+		val /= 10
 		j--
 		if counter == 2 {
 			counter = 0

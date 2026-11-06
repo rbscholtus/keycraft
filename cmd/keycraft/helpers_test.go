@@ -11,7 +11,7 @@ import (
 
 // writeTestLayout creates a layout file with the given content for testing.
 // Returns the full path. Calls t.Fatalf on write error.
-func writeTestLayout(t *testing.T, dir, name string, content string) string {
+func writeTestLayout(t *testing.T, dir, name string, content string) string { //nolint:unparam // return kept for future callers
 	t.Helper()
 	path := filepath.Join(dir, name)
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

@@ -268,6 +268,7 @@ func (bls *BLS) Optimize(layout *SplitLayout, logger *BLSLogger) *SplitLayout {
 		}
 
 		// Determine jump magnitude L
+		//nolint:gocritic // ifElseChain: three distinct BLS state transitions, reads better as if-else
 		if bls.state.omega > bls.params.T {
 			// Strong diversification: search is stagnating
 			bls.state.L = bls.params.LMax
@@ -478,13 +479,13 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 }
 
 // perturb applies L perturbation moves to escape the current local optimum.
-func (bls *BLS) perturb(layout *SplitLayout, L int) {
+func (bls *BLS) perturb(layout *SplitLayout, jumpMag int) {
 	// Track strategies used and swaps applied for logging
 	strategies := make(map[string]int)
 	totalSwaps := 0
 	startCost := bls.scorer.Score(layout)
 
-	for range L {
+	for range jumpMag {
 		pertType := bls.selectPerturbationType()
 
 		var swapI, swapJ uint8

@@ -41,7 +41,7 @@ func flipAction(_ context.Context, c *cli.Command) error {
 	layout.FlipHorizontal()
 
 	// Update the name with "-flipped" suffix
-	layout.Name = layout.Name + "-flipped"
+	layout.Name += "-flipped"
 
 	// Save to new file
 	outputPath := filepath.Join(layoutDir, layout.Name+".klf")

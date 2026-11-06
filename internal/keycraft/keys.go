@@ -128,9 +128,8 @@ func calcKeyDistances(
 	absDist := func(x, y uint8) uint8 {
 		if x > y {
 			return x - y
-		} else {
-			return y - x
 		}
+		return y - x
 	}
 
 	var k1, k2 uint8

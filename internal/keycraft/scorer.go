@@ -479,9 +479,8 @@ func Median(sortedData []float64) float64 {
 	mid := n / 2
 	if n%2 == 0 {
 		return (sortedData[mid-1] + sortedData[mid]) / 2.0
-	} else {
-		return sortedData[mid]
 	}
+	return sortedData[mid]
 }
 
 // Quartiles calculates the first and third quartiles (Q1 and Q3) of a sorted slice.

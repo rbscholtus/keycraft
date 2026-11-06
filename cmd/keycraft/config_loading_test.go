@@ -696,7 +696,7 @@ func TestTargetLoads_EmptyStringFlag_UsesDefaultsSilently(t *testing.T) {
 	// Close writer and read stderr output
 	w.Close()
 	var stderrBuf bytes.Buffer
-	stderrBuf.ReadFrom(r)
+	_, _ = stderrBuf.ReadFrom(r)
 	stderrOutput := stderrBuf.String()
 
 	// Verify NO warning message was printed

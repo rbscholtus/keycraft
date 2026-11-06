@@ -273,6 +273,7 @@ func getThumbChars(score *kc.LayoutScore) string {
 
 	for i := 36; i <= 41; i++ {
 		r := score.Analyser.Layout.Runes[i]
+		//nolint:gocritic // ifElseChain: rune classification, reads more naturally than switch
 		if r < ' ' {
 			thumb[i-36] = ' '
 		} else if r == ' ' {

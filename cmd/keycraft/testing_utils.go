@@ -58,7 +58,7 @@ func writeTestConfigFile(t *testing.T, dir, name, content string) string {
 }
 
 // writeTestCorpus writes a minimal test corpus file.
-func writeTestCorpus(t *testing.T, dir, name string) string {
+func writeTestCorpus(t *testing.T, dir, name string) string { //nolint:unparam // return kept for future callers
 	t.Helper()
 	// Minimal corpus with enough data to avoid errors
 	content := `the quick brown fox jumps over the lazy dog

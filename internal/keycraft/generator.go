@@ -116,6 +116,7 @@ func ParseConfigFile(path string) (*GenerationConfig, error) {
 			key = strings.TrimSpace(key)
 			value = strings.TrimSpace(value)
 
+			//nolint:gocritic // ifElseChain: key-type dispatch, switch would not simplify
 			if key == "charset" {
 				config.Charset = parseCharsetValue(value)
 				config.LineNums["charset"] = lineNum
@@ -208,6 +209,7 @@ func ParseConfigString(content string) (*GenerationConfig, error) {
 			key = strings.TrimSpace(key)
 			value = strings.TrimSpace(value)
 
+			//nolint:gocritic // ifElseChain: key-type dispatch, switch would not simplify
 			if key == "charset" {
 				config.Charset = parseCharsetValue(value)
 				config.LineNums["charset"] = lineNum
