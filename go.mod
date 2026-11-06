@@ -1,6 +1,6 @@
 module github.com/rbscholtus/keycraft
 
-go 1.26.2
+go 1.27
 
 require (
 	github.com/jedib0t/go-pretty/v6 v6.7.9
