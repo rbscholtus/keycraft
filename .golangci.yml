@@ -59,6 +59,9 @@ linters:
         path: '_test\.go$'
         text: 'G306'
 formatters:
+  enable:
+    - gofmt
+    - goimports
   exclusions:
     generated: lax
     paths:
