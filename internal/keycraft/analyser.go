@@ -809,7 +809,7 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
-			kpDist := an.Layout.MustDistance(uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2))
+			kpDist := an.Layout.MustDistance(lsb.KeyIdx1, lsb.KeyIdx2)
 			ma.NGramDist[skpStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(skpCnt)
 

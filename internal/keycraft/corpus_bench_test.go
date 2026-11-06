@@ -9,6 +9,7 @@ import (
 var benchCorpus *Corpus
 
 func getBenchmarkCorpus(b *testing.B) *Corpus {
+	b.Helper()
 	if benchCorpus == nil {
 		var err error
 		benchCorpus, err = LoadJSON("../../data/corpus/default.txt.json")
