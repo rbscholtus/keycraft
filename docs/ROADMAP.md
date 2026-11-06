@@ -63,6 +63,14 @@ transports. The branch is experimental and not reviewed for production use.
 
 ---
 
+### CI / Release
+
+- **Auto-populate release notes**: Configure `softprops/action-gh-release` in `go.yml`
+  to include a release body (e.g. from a `RELEASE_NOTES.md` template or tag annotation)
+  so GitHub Releases are not created empty.
+
+---
+
 ## Later / Ideas
 
 - Alt fingering support
