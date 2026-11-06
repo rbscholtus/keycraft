@@ -3,6 +3,7 @@ package keycraft
 import (
 	"bufio"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -115,6 +116,7 @@ func ParseConfigFile(path string) (*GenerationConfig, error) {
 			key = strings.TrimSpace(key)
 			value = strings.TrimSpace(value)
 
+			//nolint:gocritic // ifElseChain: key-type dispatch, switch would not simplify
 			if key == "charset" {
 				config.Charset = parseCharsetValue(value)
 				config.LineNums["charset"] = lineNum
@@ -207,6 +209,7 @@ func ParseConfigString(content string) (*GenerationConfig, error) {
 			key = strings.TrimSpace(key)
 			value = strings.TrimSpace(value)
 
+			//nolint:gocritic // ifElseChain: key-type dispatch, switch would not simplify
 			if key == "charset" {
 				config.Charset = parseCharsetValue(value)
 				config.LineNums["charset"] = lineNum
@@ -631,9 +634,7 @@ func generateConstrainedPerms(
 		// Combine this group's permutation with all sub-permutations
 		for _, subPerm := range subPerms {
 			combined := make(map[int][]rune, len(subPerm)+1)
-			for g, p := range subPerm {
-				combined[g] = p
-			}
+			maps.Copy(combined, subPerm)
 			combined[groupNum] = perm
 			result = append(result, combined)
 
@@ -659,7 +660,7 @@ func generateOrderedSelections(chars []rune, k int) [][]rune {
 
 	// Calculate P(n,k) = n!/(n-k)!
 	count := 1
-	for i := 0; i < k; i++ {
+	for i := range k {
 		count *= (n - i)
 	}
 
@@ -674,7 +675,7 @@ func generateOrderedSelections(chars []rune, k int) [][]rune {
 			result = append(result, perm)
 			return
 		}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			if !used[i] {
 				used[i] = true
 				current = append(current, chars[i])
@@ -728,7 +729,7 @@ func GenerateLayout(config *GenerationConfig, groupPerm map[int][]rune, seed uin
 	}
 
 	// Shuffle remaining characters
-	rng := NewLockedRNG(seed+uint64(permIndex), 0)
+	rng := NewLockedRNG(seed+uint64(permIndex), 0) //nolint:gosec // permIndex is always non-negative
 	ShuffleSlice(rng, remaining)
 
 	// Assign to random positions
@@ -805,7 +806,7 @@ func GenerateFromConfig(config *GenerationConfig, input GenerateInput, layoutsDi
 
 // ComputeDefaultPins computes the default pinned keys for a generated layout.
 // Default pinning: Pin all non-random positions (unused, fixed, group chars, and space).
-func ComputeDefaultPins(config *GenerationConfig, layout *SplitLayout) PinnedKeys {
+func ComputeDefaultPins(config *GenerationConfig, _ *SplitLayout) PinnedKeys {
 	var pinned PinnedKeys
 
 	for i, spec := range config.Template {

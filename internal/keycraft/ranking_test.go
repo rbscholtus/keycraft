@@ -40,7 +40,7 @@ func Benchmark_Rankings(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-		if len(analysers) <= 0 {
+		if len(analysers) == 0 {
 			panic("no analysers returned")
 		}
 

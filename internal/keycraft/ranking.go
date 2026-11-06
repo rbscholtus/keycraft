@@ -70,7 +70,7 @@ func ComputeRankings(input RankingInput) (*RankingResult, error) {
 
 // ComputeMedianScore creates a synthetic LayoutScore from median values.
 // The score is always 0.0 because normalized median values are (median - median) / IQR = 0.
-func ComputeMedianScore(medians map[string]float64, weights *Weights) LayoutScore {
+func ComputeMedianScore(medians map[string]float64, _ *Weights) LayoutScore {
 	analyser := &Analyser{
 		Layout:  &SplitLayout{Name: "median"},
 		Metrics: medians,

@@ -22,7 +22,7 @@ func NewLockedRNG(seed1, seed2 uint64) *LockedSource {
 		seed2 = seed1 ^ 0x9e3779b97f4a7c15
 	}
 	return &LockedSource{
-		rng: rand.New(rand.NewPCG(seed1, seed2)),
+		rng: rand.New(rand.NewPCG(seed1, seed2)), //nolint:gosec // seeded RNG for reproducible runs
 	}
 }
 

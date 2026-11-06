@@ -11,6 +11,7 @@ import (
 var benchCorpus *kc.Corpus
 
 func getBenchmarkCorpus(b *testing.B) *kc.Corpus {
+	b.Helper()
 	if benchCorpus == nil {
 		var err error
 		// Load from JSON cache directly for faster benchmarks

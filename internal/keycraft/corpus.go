@@ -2,7 +2,8 @@ package keycraft
 
 import (
 	"bufio"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
 	"math"
 	"os"
@@ -84,8 +85,8 @@ func (t *Trigram) UnmarshalText(text []byte) error {
 type Skipgram [2]rune
 
 // String returns the string representation of the skipgram.
-func (b Skipgram) String() string {
-	return string(b[:])
+func (s Skipgram) String() string {
+	return string(s[:])
 }
 
 // MarshalText implements the encoding.TextMarshaler interface for Skipgram.
@@ -162,7 +163,7 @@ func NewCorpus(name string) *Corpus {
 // If limit is zero or negative, all n-grams are included.
 func (c *Corpus) StringSorted(limit int) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Corpus: %s\n", c.Name))
+	fmt.Fprintf(&sb, "Corpus: %s\n", c.Name)
 
 	if limit <= 0 {
 		limit = math.MaxInt32
@@ -172,28 +173,28 @@ func (c *Corpus) StringSorted(limit int) string {
 	sb.WriteString("Unigrams:\n")
 	uc := SortedMap(c.Unigrams)
 	for i := 0; i < limit && i < len(uc); i++ {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", uc[i].Key, uc[i].Count))
+		fmt.Fprintf(&sb, "%s: %d\n", uc[i].Key, uc[i].Count)
 	}
 
 	// Print bigrams
 	sb.WriteString("Bigrams:\n")
 	bc := SortedMap(c.Bigrams)
 	for i := 0; i < limit && i < len(bc); i++ {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", bc[i].Key, bc[i].Count))
+		fmt.Fprintf(&sb, "%s: %d\n", bc[i].Key, bc[i].Count)
 	}
 
 	// Print trigrams
 	sb.WriteString("Trigrams:\n")
 	tc := SortedMap(c.Trigrams)
 	for i := 0; i < limit && i < len(tc); i++ {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", tc[i].Key, tc[i].Count))
+		fmt.Fprintf(&sb, "%s: %d\n", tc[i].Key, tc[i].Count)
 	}
 
 	// Print skipgrams
 	sb.WriteString("Skipgrams:\n")
 	sc := SortedMap(c.Skipgrams)
 	for i := 0; i < limit && i < len(sc); i++ {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", sc[i].Key, sc[i].Count))
+		fmt.Fprintf(&sb, "%s: %d\n", sc[i].Key, sc[i].Count)
 	}
 
 	return sb.String()
@@ -267,7 +268,7 @@ func (c *Corpus) addSkipgram(r1, r2 rune) {
 
 // addWord increments the count of the given word in the corpus
 //
-//nolint:unused
+
 func (c *Corpus) addWord(word string) {
 	c.Words[word]++
 	c.TotalWordsCount++
@@ -398,7 +399,7 @@ func (c *Corpus) loadFromFile(path string) error {
 // After loading, prunes the word list to keep only the most frequent words covering
 // the specified percentage of total word occurrences.
 //
-//nolint:unused
+
 func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -428,7 +429,7 @@ func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) err
 // For example, with coveragePercent=98, keeps only the most common words that together account
 // for 98% of all word occurrences. This reduces memory usage while retaining high-frequency vocabulary.
 //
-//nolint:unused
+
 func (c *Corpus) pruneWordsByCoverage(coveragePercent float64) {
 	if len(c.Words) == 0 {
 		return
@@ -488,8 +489,7 @@ func LoadJSON(jsonPath string) (*Corpus, error) {
 	defer CloseFile(jsonFile)
 
 	var c Corpus
-	decoder := json.NewDecoder(jsonFile)
-	if err := decoder.Decode(&c); err != nil {
+	if err := json.UnmarshalRead(jsonFile, &c); err != nil {
 		return nil, fmt.Errorf("could not decode corpus cache: %w", err)
 	}
 
@@ -504,9 +504,7 @@ func (c *Corpus) SaveJSON(jsonPath string) error {
 	}
 	defer CloseFile(file)
 
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(c); err != nil {
+	if err := json.MarshalWrite(file, c, jsontext.WithIndent("  ")); err != nil {
 		return fmt.Errorf("could not encode corpus cache: %w", err)
 	}
 	return nil

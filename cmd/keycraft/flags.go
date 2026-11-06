@@ -162,7 +162,7 @@ func listFilesForCompletion(dir, stripExt string) []string {
 // The urfave/cli framework treats "--" as an argument terminator and won't call this function.
 // As a result, "command --<TAB>" produces no completions (shell beeps), which is acceptable
 // behavior since there are limited scenarios where this would be useful.
-func layoutShellComplete(ctx context.Context, c *cli.Command) {
+func layoutShellComplete(_ context.Context, c *cli.Command) {
 	// Find the position of --generate-shell-completion in os.Args
 	completionPos := slices.Index(os.Args, "--generate-shell-completion")
 

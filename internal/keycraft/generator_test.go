@@ -41,6 +41,7 @@ set1=tn
 set2=sr
 `
 
+	//nolint:unused // kept for future tests
 	testConfigMinimal = `# Minimal valid config - all fixed positions except one random
 colstag
 ~ q w f p b  j l u y ; ~

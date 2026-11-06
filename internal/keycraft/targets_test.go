@@ -170,7 +170,7 @@ func TestParseFingerLoad(t *testing.T) {
 				return
 			}
 
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				if result[i] != tt.expected[i] {
 					t.Errorf("Position %d: expected %f, got %f", i, tt.expected[i], result[i])
 				}
@@ -220,7 +220,7 @@ func TestParseRowLoad(t *testing.T) {
 				return
 			}
 
-			for i := 0; i < 3; i++ {
+			for i := range 3 {
 				if result[i] != tt.expected[i] {
 					t.Errorf("Position %d: expected %f, got %f", i, tt.expected[i], result[i])
 				}
@@ -266,7 +266,7 @@ func TestParsePinkyPenalties(t *testing.T) {
 				return
 			}
 
-			for i := 0; i < 12; i++ {
+			for i := range 12 {
 				if result[i] != tt.expected[i] {
 					t.Errorf("Position %d: expected %f, got %f", i, tt.expected[i], result[i])
 				}

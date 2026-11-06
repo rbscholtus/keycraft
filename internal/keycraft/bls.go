@@ -170,7 +170,7 @@ func NewBLS(params BLSParams, scorer *Scorer, corpus *Corpus, pinned *PinnedKeys
 		scorer:     scorer,
 		corpus:     corpus,
 		pinned:     pinned,
-		rng:        rand.New(rand.NewSource(params.Seed)),
+		rng:        rand.New(rand.NewSource(params.Seed)), //nolint:gosec // seeded RNG for reproducible runs
 		numFree:    numFree,
 		validPairs: validPairs,
 	}
@@ -268,6 +268,7 @@ func (bls *BLS) Optimize(layout *SplitLayout, logger *BLSLogger) *SplitLayout {
 		}
 
 		// Determine jump magnitude L
+		//nolint:gocritic // ifElseChain: three distinct BLS state transitions, reads better as if-else
 		if bls.state.omega > bls.params.T {
 			// Strong diversification: search is stagnating
 			bls.state.L = bls.params.LMax
@@ -401,7 +402,7 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 		var wg sync.WaitGroup
 
 		// Spawn workers
-		for w := 0; w < numWorkers; w++ {
+		for w := range numWorkers {
 			start := w * chunkSize
 			if start >= numPairs {
 				break
@@ -478,13 +479,13 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 }
 
 // perturb applies L perturbation moves to escape the current local optimum.
-func (bls *BLS) perturb(layout *SplitLayout, L int) {
+func (bls *BLS) perturb(layout *SplitLayout, jumpMag int) {
 	// Track strategies used and swaps applied for logging
 	strategies := make(map[string]int)
 	totalSwaps := 0
 	startCost := bls.scorer.Score(layout)
 
-	for range L {
+	for range jumpMag {
 		pertType := bls.selectPerturbationType()
 
 		var swapI, swapJ uint8
@@ -825,8 +826,8 @@ func (bls *BLS) applyColumnSwap(layout *SplitLayout) {
 
 	// Swap keys in corresponding positions of each column
 	for row := range uint8(3) {
-		posA := row*12 + uint8(colA)
-		posB := row*12 + uint8(colB)
+		posA := row*12 + uint8(colA) //nolint:gosec // colA is 0-11
+		posB := row*12 + uint8(colB) //nolint:gosec // colB is 0-11
 
 		if !bls.pinned[posA] && !bls.pinned[posB] {
 			layout.Swap(posA, posB)

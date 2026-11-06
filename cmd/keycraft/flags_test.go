@@ -409,7 +409,7 @@ func TestCorpusFlagValidation(t *testing.T) {
 			app := &cli.Command{
 				Name:  "corpus",
 				Flags: corpusCmdFlags(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					_, err := buildCorpusInput(cmd)
 					return err
 				},
@@ -450,7 +450,7 @@ pinky-penalties = 2, 1.5, 1, 0, 2, 1.5`)
 			app := &cli.Command{
 				Name:  "view",
 				Flags: viewCmdFlags(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					_, err := buildViewInput(cmd)
 					return err
 				},
@@ -491,7 +491,7 @@ pinky-penalties = 2, 1.5, 1, 0, 2, 1.5`)
 			app := &cli.Command{
 				Name:  "analyse",
 				Flags: analyseFlagsSlice(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					_, err := buildAnalyseInput(cmd)
 					return err
 				},
@@ -567,7 +567,7 @@ pinky-penalties = 2, 1.5, 1, 0, 2, 1.5`)
 			app := &cli.Command{
 				Name:  "optimize",
 				Flags: optimizeCmdFlags(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					_, err := buildOptimizeInput(cmd, nil, false)
 					return err
 				},
@@ -601,7 +601,7 @@ func TestGenerateFlagValidation(t *testing.T) {
 			app := &cli.Command{
 				Name:  "generate",
 				Flags: generateCmdFlags(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					_, err := buildGenerateInput(cmd)
 					return err
 				},

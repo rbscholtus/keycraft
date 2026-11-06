@@ -26,7 +26,7 @@ func TestCorpusCommand_NoArgs(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: append(commonFlags("corpus"), corpusFlags...),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, _ *cli.Command) error {
 			// If we got here, validation passed
 			return nil
 		},
@@ -44,7 +44,7 @@ func TestCorpusCommand_WithArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "corpus",
 		Flags: corpusCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := buildCorpusInput(cmd)
 			return err
 		},
@@ -71,7 +71,7 @@ func TestCorpusCommand_BuildInput(t *testing.T) {
 	app := &cli.Command{
 		Name:  "test",
 		Flags: append(commonFlags("corpus"), corpusFlags...),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			input, err := buildCorpusInput(cmd)
 			if err != nil {
 				t.Fatalf("buildCorpusInput failed: %v", err)
@@ -119,7 +119,7 @@ func TestCorpusCommand_CorpusRowsFlag(t *testing.T) {
 			app := &cli.Command{
 				Name:  "test",
 				Flags: append(commonFlags("corpus"), corpusFlags...),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					input, err := buildCorpusInput(cmd)
 					if (err != nil) != tt.wantErr {
 						t.Fatalf("buildCorpusInput error = %v, wantErr %v", err, tt.wantErr)
@@ -169,7 +169,7 @@ func TestCorpusCommand_CoverageFlag(t *testing.T) {
 			app := &cli.Command{
 				Name:  "test",
 				Flags: append(commonFlags("corpus"), corpusFlags...),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					// Coverage flag is validated but not stored in CorpusInput
 					// It's used during corpus loading. Just verify it parses correctly.
 					actual := cmd.Float64("coverage")
@@ -214,7 +214,7 @@ func TestCorpusCommand_CorpusRowsInvalid(t *testing.T) {
 			app := &cli.Command{
 				Name:  "test",
 				Flags: append(commonFlags("corpus"), corpusFlags...),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					_, err := buildCorpusInput(cmd)
 					if err == nil {
 						t.Error("expected error for invalid corpus-rows, got nil")
@@ -252,7 +252,7 @@ func TestCorpusCommand_CoverageInvalid(t *testing.T) {
 			app := &cli.Command{
 				Name:  "test",
 				Flags: append(commonFlags("corpus"), corpusFlags...),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					coverage := cmd.Float64("coverage")
 					if coverage < 0.1 || coverage > 100.0 {
 						return nil // Test expects this validation to exist
@@ -284,7 +284,7 @@ func TestViewCommand_NoArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "view",
 		Flags: viewCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := buildViewInput(cmd)
 			return err
 		},
@@ -313,7 +313,7 @@ func TestViewCommand_SingleLayout(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "view",
 		Flags: viewCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			input, err := buildViewInput(cmd)
 			if err != nil {
 				t.Fatalf("buildViewInput failed: %v", err)
@@ -373,7 +373,7 @@ func TestViewCommand_SingleLayout_NoExtension(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "view",
 		Flags: viewCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			input, err := buildViewInput(cmd)
 			if err != nil {
 				t.Fatalf("buildViewInput failed: %v", err)
@@ -427,7 +427,7 @@ func TestViewCommand_MultipleLayouts(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "view",
 		Flags: viewCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			input, err := buildViewInput(cmd)
 			if err != nil {
 				t.Fatalf("buildViewInput failed: %v", err)
@@ -476,7 +476,7 @@ func TestAnalyseCommand_NoArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "analyse",
 		Flags: analyseFlagsSlice(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := buildAnalyseInput(cmd)
 			return err
 		},
@@ -505,7 +505,7 @@ func TestAnalyseCommand_BuildInput(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "analyse",
 		Flags: analyseFlagsSlice(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			input, err := buildAnalyseInput(cmd)
 			if err != nil {
 				t.Fatalf("buildAnalyseInput failed: %v", err)
@@ -568,7 +568,7 @@ func TestAnalyseCommand_RowsInvalid(t *testing.T) {
 			cmd := &cli.Command{
 				Name:  "analyse",
 				Flags: analyseFlagsSlice(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					rows := cmd.Int("rows")
 					if rows < 1 {
 						return nil // Test expects validation to catch this
@@ -611,7 +611,7 @@ func TestAnalyseCommand_TrigramRows(t *testing.T) {
 			cmd := &cli.Command{
 				Name:  "analyse",
 				Flags: analyseFlagsSlice(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					trigramRows := cmd.Int("trigram-rows")
 					if trigramRows != tt.want {
 						t.Errorf("trigram-rows = %d, want %d", trigramRows, tt.want)
@@ -659,7 +659,7 @@ func TestAnalyseCommand_TrigramRowsInvalid(t *testing.T) {
 			cmd := &cli.Command{
 				Name:  "analyse",
 				Flags: analyseFlagsSlice(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					trigramRows := cmd.Int("trigram-rows")
 					if trigramRows < 1 {
 						return nil // Test expects validation to catch this
@@ -699,7 +699,7 @@ func TestRankCommand_BuildInput(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "rank",
 		Flags: rankFlagsSlice(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			// First load weights for display options
 			weights, err := loadWeightsFromFlags(cmd)
 			if err != nil {
@@ -757,7 +757,7 @@ func TestRankCommand_BuildDisplayOptions(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "rank",
 		Flags: rankFlagsSlice(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			opts, err := buildDisplayOptions(cmd)
 			if err != nil {
 				t.Fatalf("buildDisplayOptions failed: %v", err)
@@ -816,7 +816,7 @@ func TestRankCommand_MetricsFlag(t *testing.T) {
 			cmd := &cli.Command{
 				Name:  "rank",
 				Flags: rankFlagsSlice(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					metrics := cmd.String("metrics")
 					if metrics != tt.value {
 						t.Errorf("metrics = %q, want %q", metrics, tt.value)
@@ -858,11 +858,11 @@ func TestRankCommand_MetricsInvalid(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			cmd := &cli.Command{
 				Name:  "rank",
 				Flags: rankFlagsSlice(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					metrics := cmd.String("metrics")
 					// Validation should happen in buildDisplayOptions or similar
 					// For now, we just test that the flag accepts the value
@@ -909,7 +909,7 @@ func TestRankCommand_DeltasFlag(t *testing.T) {
 			cmd := &cli.Command{
 				Name:  "rank",
 				Flags: rankFlagsSlice(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					deltas := cmd.String("deltas")
 					if deltas != tt.value {
 						t.Errorf("deltas = %q, want %q", deltas, tt.value)
@@ -958,7 +958,7 @@ func TestRankCommand_OutputFlag(t *testing.T) {
 			cmd := &cli.Command{
 				Name:  "rank",
 				Flags: rankFlagsSlice(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					output := cmd.String("output")
 					// Validate output format
 					validFormats := map[string]bool{"table": true, "html": true, "csv": true}
@@ -1033,7 +1033,7 @@ func TestOptimizeCommand_NoArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "optimize",
 		Flags: optimizeCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := buildOptimizeInput(cmd, nil, false)
 			return err
 		},
@@ -1060,7 +1060,7 @@ func TestOptimizeCommand_MultipleArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "optimize",
 		Flags: optimizeCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := buildOptimizeInput(cmd, nil, false)
 			return err
 		},
@@ -1093,7 +1093,7 @@ func TestOptimizeCommand_BuildInput(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "optimize",
 		Flags: optimizeCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			// skipLayoutLoad=false: load layout from args (optimize command behavior)
 			input, err := buildOptimizeInput(cmd, nil, false)
 			if err != nil {
@@ -1148,7 +1148,7 @@ func TestGenerateCommand_NoArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "generate",
 		Flags: generateCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := buildGenerateInput(cmd)
 			return err
 		},
@@ -1173,7 +1173,7 @@ func TestGenerateCommand_MultipleArgs_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "generate",
 		Flags: generateCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := buildGenerateInput(cmd)
 			return err
 		},
@@ -1198,7 +1198,7 @@ func TestGenerateCommand_WrongExtension_ReturnsError(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "generate",
 		Flags: generateCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := buildGenerateInput(cmd)
 			return err
 		},
@@ -1237,7 +1237,7 @@ charset=etaoinshrdlcumwfgypbvkjxqz,./;'_
 	cmd := &cli.Command{
 		Name:  "generate",
 		Flags: generateCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			input, err := buildGenerateInput(cmd)
 			if err != nil {
 				t.Fatalf("buildGenerateInput failed: %v", err)
@@ -1290,7 +1290,7 @@ charset=etaoinshrdlcumwfgypbvkjxqz,./;'_
 	cmd := &cli.Command{
 		Name:  "generate",
 		Flags: generateCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			input, err := buildGenerateInput(cmd)
 			if err != nil {
 				t.Fatalf("buildGenerateInput failed: %v", err)
@@ -1356,7 +1356,7 @@ charset=etaoinshrdlcumwfgypbvkjxqz,./;'_
 	cmd := &cli.Command{
 		Name:  "generate",
 		Flags: generateCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			input, err := buildGenerateInput(cmd)
 			if err != nil {
 				t.Fatalf("buildGenerateInput failed: %v", err)
@@ -1392,7 +1392,7 @@ func TestGenerateCommand_ConfigFileNotFound(t *testing.T) {
 	cmd := &cli.Command{
 		Name:  "generate",
 		Flags: generateCmdFlags(),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			_, err := buildGenerateInput(cmd)
 			return err
 		},

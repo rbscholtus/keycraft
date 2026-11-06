@@ -13,7 +13,7 @@ func TestDeterminism(t *testing.T) {
 	rng1 := NewLockedRNG(s1, s2)
 	rng2 := NewLockedRNG(s1, s2)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		v1 := rng1.Uint64()
 		v2 := rng2.Uint64()
 		if v1 != v2 {
@@ -26,7 +26,7 @@ func TestDeterminism(t *testing.T) {
 func TestIntNBounds(t *testing.T) {
 	rng := NewLockedRNG(0, 0) // Test with auto-seeding
 	n := 10
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		val := rng.IntN(n)
 		if val < 0 || val >= n {
 			t.Fatalf("IntN(%d) produced %d; out of bounds [0, %d)", n, val, n)
@@ -37,7 +37,7 @@ func TestIntNBounds(t *testing.T) {
 // TestFloat64Bounds verifies that Float64 is always in the interval [0.0, 1.0).
 func TestFloat64Bounds(t *testing.T) {
 	rng := NewLockedRNG(0, 0)
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		val := rng.Float64()
 		if val < 0.0 || val >= 1.0 {
 			t.Fatalf("Float64 produced %f; out of bounds [0.0, 1.0)", val)
@@ -57,7 +57,7 @@ func TestPerm(t *testing.T) {
 
 	// Sort the slice; it should be [0, 1, 2, 3, 4]
 	slices.Sort(p)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if p[i] != i {
 			t.Errorf("Perm missing value %d", i)
 		}
@@ -81,17 +81,17 @@ func TestShuffleSlice(t *testing.T) {
 
 // TestConcurrencySafety runs multiple goroutines to trigger the race detector.
 // Run this test with: go test -race
-func TestConcurrencySafety(t *testing.T) {
+func TestConcurrencySafety(t *testing.T) { //nolint:revive // t required by testing framework
 	rng := NewLockedRNG(0, 0)
 	var wg sync.WaitGroup
 	workers := 100
 	iterations := 1000
 
 	wg.Add(workers)
-	for i := 0; i < workers; i++ {
+	for range workers {
 		go func() {
 			defer wg.Done()
-			for j := 0; j < iterations; j++ {
+			for range iterations {
 				// Call various methods to ensure the mutex covers all paths
 				rng.Uint64()
 				rng.IntN(100)

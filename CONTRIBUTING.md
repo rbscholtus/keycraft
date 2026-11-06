@@ -4,7 +4,7 @@ Thanks for your interest in keycraft. This is a personal project; contributions 
 
 ## Prerequisites
 
-- **Go 1.26+** (see `go.mod`)
+- **Go 1.27+** (see `go.mod`)
 - **golangci-lint** (optional but recommended; version 2.x config in `.golangci.yml`)
 - Git
 

@@ -23,7 +23,7 @@ var (
 func main() {
 	cmd := &cli.Command{
 		Name:                  "keycraft",
-		Version:               "v0.6.0",
+		Version:               "v0.6.1",
 		Usage:                 "A CLI tool for crafting better keyboard layouts",
 		EnableShellCompletion: true,
 		Suggest:               true,
@@ -61,7 +61,7 @@ func main() {
 
 // customCommandNotFound provides a friendly error message with suggestions
 // when a command is not found.
-func customCommandNotFound(ctx context.Context, cmd *cli.Command, command string) {
+func customCommandNotFound(_ context.Context, cmd *cli.Command, command string) {
 	suggestion := cli.SuggestCommand(cmd.Commands, command)
 
 	fmt.Fprintf(cmd.Root().Writer, "Command '%s' is not a thing.", command)

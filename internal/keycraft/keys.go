@@ -128,9 +128,8 @@ func calcKeyDistances(
 	absDist := func(x, y uint8) uint8 {
 		if x > y {
 			return x - y
-		} else {
-			return y - x
 		}
+		return y - x
 	}
 
 	var k1, k2 uint8
@@ -170,7 +169,7 @@ func calcKeyDistances(
 }
 
 // AbsRowDist computes the absolute vertical distance between two keys (simple).
-func AbsRowDist(row1, col1, row2, col2 uint8) float64 {
+func AbsRowDist(row1, _, row2, _ uint8) float64 {
 	return math.Abs(float64(row1) - float64(row2))
 }
 
@@ -181,7 +180,7 @@ func AbsRowDistAdj(row1, col1, row2, col2 uint8) float64 {
 }
 
 // AbsColDist computes the absolute horizontal distance between two keys (simple).
-func AbsColDist(row1, col1, row2, col2 uint8) float64 {
+func AbsColDist(_, col1, _, col2 uint8) float64 {
 	return math.Abs(float64(col1) - float64(col2))
 }
 

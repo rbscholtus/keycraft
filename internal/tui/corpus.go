@@ -137,7 +137,7 @@ func corpusWordFrequencyString(corpus *kc.Corpus) string {
 		freq  uint64
 		count uint64
 	}
-	var pairs []freqPair
+	pairs := make([]freqPair, 0, len(freqCounts))
 	for freq, count := range freqCounts {
 		pairs = append(pairs, freqPair{freq, count})
 	}

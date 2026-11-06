@@ -153,7 +153,7 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 		tw.SetTitle(fmt.Sprintf("Layout Ranking (Compare to %s)", opts.BaseLayoutName))
 	case DeltasMedian:
 		tw.SetTitle("Layout Ranking (Compare to median)")
-	default:
+	case DeltasNone, DeltasRows:
 		if opts.CorpusName != "" {
 			tw.SetTitle(fmt.Sprintf("Layout Ranking - %s", opts.CorpusName))
 		} else {
@@ -162,12 +162,13 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 	}
 
 	// Configure column alignment
-	colConfigs := []table.ColumnConfig{
-		{Name: "Index", Align: text.AlignRight},
-		{Name: "Name", Align: text.AlignLeft},
-		{Name: "Th", Align: text.AlignCenter},
-		{Name: "Score", Align: text.AlignRight},
-	}
+	colConfigs := make([]table.ColumnConfig, 0, 4+len(metrics))
+	colConfigs = append(colConfigs,
+		table.ColumnConfig{Name: "Index", Align: text.AlignRight},
+		table.ColumnConfig{Name: "Name", Align: text.AlignLeft},
+		table.ColumnConfig{Name: "Th", Align: text.AlignCenter},
+		table.ColumnConfig{Name: "Score", Align: text.AlignRight},
+	)
 	for _, metric := range metrics {
 		colConfigs = append(colConfigs, table.ColumnConfig{
 			Name:        metric,
@@ -178,7 +179,8 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 	tw.SetColumnConfigs(colConfigs)
 
 	// Build header row
-	header := table.Row{"#", "Name", "Th", "Score"}
+	header := make(table.Row, 0, 4+len(metrics))
+	header = append(header, "#", "Name", "Th", "Score")
 	for _, metric := range metrics {
 		header = append(header, metric)
 	}
@@ -186,7 +188,8 @@ func buildTable(scores []kc.LayoutScore, metrics []string, opts RankingDisplayOp
 
 	// Add weight row if requested
 	if opts.ShowWeights {
-		weightRow := table.Row{"", "Weight", "", ""}
+		weightRow := make(table.Row, 0, 4+len(metrics))
+		weightRow = append(weightRow, "", "Weight", "", "")
 		for _, metric := range metrics {
 			weight := opts.Weights.Get(metric)
 			weightRow = append(weightRow, fmt.Sprintf("%.2f", weight))
@@ -222,7 +225,8 @@ func addDataRows(tw table.Writer, scores []kc.LayoutScore, metrics []string, opt
 	for i, score := range scores {
 		// Build data row for this layout
 		thumbChars := getThumbChars(&score)
-		dataRow := table.Row{rowIdx, score.Name, thumbChars, fmt.Sprintf("%+.2f", score.Score)}
+		dataRow := make(table.Row, 0, 4+len(metrics))
+		dataRow = append(dataRow, rowIdx, score.Name, thumbChars, fmt.Sprintf("%+.2f", score.Score))
 		currMetrics := extractMetrics(&score, metrics)
 		for j, metric := range metrics {
 			dataRow = append(dataRow, formatMetricValue(metric, currMetrics[j]))
@@ -273,6 +277,7 @@ func getThumbChars(score *kc.LayoutScore) string {
 
 	for i := 36; i <= 41; i++ {
 		r := score.Analyser.Layout.Runes[i]
+		//nolint:gocritic // ifElseChain: rune classification, reads more naturally than switch
 		if r < ' ' {
 			thumb[i-36] = ' '
 		} else if r == ' ' {
@@ -298,7 +303,8 @@ func renderCSV(w io.Writer, scores []kc.LayoutScore, metrics []string, opts Rank
 	defer writer.Flush()
 
 	// Write header row
-	header := []string{"Rank", "Name", "Th", "Score"}
+	header := make([]string, 0, 4+len(metrics))
+	header = append(header, "Rank", "Name", "Th", "Score")
 	header = append(header, metrics...)
 	if err := writer.Write(header); err != nil {
 		return fmt.Errorf("could not write csv header: %w", err)

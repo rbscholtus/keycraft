@@ -128,9 +128,10 @@ func SplitLayoutString(sl *kc.SplitLayout) string {
 			38, 39,
 		}
 		return genLayoutStringFor(sl, colstagTempl, mapper[:])
-	default: // kc.ROWSTAG
+	case kc.ROWSTAG:
 		return genLayoutStringFor(sl, rowstagTempl, nil)
 	}
+	return genLayoutStringFor(sl, rowstagTempl, nil) // unreachable: all LayoutType values are handled above
 }
 
 // genLayoutStringFor applies runes to an ASCII template, optionally reordering via mapper.
@@ -166,7 +167,7 @@ func HandUsageString(an *kc.Analyser) string {
 	// Define column headers
 	fingerAbbreviations := table.Row{"LP", "LP", "LR", "LM", "LI", "LI", "RI", "RI", "RM", "RR", "RP", "RP"}
 	colConfigs := make([]table.ColumnConfig, 0, len(fingerAbbreviations))
-	for i := range len(fingerAbbreviations) {
+	for i := range fingerAbbreviations {
 		colConfigs = append(colConfigs, table.ColumnConfig{Number: i,
 			AlignHeader: text.AlignCenter, Align: text.AlignCenter})
 	}

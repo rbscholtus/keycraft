@@ -66,7 +66,7 @@ var rankCommand = &cli.Command{
 }
 
 // rankAction handles the rank command, loading data and displaying layout rankings.
-func rankAction(ctx context.Context, c *cli.Command) error {
+func rankAction(_ context.Context, c *cli.Command) error {
 	// During shell completion, action should not run
 	if isShellCompletion() {
 		return nil

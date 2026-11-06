@@ -89,7 +89,7 @@ func CloseFile(file *os.File) {
 // MustFprint writes arguments to the given writer, logging and exiting on error.
 // It simplifies error handling for fmt.Fprint calls where failures are critical
 // and should halt execution.
-func MustFprint(w io.Writer, args ...interface{}) {
+func MustFprint(w io.Writer, args ...any) {
 	if _, err := fmt.Fprint(w, args...); err != nil {
 		log.Fatalf("Fprint failed: %v", err)
 	}
@@ -98,7 +98,7 @@ func MustFprint(w io.Writer, args ...interface{}) {
 // MustFprintln writes a newline-terminated string of arguments to the given writer,
 // logging and exiting on error. It simplifies error handling for fmt.Fprintln calls
 // where failures are critical and should halt execution.
-func MustFprintln(w io.Writer, args ...interface{}) {
+func MustFprintln(w io.Writer, args ...any) {
 	if _, err := fmt.Fprintln(w, args...); err != nil {
 		log.Fatalf("Fprintln failed: %v", err)
 	}
@@ -107,7 +107,7 @@ func MustFprintln(w io.Writer, args ...interface{}) {
 // MustFprintf writes a formatted string to the given writer, logging and exiting
 // on error. It simplifies error handling for fmt.Fprintf calls where failures
 // are critical and should halt execution.
-func MustFprintf(w io.Writer, format string, args ...interface{}) {
+func MustFprintf(w io.Writer, format string, args ...any) {
 	if _, err := fmt.Fprintf(w, format, args...); err != nil {
 		log.Fatalf("Fprintf failed: %v", err)
 	}

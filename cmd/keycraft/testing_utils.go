@@ -51,14 +51,14 @@ func restoreTestDirs(origLayoutDir, origCorpusDir, origConfigDir string) {
 func writeTestConfigFile(t *testing.T, dir, name, content string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("failed to write test config file %s: %v", name, err)
 	}
 	return path
 }
 
 // writeTestCorpus writes a minimal test corpus file.
-func writeTestCorpus(t *testing.T, dir, name string) string {
+func writeTestCorpus(t *testing.T, dir, name string) string { //nolint:unparam // return kept for future callers
 	t.Helper()
 	// Minimal corpus with enough data to avoid errors
 	content := `the quick brown fox jumps over the lazy dog
@@ -67,7 +67,7 @@ pack my box with five dozen liquor jugs
 how vexingly quick daft zebras jump
 `
 	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // test helper
 		t.Fatalf("failed to write test corpus %s: %v", name, err)
 	}
 	return path

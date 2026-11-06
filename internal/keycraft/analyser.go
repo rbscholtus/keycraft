@@ -454,6 +454,7 @@ func (an *Analyser) analyseTrigrams() {
 						rl3Out += cnt
 					}
 				default: // Non-monotonic (redirection)
+					//nolint:gocritic // ifElseChain: multi-condition classification, switch would reduce clarity
 					if (f0 < LI || f0 > RI) &&
 						(f1 < LI || f1 > RI) &&
 						(f2 < LI || f2 > RI) {
@@ -571,6 +572,7 @@ func (an *Analyser) AllCorpusDetails(nRows int) []*MetricDetails {
 		}
 
 		biIdx := [2]uint8{key1.Index, key2.Index}
+		//nolint:gocritic // ifElseChain: bigram type classification, if-else reads more naturally
 		if !ok1 || !ok2 {
 			ma.Custom[biStr]["Type"] = "Not found"
 		} else if key1.Hand != key2.Hand {
@@ -809,7 +811,7 @@ func (an *Analyser) LSSkpDetails() *MetricDetails {
 
 			ma.NGramCount[skpStr] = skpCnt
 			ma.TotalNGrams += skpCnt
-			kpDist := an.Layout.MustDistance(uint8(lsb.KeyIdx1), uint8(lsb.KeyIdx2))
+			kpDist := an.Layout.MustDistance(lsb.KeyIdx1, lsb.KeyIdx2)
 			ma.NGramDist[skpStr] = kpDist.Distance
 			ma.TotalDist += kpDist.Distance * float64(skpCnt)
 
@@ -992,6 +994,7 @@ func (an *Analyser) TrigramDetails() (*MetricDetails, *MetricDetails, *MetricDet
 					alt.Custom[triStr]["Dir"] = "NML"
 				}
 			} else { // One-hand pattern
+				//nolint:gocritic // ifElseChain: trigram direction classification, if-else reads more naturally
 				if f0 == f1 || f1 == f2 {
 					rl3.NGramCount[triStr] = cnt
 					rl3.TotalNGrams += cnt

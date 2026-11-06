@@ -90,7 +90,7 @@ var optimizeCommand = &cli.Command{
 // optimization input from CLI flags, executes the BLS algorithm, persists the
 // best discovered layout, and generates a comparative ranking against the
 // original layout.
-func optimizeAction(ctx context.Context, c *cli.Command) error {
+func optimizeAction(_ context.Context, c *cli.Command) error {
 	if isShellCompletion() {
 		return nil
 	}
@@ -169,7 +169,7 @@ func optimizeAction(ctx context.Context, c *cli.Command) error {
 // Parameters:
 //   - layout: if provided, uses this layout; if nil and skipLayoutLoad is false, loads from args
 //   - skipLayoutLoad: if true, skips layout loading and pin computation (for generate command)
-func buildOptimizeInput(c *cli.Command, layout *kc.SplitLayout, skipLayoutLoad bool) (kc.OptimizeInput, error) {
+func buildOptimizeInput(c *cli.Command, layout *kc.SplitLayout, skipLayoutLoad bool) (kc.OptimizeInput, error) { //nolint:unparam // layout is nil now but intended for future callers
 	corpus, err := loadCorpusFromFlags(c)
 	if err != nil {
 		return kc.OptimizeInput{}, fmt.Errorf("could not load corpus: %w", err)

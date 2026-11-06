@@ -92,7 +92,7 @@ var generateCommand = &cli.Command{
 }
 
 // generateAction manages the full generation workflow
-func generateAction(ctx context.Context, c *cli.Command) error {
+func generateAction(_ context.Context, c *cli.Command) error {
 	if isShellCompletion() {
 		return nil
 	}

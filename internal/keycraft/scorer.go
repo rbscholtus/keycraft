@@ -445,7 +445,7 @@ func computeMediansAndIQR(analysers []*Analyser, referenceOnly bool) (map[string
 // computeScores normalizes metrics using median and IQR, then computes weighted layout scores.
 // Only metrics with non-zero weights are included in the final score calculation.
 func computeScores(analysers []*Analyser, medians, iqr map[string]float64, weights *Weights) []LayoutScore {
-	var layoutScores []LayoutScore
+	layoutScores := make([]LayoutScore, 0, len(analysers))
 
 	for _, analyser := range analysers {
 		score := 0.0
@@ -479,9 +479,8 @@ func Median(sortedData []float64) float64 {
 	mid := n / 2
 	if n%2 == 0 {
 		return (sortedData[mid-1] + sortedData[mid]) / 2.0
-	} else {
-		return sortedData[mid]
 	}
+	return sortedData[mid]
 }
 
 // Quartiles calculates the first and third quartiles (Q1 and Q3) of a sorted slice.

@@ -1,53 +1,52 @@
-# Binaries
+# ── Go: build artifacts ──────────────────────────────────────────
 *.exe
 *.out
-bin/
-
-# Dependencies
-vendor/
-
-# Test binary
 *.test
+*.go.bak
+bin/
+/keycraft
+/keycraft-*
+/main
 
-# IDE specific files
+# ── Go: profiling & tooling ──────────────────────────────────────
+vendor/
+/*.prof
+
+# ── IDE & editor ─────────────────────────────────────────────────
 .idea/
-*.vscode/
+.vscode/*.code-workspace
 *.sublime-project
 *.sublime-workspace
 
-# OS specific files
+# ── OS ───────────────────────────────────────────────────────────
 .DS_Store
 *.swp
 
-# My files
+# ── AI tool state ────────────────────────────────────────────────
+.gemini/*
+.claude/settings.local.json
+
+# ── Keycraft: personal / local data files ────────────────────────
 /data/corpus/sources
 /data/config/hieamtsrn.pin
 /data/layouts/enthium-promax.klf
 /data/layouts/northeast.klf
-/data/layouts2
-/data/gen_layouts
+/data/layouts2/
+/testdata/
+
+# ── Keycraft: generated output ───────────────────────────────────
+/data/gen_layouts/
+/data/layouts/_*.klf
 *-opt*.klf
 *-best*.klf
 *-flipped*.klf
-/data/layouts/_*.klf
-/testdata/
-_cleanuipman
-/keycraft
-/main
-/*.log
-*.go.bak
-/*.prof
-/*.txt
+
+# ── Root-level output & scratch ──────────────────────────────────
 /logs/
+/*.log
 /*.html
 /*.csv
+/*.txt
 /*.conf
-/*.mmdb
-/*.js
-/*.kb
 /*.klf
-/cmini/
-authors.json
-likes.json
 run.jsonl
-.gemini/*
