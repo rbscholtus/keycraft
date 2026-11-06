@@ -2,19 +2,19 @@
 
 ## v0.7
 
-- Progress bar for optimisation
-- Remove `--max-time` flag
-- Improve seed generation; verify seed reproducibility
-- Improve optimiser hints output
-- Expose optimiser strategy params
-- `--max-seed` as a global hidden flag
-- Clean up `interface with *Layout and bool` — currently ugly
-- Progress bar / slice optimiser progress
+- Some feature(s) from the backlog
 
 ### Fixes
 
+- Clean up `interface with *Layout and bool` — currently ugly
 - Table rendering issues
 - Number of rows split by bigram / trigram counts
+
+### CI / Release
+
+- **Auto-populate release notes**: Configure `softprops/action-gh-release` in `go.yml`
+  to include a release body (e.g. from a `RELEASE_NOTES.md` template or tag annotation)
+  so GitHub Releases are not created empty.
 
 ---
 
@@ -61,13 +61,15 @@ transports. The branch is experimental and not reviewed for production use.
 
 - **Analysis by trigram decomposition**: Carpalx-style effort model driven by trigrams.
 
----
+### Optimiser
 
-### CI / Release
-
-- **Auto-populate release notes**: Configure `softprops/action-gh-release` in `go.yml`
-  to include a release body (e.g. from a `RELEASE_NOTES.md` template or tag annotation)
-  so GitHub Releases are not created empty.
+- Progress bar for optimisation
+- Remove `--max-time` flag
+- Improve seed generation; verify seed reproducibility
+- Improve optimiser hints output
+- Expose optimiser strategy params
+- `--max-seed` as a global hidden flag
+- Progress bar / slice optimiser progress
 
 ---
 
