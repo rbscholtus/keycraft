@@ -11,7 +11,7 @@ vendor/
 
 # IDE specific files
 .idea/
-*.vscode/
+.vscode/*.code-workspace
 *.sublime-project
 *.sublime-workspace
 
