@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -344,17 +345,10 @@ func (bls *BLS) finalize(logger *BLSLogger) *SplitLayout {
 		elapsed := time.Since(bls.state.startTime)
 		logger.LogEnd(bls.state.bestCost, bls.state.iteration, elapsed, bls.state.bestLayout)
 	}
-	if bls.state.bestLayout != nil && !endsWith(bls.state.bestLayout.Name, "-opt") {
+	if bls.state.bestLayout != nil && !strings.HasSuffix(bls.state.bestLayout.Name, "-opt") {
 		bls.state.bestLayout.Name += "-opt"
 	}
 	return bls.state.bestLayout
-}
-
-func endsWith(s, suffix string) bool {
-	if len(s) < len(suffix) {
-		return false
-	}
-	return s[len(s)-len(suffix):] == suffix
 }
 
 // steepestDescent performs local search until a local optimum is reached.

@@ -16,6 +16,7 @@ Keycraft is a Golang-based command-line utility for analysing, comparing, and op
   - [Quick Start](#quick-start)
     - [Installing Keycraft](#installing-keycraft)
     - [Installing and running Keycraft with Golang installed on your system](#installing-and-running-keycraft-with-golang-installed-on-your-system)
+    - [Building from source](#building-from-source)
   - [Features](#features)
     - [Core Features](#core-features)
     - [Advanced Features](#advanced-features)
@@ -34,6 +35,10 @@ Keycraft is a Golang-based command-line utility for analysing, comparing, and op
   - [Configuration](#configuration)
     - [Specifying and choosing a suitable corpus (for all commands)](#specifying-and-choosing-a-suitable-corpus-for-all-commands)
     - [Specifying weights (for ranking and optimizing)](#specifying-weights-for-ranking-and-optimizing)
+  - [MCP Server](#mcp-server)
+    - [Building](#building)
+    - [Connecting Claude Desktop](#connecting-claude-desktop)
+    - [Available tools](#available-tools)
   - [Contributing](#contributing)
   - [License](#license)
   - [Contact](#contact)
@@ -161,6 +166,34 @@ You should be able to install Keycraft with the below command:
 ```bash
 # Install
 go install github.com/rbscholtus/keycraft/cmd/keycraft@latest
+```
+
+### Building from source
+
+Requires Go 1.26.2 or later.
+
+```bash
+# Clone and build
+git clone https://github.com/rbscholtus/keycraft.git
+cd keycraft
+
+# CLI
+go build -o keycraft ./cmd/keycraft
+
+# HTTP API server
+go build -o keycraft-serve ./cmd/keycraft-serve
+
+# MCP stdio server
+go build -o keycraft-mcp ./cmd/keycraft-mcp
+
+# Run tests
+go test ./...
+
+# Lint (requires golangci-lint)
+golangci-lint run
+
+# Tidy dependencies after any dep changes
+go mod tidy
 ```
 
 ## Features
@@ -569,6 +602,51 @@ More information will be provided.
  layoutDir  = "data/layouts/"
  corpusDir  = "data/corpus/"
  configDir  = "data/config/"
+
+## MCP Server
+
+`keycraft-mcp` exposes the keycraft engine to LLM clients (Claude Desktop, Cursor, etc.) over the [Model Context Protocol](https://modelcontextprotocol.io) via stdio. The client launches the binary as a subprocess and communicates over stdin/stdout.
+
+### Building
+
+```bash
+go build -o keycraft-mcp ./cmd/keycraft-mcp
+```
+
+### Connecting Claude Desktop
+
+1. Open (or create) `~/Library/Application Support/Claude/claude_desktop_config.json`.
+2. Add a `mcpServers` entry pointing to your binary and data directory:
+
+```json
+{
+  "mcpServers": {
+    "keycraft": {
+      "command": "/absolute/path/to/keycraft-mcp",
+      "args": ["--data-dir", "/absolute/path/to/keycraft/data"]
+    }
+  }
+}
+```
+
+3. Restart Claude Desktop. The keycraft tools will appear in the tool list.
+
+> **Note:** The `--data-dir` flag defaults to `$XDG_DATA_HOME/keycraft`, then `~/.local/share/keycraft`, and finally `./data` (developer fallback). If your data files live elsewhere, pass the flag explicitly.
+
+### Available tools
+
+| Tool | Description |
+|---|---|
+| `list_corpora` | List available text corpora |
+| `describe_corpus` | Load a corpus and return summary statistics |
+| `list_layouts` | List `.klf` layout files |
+| `load_layout` | Load a layout by name |
+| `flip_layout` | Flip a layout horizontally |
+| `save_layout` | Persist a layout to disk |
+| `analyse` | Compute detailed metrics for one or more layouts |
+| `rank` | Rank layouts by weighted score |
+| `optimise_fast` | Run BLS local-search optimisation |
+| `generate_fast` | Generate layouts from a `.gen` config |
 
 ## Contributing
 

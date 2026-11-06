@@ -40,20 +40,34 @@ func (s *Service) CloseSession(id string) error {
 	return nil
 }
 
-// ListCorpora returns filenames in the configured corpus directory that look
-// like corpora (".txt" files).
+// ListCorpora returns logical corpus names from the configured corpus directory.
+// Accepts both ".txt" source files and ".txt.json" cache-only files, stripping
+// the ".json" suffix from the latter so the returned names work with LoadCorpus.
+// Deduplicates in case both forms exist for the same corpus.
 func (s *Service) ListCorpora() ([]string, error) {
 	entries, err := os.ReadDir(s.mgr.cfg.CorpusDir())
 	if err != nil {
 		return nil, fmt.Errorf("read corpus dir: %w", err)
 	}
+	seen := make(map[string]bool, len(entries))
 	out := make([]string, 0, len(entries))
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
-		if strings.EqualFold(filepath.Ext(e.Name()), ".txt") {
-			out = append(out, e.Name())
+		name := e.Name()
+		var logical string
+		switch {
+		case strings.EqualFold(filepath.Ext(name), ".txt"):
+			logical = name
+		case strings.HasSuffix(strings.ToLower(name), ".txt.json"):
+			logical = name[:len(name)-len(".json")]
+		default:
+			continue
+		}
+		if !seen[logical] {
+			seen[logical] = true
+			out = append(out, logical)
 		}
 	}
 	return out, nil
