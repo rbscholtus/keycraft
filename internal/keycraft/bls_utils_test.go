@@ -573,7 +573,7 @@ func BenchmarkIdentifyProblematicKeys(b *testing.B) {
 	bls, layout := createBenchBLS(b)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = bls.identifyProblematicKeys(layout)
 	}
 }
@@ -599,7 +599,7 @@ func BenchmarkIdentifyProblematicKeys2(b *testing.B) {
 	})
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = bls.identifyProblematicKeys2(layout)
 	}
 }

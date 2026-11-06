@@ -312,7 +312,7 @@ func layoutToStrings(layout *SplitLayout) []string {
 
 	// Row 0: keys 0-11
 	row0 := make([]rune, 12)
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		r := layout.Runes[i]
 		if r == 0 {
 			r = ' '
@@ -323,7 +323,7 @@ func layoutToStrings(layout *SplitLayout) []string {
 
 	// Row 1: keys 12-23
 	row1 := make([]rune, 12)
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		r := layout.Runes[12+i]
 		if r == 0 {
 			r = ' '
@@ -334,7 +334,7 @@ func layoutToStrings(layout *SplitLayout) []string {
 
 	// Row 2: keys 24-35
 	row2 := make([]rune, 12)
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		r := layout.Runes[24+i]
 		if r == 0 {
 			r = ' '
@@ -345,7 +345,7 @@ func layoutToStrings(layout *SplitLayout) []string {
 
 	// Row 3: keys 36-41 (thumb row)
 	row3 := make([]rune, 6)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		r := layout.Runes[36+i]
 		if r == 0 {
 			r = ' '

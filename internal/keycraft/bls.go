@@ -401,7 +401,7 @@ func (bls *BLS) steepestDescentParallel(layout *SplitLayout) {
 		var wg sync.WaitGroup
 
 		// Spawn workers
-		for w := 0; w < numWorkers; w++ {
+		for w := range numWorkers {
 			start := w * chunkSize
 			if start >= numPairs {
 				break

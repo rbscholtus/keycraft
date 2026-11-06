@@ -163,7 +163,7 @@ func NewCorpus(name string) *Corpus {
 // If limit is zero or negative, all n-grams are included.
 func (c *Corpus) StringSorted(limit int) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Corpus: %s\n", c.Name))
+	fmt.Fprintf(&sb, "Corpus: %s\n", c.Name)
 
 	if limit <= 0 {
 		limit = math.MaxInt32
@@ -173,28 +173,28 @@ func (c *Corpus) StringSorted(limit int) string {
 	sb.WriteString("Unigrams:\n")
 	uc := SortedMap(c.Unigrams)
 	for i := 0; i < limit && i < len(uc); i++ {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", uc[i].Key, uc[i].Count))
+		fmt.Fprintf(&sb, "%s: %d\n", uc[i].Key, uc[i].Count)
 	}
 
 	// Print bigrams
 	sb.WriteString("Bigrams:\n")
 	bc := SortedMap(c.Bigrams)
 	for i := 0; i < limit && i < len(bc); i++ {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", bc[i].Key, bc[i].Count))
+		fmt.Fprintf(&sb, "%s: %d\n", bc[i].Key, bc[i].Count)
 	}
 
 	// Print trigrams
 	sb.WriteString("Trigrams:\n")
 	tc := SortedMap(c.Trigrams)
 	for i := 0; i < limit && i < len(tc); i++ {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", tc[i].Key, tc[i].Count))
+		fmt.Fprintf(&sb, "%s: %d\n", tc[i].Key, tc[i].Count)
 	}
 
 	// Print skipgrams
 	sb.WriteString("Skipgrams:\n")
 	sc := SortedMap(c.Skipgrams)
 	for i := 0; i < limit && i < len(sc); i++ {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", sc[i].Key, sc[i].Count))
+		fmt.Fprintf(&sb, "%s: %d\n", sc[i].Key, sc[i].Count)
 	}
 
 	return sb.String()
@@ -268,7 +268,7 @@ func (c *Corpus) addSkipgram(r1, r2 rune) {
 
 // addWord increments the count of the given word in the corpus
 //
-//nolint:unused
+
 func (c *Corpus) addWord(word string) {
 	c.Words[word]++
 	c.TotalWordsCount++
@@ -399,7 +399,7 @@ func (c *Corpus) loadFromFile(path string) error {
 // After loading, prunes the word list to keep only the most frequent words covering
 // the specified percentage of total word occurrences.
 //
-//nolint:unused
+
 func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -429,7 +429,7 @@ func (c *Corpus) loadFromFileWithWords(path string, coveragePercent float64) err
 // For example, with coveragePercent=98, keeps only the most common words that together account
 // for 98% of all word occurrences. This reduces memory usage while retaining high-frequency vocabulary.
 //
-//nolint:unused
+
 func (c *Corpus) pruneWordsByCoverage(coveragePercent float64) {
 	if len(c.Words) == 0 {
 		return

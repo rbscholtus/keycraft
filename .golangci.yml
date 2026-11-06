@@ -1,5 +1,44 @@
 version: "2"
 linters:
+  default: all
+  disable:
+    # Style / opinionated — not worth the noise
+    - exhaustruct      # replaced by exhaustruct_v5
+    - exhaustruct_v5   # requires all struct fields explicitly initialised
+    - wsl              # replaced by wsl_v5
+    - wsl_v5           # whitespace style
+    - nlreturn         # blank line before every return
+    - godot            # period at end of every comment
+    - lll              # line length
+    - funcorder        # order of functions within a file
+    - tagliatelle      # JSON tag naming convention
+    - nonamedreturns   # no named return values
+    - noinlineerr      # no inline errors.New / fmt.Errorf
+    - perfsprint       # micro-opt: Sprintf → string concat
+    - testpackage      # tests must be in a separate _test package
+    - paralleltest     # requires t.Parallel() in every test
+    - forbidigo        # pattern-based forbid; useless without explicit config
+
+    # Too strict for math/algorithm code
+    - mnd              # magic numbers
+    - funlen           # function length
+    - cyclop           # cyclomatic complexity
+    - gocognit         # cognitive complexity
+    - gocyclo          # cyclomatic complexity (duplicate of cyclop)
+    - nestif           # deeply nested ifs
+    - varnamelen       # short variable names (conflicts with i, j, L, bls, etc.)
+
+    # Idiomatic Go patterns used here
+    - ireturn          # returning interfaces
+    - wrapcheck        # every external error must be wrapped
+    - err113           # all errors must be named/typed
+
+    # Noisy / false positives
+    - gochecknoglobals # no package-level variables
+    - goconst          # repeated string literals
+    - depguard         # requires explicit allowlist; flags all our own imports by default
+    - dupl             # structural duplicates in scissor loops and test boilerplate are intentional
+    - godox            # flags TODO/FIXME comments
   exclusions:
     generated: lax
     presets:
@@ -8,7 +47,6 @@ linters:
       - legacy
       - std-error-handling
     paths:
-      - cmd/keycraft/experiment.go
       - third_party$
       - builtin$
       - examples$

@@ -3,6 +3,7 @@ package keycraft
 import (
 	"bufio"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -631,9 +632,7 @@ func generateConstrainedPerms(
 		// Combine this group's permutation with all sub-permutations
 		for _, subPerm := range subPerms {
 			combined := make(map[int][]rune, len(subPerm)+1)
-			for g, p := range subPerm {
-				combined[g] = p
-			}
+			maps.Copy(combined, subPerm)
 			combined[groupNum] = perm
 			result = append(result, combined)
 
@@ -659,7 +658,7 @@ func generateOrderedSelections(chars []rune, k int) [][]rune {
 
 	// Calculate P(n,k) = n!/(n-k)!
 	count := 1
-	for i := 0; i < k; i++ {
+	for i := range k {
 		count *= (n - i)
 	}
 
@@ -674,7 +673,7 @@ func generateOrderedSelections(chars []rune, k int) [][]rune {
 			result = append(result, perm)
 			return
 		}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			if !used[i] {
 				used[i] = true
 				current = append(current, chars[i])

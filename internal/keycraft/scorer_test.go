@@ -391,7 +391,7 @@ func BenchmarkScoreFirstCall(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		b.StopTimer()
 		scorer := createTestScorer() // Fresh scorer each time to avoid cache
 		b.StartTimer()
@@ -412,7 +412,7 @@ func BenchmarkScoreCachedCall(b *testing.B) {
 	_ = scorer.Score(layout)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = scorer.Score(layout)
 	}
 }
@@ -426,7 +426,7 @@ func BenchmarkScoreCacheVsUncached(b *testing.B) {
 			Runes:      [42]rune{'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
 		}
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			b.StopTimer()
 			scorer := createTestScorer()
 			b.StartTimer()
@@ -443,7 +443,7 @@ func BenchmarkScoreCacheVsUncached(b *testing.B) {
 		}
 		_ = scorer.Score(layout)
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_ = scorer.Score(layout)
 		}
 	})

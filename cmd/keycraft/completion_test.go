@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -503,13 +504,7 @@ func TestListFilesForCompletion(t *testing.T) {
 
 			// Check that all expected files are present
 			for _, want := range tt.wantFiles {
-				found := false
-				for _, g := range got {
-					if g == want {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(got, want)
 				if !found {
 					t.Errorf("expected file %q not found in result: %v", want, got)
 				}

@@ -204,12 +204,12 @@ func (sl *SplitLayout) Swap(idx1, idx2 uint8) {
 	if r1 >= 32 && r1 < 127 {
 		idx := r1 - 32
 		sl.KeyInfos[idx] = sl.RuneInfo[r1]
-		//sl.KeyInfoValid[idx] = true
+		// sl.KeyInfoValid[idx] = true
 	}
 	if r2 >= 32 && r2 < 127 {
 		idx := r2 - 32
 		sl.KeyInfos[idx] = sl.RuneInfo[r2]
-		//sl.KeyInfoValid[idx] = true
+		// sl.KeyInfoValid[idx] = true
 	}
 
 	// We don't need to re-calculate the caches because unused keys are
@@ -231,7 +231,7 @@ func (sl *SplitLayout) String() string {
 		sb.WriteRune(' ')
 	}
 
-	//sb.WriteRune('\n')
+	// sb.WriteRune('\n')
 	for row := range 3 {
 		if sl.LayoutType == ANGLEMOD && row == 2 {
 			sb.WriteRune(' ')
