@@ -163,6 +163,8 @@ You should be able to install Keycraft with the below command:
 go install github.com/rbscholtus/keycraft/cmd/keycraft@latest
 ```
 
+For tab-completion of commands and flags in bash, zsh, fish, or PowerShell, see [docs/SHELL_COMPLETION.md](docs/SHELL_COMPLETION.md).
+
 ## Features
 
 ### Core Features
@@ -494,7 +496,7 @@ keycraft r -d canary
 keycraft r -d canary colemak colemak-qix colemak-dh
 
 # Rank all layouts, showing columns for all metrics
-keycraft r -d extended
+keycraft r -m extended
 
 # Rank all layouts, overriding the weight of the SFB metric
 # Specifying a high weight like below will effectively rank layouts based on SFBs only. Note the minus (-) sign!
@@ -518,7 +520,7 @@ keycraft o -g 500 qwerty
 keycraft o -g 100 --pins srntaeiou focal
 
 # Optimize a layout, strongly aiming for good finger balance, but potentially ruining other metrics
-keycraft o -w FBL=-100 -g 100 canary
+keycraft o -w FLD=-100 -g 100 canary
 
 # Optimize a small number of keys using the --free flag
 # Optimizing special characters should be used in combination with a more specific corpus
@@ -572,7 +574,7 @@ More information will be provided.
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for planned features, active experiments, and the backlog of community requests.
+See [ROADMAP.md](docs/ROADMAP.md) for planned features, active experiments, and the backlog of community requests.
 
 ## Contributing
 
