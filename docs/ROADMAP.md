@@ -9,6 +9,10 @@
 - Clean up `interface with *Layout and bool` — currently ugly
 - Table rendering issues
 - Number of rows split by bigram / trigram counts
+- `optimize --pins-file` panics when an empty `~` key is left unpinned
+  (see `docs/review-internal-keycraft.md` #1)
+- `generate --seed 0` is only random for the first layout; per-layout seeds overlap
+  across runs (see `docs/review-internal-keycraft.md` #2)
 
 ### CI / Release
 
